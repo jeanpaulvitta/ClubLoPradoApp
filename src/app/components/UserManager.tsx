@@ -240,32 +240,7 @@ export function UserManager({ swimmers }: UserManagerProps) {
     }
   };
 
-  // Usuarios demo (no se pueden editar ni eliminar)
-  const demoUsers = [
-    {
-      id: 'user_admin_1',
-      email: 'admin@uch.cl',
-      name: 'Administrador UCH',
-      role: 'admin' as const,
-      isDemo: true,
-    },
-    {
-      id: 'user_coach_1',
-      email: 'coach@uch.cl',
-      name: 'Entrenador Principal',
-      role: 'coach' as const,
-      isDemo: true,
-    },
-    {
-      id: 'user_swimmer_1',
-      email: 'nadador@uch.cl',
-      name: 'Nadador Demo',
-      role: 'swimmer' as const,
-      isDemo: true,
-    },
-  ];
-
-  const allUsers = [...demoUsers, ...users];
+  const allUsers = users; // Solo usuarios reales
 
   // Estadísticas
   const stats = {
@@ -386,25 +361,6 @@ export function UserManager({ swimmers }: UserManagerProps) {
             </Card>
           </div>
 
-          {/* Nota sobre usuarios demo */}
-          <Card className="border-blue-200 bg-blue-50">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-blue-900 mb-1">
-                    Cuentas de Demostración
-                  </p>
-                  <p className="text-sm text-blue-700">
-                    Las 3 cuentas demo (admin@uch.cl, coach@uch.cl, nadador@uch.cl) son de
-                    sistema y no se pueden editar ni eliminar. Todas las demás cuentas son
-                    gestionables.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Lista de usuarios */}
           <Card>
             <CardHeader>
@@ -431,18 +387,12 @@ export function UserManager({ swimmers }: UserManagerProps) {
                   </div>
                 ) : (
                   allUsers.map((user) => {
-                    const isDemo = 'isDemo' in user && user.isDemo;
                     const swimmer = user.swimmerId
                       ? swimmers.find((s) => s.id === user.swimmerId)
                       : null;
 
                     return (
-                      <Card
-                        key={user.id}
-                        className={`${
-                          isDemo ? "border-blue-200 bg-blue-50" : "border-gray-200"
-                        }`}
-                      >
+                      <Card key={user.id}>
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-3 flex-1">
@@ -451,11 +401,6 @@ export function UserManager({ swimmers }: UserManagerProps) {
                                 <div className="flex items-center gap-2 mb-2">
                                   <h3 className="font-bold">{user.name}</h3>
                                   {getRoleBadge(user.role)}
-                                  {isDemo && (
-                                    <Badge variant="outline" className="text-xs">
-                                      Demo
-                                    </Badge>
-                                  )}
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
@@ -476,42 +421,34 @@ export function UserManager({ swimmers }: UserManagerProps) {
                                     </div>
                                   ) : null}
                                 </div>
-
-                                {isDemo && (
-                                  <p className="text-xs text-blue-600 mt-2">
-                                    💡 Usuario de demostración del sistema
-                                  </p>
-                                )}
                               </div>
                             </div>
 
-                            {!isDemo && (
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleOpenDialog(user as UserData)}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDelete(user.id)}
-                                  className="text-red-600 hover:bg-red-50"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleResetPassword(user.id, user.name)}
-                                  className="text-blue-600 hover:bg-blue-50"
-                                >
-                                  <Key className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            )}
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenDialog(user as UserData)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(user.id)}
+                                className="text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleResetPassword(user.id, user.name)}
+                                className="text-blue-600 hover:bg-blue-50"
+                              >
+                                <Key className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>

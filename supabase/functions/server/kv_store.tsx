@@ -17,6 +17,12 @@ const client = () => createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
 );
 
+// Helper function to check if error is "table not found"
+const isTableNotFoundError = (error: any): boolean => {
+  return error?.message?.includes("Could not find the table") || 
+         error?.message?.includes("relation") && error?.message?.includes("does not exist");
+};
+
 // Set stores a key-value pair in the database.
 export const set = async (key: string, value: any): Promise<void> => {
   const supabase = client()
@@ -25,6 +31,10 @@ export const set = async (key: string, value: any): Promise<void> => {
     value
   });
   if (error) {
+    if (isTableNotFoundError(error)) {
+      console.warn(`⚠️ KV Store table not found. Please create it using CREATE_TABLE.sql. Key: ${key}`);
+      return; // Gracefully handle missing table
+    }
     throw new Error(error.message);
   }
 };
@@ -34,6 +44,10 @@ export const get = async (key: string): Promise<any> => {
   const supabase = client()
   const { data, error } = await supabase.from("kv_store_000a47d9").select("value").eq("key", key).maybeSingle();
   if (error) {
+    if (isTableNotFoundError(error)) {
+      console.warn(`⚠️ KV Store table not found. Please create it using CREATE_TABLE.sql. Key: ${key}`);
+      return null; // Return null for missing table
+    }
     throw new Error(error.message);
   }
   return data?.value;
@@ -44,6 +58,10 @@ export const del = async (key: string): Promise<void> => {
   const supabase = client()
   const { error } = await supabase.from("kv_store_000a47d9").delete().eq("key", key);
   if (error) {
+    if (isTableNotFoundError(error)) {
+      console.warn(`⚠️ KV Store table not found. Please create it using CREATE_TABLE.sql. Key: ${key}`);
+      return; // Gracefully handle missing table
+    }
     throw new Error(error.message);
   }
 };
@@ -53,6 +71,10 @@ export const mset = async (keys: string[], values: any[]): Promise<void> => {
   const supabase = client()
   const { error } = await supabase.from("kv_store_000a47d9").upsert(keys.map((k, i) => ({ key: k, value: values[i] })));
   if (error) {
+    if (isTableNotFoundError(error)) {
+      console.warn(`⚠️ KV Store table not found. Please create it using CREATE_TABLE.sql. Keys: ${keys.join(', ')}`);
+      return; // Gracefully handle missing table
+    }
     throw new Error(error.message);
   }
 };
@@ -62,6 +84,10 @@ export const mget = async (keys: string[]): Promise<any[]> => {
   const supabase = client()
   const { data, error } = await supabase.from("kv_store_000a47d9").select("value").in("key", keys);
   if (error) {
+    if (isTableNotFoundError(error)) {
+      console.warn(`⚠️ KV Store table not found. Please create it using CREATE_TABLE.sql. Keys: ${keys.join(', ')}`);
+      return []; // Return empty array for missing table
+    }
     throw new Error(error.message);
   }
   return data?.map((d) => d.value) ?? [];
@@ -72,6 +98,10 @@ export const mdel = async (keys: string[]): Promise<void> => {
   const supabase = client()
   const { error } = await supabase.from("kv_store_000a47d9").delete().in("key", keys);
   if (error) {
+    if (isTableNotFoundError(error)) {
+      console.warn(`⚠️ KV Store table not found. Please create it using CREATE_TABLE.sql. Keys: ${keys.join(', ')}`);
+      return; // Gracefully handle missing table
+    }
     throw new Error(error.message);
   }
 };
@@ -81,6 +111,10 @@ export const getByPrefix = async (prefix: string): Promise<any[]> => {
   const supabase = client()
   const { data, error } = await supabase.from("kv_store_000a47d9").select("key, value").like("key", prefix + "%");
   if (error) {
+    if (isTableNotFoundError(error)) {
+      console.warn(`⚠️ KV Store table not found. Please create it using CREATE_TABLE.sql. Prefix: ${prefix}`);
+      return []; // Return empty array for missing table
+    }
     throw new Error(error.message);
   }
   return data?.map((d) => d.value) ?? [];

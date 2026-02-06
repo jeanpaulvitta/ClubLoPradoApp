@@ -157,30 +157,6 @@ function MainApp() {
         }
       });
       
-      // Si no hay nadadores, crear un nadador demo para el usuario "nadador@uch.cl"
-      if (swimmersData.length === 0) {
-        console.log('📝 No hay nadadores. Creando nadador demo...');
-        try {
-          const demoSwimmer = {
-            name: 'Nadador Demo',
-            email: 'nadador@uch.cl',
-            rut: '12.345.678-9',
-            gender: 'Masculino' as const,
-            dateOfBirth: '1990-01-15',
-            schedule: '7am' as const,
-            joinDate: '2026-01-01',
-            personalBests: [],
-            personalBestsHistory: [],
-            goals: [],
-          };
-          const createdSwimmer = await api.addSwimmer(demoSwimmer);
-          swimmersData.push(createdSwimmer);
-          console.log('✅ Nadador demo creado:', createdSwimmer);
-        } catch (demoError) {
-          console.error('❌ Error al crear nadador demo:', demoError);
-        }
-      }
-      
       setSwimmers(swimmersData);
       setCompetitions(competitionsData);
       setSwimmerCompetitions(participationsData);
