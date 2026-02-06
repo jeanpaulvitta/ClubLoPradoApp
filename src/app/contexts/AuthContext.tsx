@@ -5,7 +5,7 @@ export interface User {
   id: string;
   email: string;
   role: 'admin' | 'swimmer' | 'coach';
-  swimmerId?: string; // ID del nadador si el usuario es un nadador
+  swimmerId?: string;
   name?: string;
 }
 
@@ -16,24 +16,46 @@ interface AuthContextType {
   logout: () => Promise<void>;
   signup: (email: string, password: string, name: string, role: 'admin' | 'swimmer' | 'coach', swimmerId?: string) => Promise<{ email: string; password: string }>;
   createUserAccount: (email: string, name: string, role: 'admin' | 'swimmer' | 'coach') => Promise<{ email: string; password: string }>;
+  changePassword: (newPassword: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Valor por defecto para evitar errores de contexto undefined
+const defaultAuthContext: AuthContextType = {
+  user: null,
+  loading: true,
+  login: async () => { throw new Error('AuthProvider not initialized'); },
+  logout: async () => { throw new Error('AuthProvider not initialized'); },
+  signup: async () => { throw new Error('AuthProvider not initialized'); },
+  createUserAccount: async () => { throw new Error('AuthProvider not initialized'); },
+  changePassword: async () => { throw new Error('AuthProvider not initialized'); },
+};
+
+const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
 AuthContext.displayName = 'AuthContext';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    
+    // Limpiar datos antiguos de localStorage
+    authApi.clearLegacyData();
+    
     // Verificar si hay una sesión guardada al cargar
     checkSession();
+    
+    return () => {
+      setMounted(false);
+    };
   }, []);
 
   const checkSession = async () => {
     try {
-      const session = authApi.getSession();
+      const session = await authApi.checkSession();
       if (session) {
         setUser(session);
       }
@@ -49,9 +71,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       const userData = await authApi.login(email, password);
       setUser(userData);
-      authApi.saveSession(userData);
-    } catch (error) {
-      console.error('Login error:', error);
+    } catch (error: any) {
+      // Solo mostrar como error si NO es un caso esperado
+      if (error?.message?.includes('Usuario administrador no encontrado') || 
+          error?.message?.includes('Credenciales inválidas')) {
+        // Estos son casos de uso normales, no errores técnicos
+        // No mostrar en consola, el usuario ya ve el mensaje en la UI
+      } else {
+        // Error técnico real
+        console.error('Login error técnico:', error);
+      }
       throw error;
     } finally {
       setLoading(false);
@@ -62,7 +91,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.logout();
       setUser(null);
-      authApi.clearSession();
     } catch (error) {
       console.error('Logout error:', error);
       throw error;
@@ -79,18 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       const userData = await authApi.signup(email, password, name, role, swimmerId);
-      // Guardamos usuario sin el initialPassword
-      const initialPassword = (userData as any).initialPassword;
-      const userToSave: User = {
-        id: userData.id,
-        email: userData.email,
-        name: userData.name,
-        role: userData.role,
-        swimmerId: userData.swimmerId,
-      };
-      setUser(userToSave);
-      authApi.saveSession(userToSave);
-      // Retornamos las credenciales para mostrarlas al usuario
+      const initialPassword = (userData as any).initialPassword || password;
+      
+      // NO iniciar sesión automáticamente - el admin sigue logueado
       return { email: userData.email, password: initialPassword };
     } catch (error) {
       console.error('Signup error:', error);
@@ -107,12 +126,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<{ email: string; password: string }> => {
     try {
       setLoading(true);
-      // Crear cuenta SIN iniciar sesión automáticamente
-      const userData = await authApi.signup(email, '', name, role, undefined);
-      const initialPassword = (userData as any).initialPassword;
+      
+      // Generar contraseña temporal
+      const tempPassword = `temp_${Date.now()}`;
+      
+      const userData = await authApi.signup(email, tempPassword, name, role, undefined);
+      const initialPassword = (userData as any).initialPassword || tempPassword;
       
       // NO llamamos a setUser() ni saveSession() - el admin sigue logueado
-      // Solo retornamos las credenciales para mostrarlas
       return { email: userData.email, password: initialPassword };
     } catch (error) {
       console.error('Create user account error:', error);
@@ -122,8 +143,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const changePassword = async (newPassword: string) => {
+    try {
+      await authApi.changePassword(newPassword);
+    } catch (error) {
+      console.error('Change password error:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, signup, createUserAccount }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, signup, createUserAccount, changePassword }}>
       {children}
     </AuthContext.Provider>
   );
@@ -131,8 +161,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  // Ya no necesitamos verificar si es undefined porque siempre tiene un valor por defecto
   return context;
+}
+
+// Hook alternativo que retorna el mismo resultado
+export function useAuthSafe() {
+  return useAuth();
 }

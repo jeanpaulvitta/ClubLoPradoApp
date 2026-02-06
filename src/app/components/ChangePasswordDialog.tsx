@@ -21,14 +21,13 @@ import {
   Key,
 } from "lucide-react";
 import type { User } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 
 interface ChangePasswordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user: User;
 }
-
-const REGISTERED_USERS_KEY = 'natacion_master_users';
 
 // Función para generar contraseña aleatoria segura
 function generateSecurePassword(length: number = 12): string {
@@ -54,32 +53,8 @@ function generateSecurePassword(length: number = 12): string {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
-// Usuarios demo
-const DEMO_USERS = [
-  { id: 'user_admin_1', email: 'admin@uch.cl', password: 'admin123' },
-  { id: 'user_coach_1', email: 'coach@uch.cl', password: 'coach123' },
-  { id: 'user_swimmer_1', email: 'nadador@uch.cl', password: 'nadador123' },
-];
-
-function getRegisteredUsers() {
-  const stored = localStorage.getItem(REGISTERED_USERS_KEY);
-  if (!stored) return [];
-  try {
-    return JSON.parse(stored);
-  } catch {
-    return [];
-  }
-}
-
-function saveRegisteredUsers(users: any[]) {
-  localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
-}
-
-function getAllUsers() {
-  return [...DEMO_USERS, ...getRegisteredUsers()];
-}
-
 export function ChangePasswordDialog({ open, onOpenChange, user }: ChangePasswordDialogProps) {
+  const { changePassword } = useAuth();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -147,45 +122,23 @@ export function ChangePasswordDialog({ open, onOpenChange, user }: ChangePasswor
     setError("");
 
     try {
-      // Simular delay de red
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const allUsers = getAllUsers();
-      const currentUser = allUsers.find(u => u.id === user.id);
-
-      if (!currentUser) {
-        setError("Usuario no encontrado");
-        setLoading(false);
-        return;
-      }
-
-      // Verificar contraseña actual
-      if (currentUser.password !== currentPassword) {
+      // Primero verificar contraseña actual intentando login
+      const loginResponse = await fetch(`https://${user.email.split('@')[0]}.supabase.co/functions/v1/make-server-4909a0bc/auth/signin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: user.email, password: currentPassword }),
+      });
+      
+      if (!loginResponse.ok) {
         setError("La contraseña actual es incorrecta");
         setLoading(false);
         return;
       }
 
-      // Verificar si es usuario demo (no se puede cambiar contraseña)
-      const isDemoUser = DEMO_USERS.some(du => du.id === user.id);
-      if (isDemoUser) {
-        setError("No se puede cambiar la contraseña de usuarios demo");
-        setLoading(false);
-        return;
-      }
-
-      // Actualizar contraseña en usuarios registrados
-      const registeredUsers = getRegisteredUsers();
-      const userIndex = registeredUsers.findIndex((u: any) => u.id === user.id);
-
-      if (userIndex === -1) {
-        setError("Usuario no encontrado en registros");
-        setLoading(false);
-        return;
-      }
-
-      registeredUsers[userIndex].password = newPassword;
-      saveRegisteredUsers(registeredUsers);
+      // Cambiar contraseña usando el contexto
+      await changePassword(newPassword);
 
       setSuccess(true);
       console.log('✅ Contraseña actualizada exitosamente');
@@ -197,7 +150,7 @@ export function ChangePasswordDialog({ open, onOpenChange, user }: ChangePasswor
 
     } catch (err) {
       console.error('❌ Error al cambiar contraseña:', err);
-      setError("Ocurrió un error al cambiar la contraseña. Intenta nuevamente.");
+      setError(err instanceof Error ? err.message : "Ocurrió un error al cambiar la contraseña");
     } finally {
       setLoading(false);
     }
@@ -401,7 +354,7 @@ export function ChangePasswordDialog({ open, onOpenChange, user }: ChangePasswor
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="bg-red-500 hover:bg-red-600">
                 {loading ? "Actualizando..." : "Cambiar Contraseña"}
               </Button>
             </DialogFooter>

@@ -2,32 +2,22 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Bug, RefreshCw, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Bug, RefreshCw, Database, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { debugListAllUsers, debugClearRegisteredUsers } from '../services/auth';
+import { clearLegacyData } from '../services/auth';
 
 export function DebugPanel() {
-  const [showPasswords, setShowPasswords] = useState(false);
-  const [users, setUsers] = useState<{ demo: any[], registered: any[] } | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
 
-  const handleListUsers = () => {
-    const result = debugListAllUsers();
-    setUsers(result);
-    toast.success('Usuarios listados en consola');
-  };
-
-  const handleClearUsers = () => {
-    if (confirm('⚠️ ¿Estás seguro de que quieres eliminar TODOS los usuarios registrados? Esta acción no se puede deshacer.\n\n⚠️ Los usuarios demo (admin@uch.cl, coach@uch.cl, nadador@uch.cl) NO serán eliminados ya que son parte del sistema.')) {
-      debugClearRegisteredUsers();
-      setUsers(null);
-      toast.success('✅ Usuarios registrados eliminados correctamente');
+  const handleClearLegacyData = () => {
+    if (confirm('⚠️ ¿Estás seguro de que quieres limpiar datos antiguos de localStorage?\n\nEsto eliminará:\n- Sesiones antiguas\n- Usuarios demo antiguos\n\nLos usuarios de Supabase Auth NO se verán afectados.')) {
+      clearLegacyData();
+      toast.success('✅ Datos antiguos limpiados correctamente');
     }
   };
 
-  const handleRefresh = () => {
-    const result = debugListAllUsers();
-    setUsers(result);
-    toast.success('Lista actualizada');
+  const handleShowSupabaseInfo = () => {
+    setShowInfo(!showInfo);
   };
 
   return (
@@ -42,100 +32,96 @@ export function DebugPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-blue-800">
+              <strong>Sistema migrado a Supabase Auth</strong>
+              <p className="mt-1 text-blue-700">
+                El sistema ahora usa Supabase para autenticación. Los usuarios se gestionan desde el Dashboard de Supabase.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-2">
           <Button
-            onClick={handleListUsers}
+            onClick={handleShowSupabaseInfo}
             variant="outline"
             className="flex-1"
           >
-            <Eye className="w-4 h-4 mr-2" />
-            Listar Usuarios
-          </Button>
-          <Button
-            onClick={handleRefresh}
-            variant="outline"
-            disabled={!users}
-          >
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-          <Button
-            onClick={() => setShowPasswords(!showPasswords)}
-            variant="outline"
-            disabled={!users}
-          >
-            {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {showInfo ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+            {showInfo ? 'Ocultar' : 'Ver'} Información del Sistema
           </Button>
         </div>
 
-        {users && (
+        {showInfo && (
           <div className="space-y-4">
             <div className="bg-white rounded-lg p-4 border">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm">Usuarios Demo ({users.demo.length})</h3>
-                <Badge variant="secondary">Hardcodeados</Badge>
+                <h3 className="font-semibold text-sm">Estado del Sistema</h3>
+                <Badge variant="default">Supabase Auth</Badge>
               </div>
-              <div className="space-y-2">
-                {users.demo.map((u, i) => (
-                  <div key={i} className="bg-gray-50 p-2 rounded text-xs font-mono">
-                    <div className="flex justify-between">
-                      <span className="font-semibold">{u.email}</span>
-                      <Badge variant="outline" className="text-xs">{u.role}</Badge>
-                    </div>
-                    {showPasswords && (
-                      <div className="text-gray-600 mt-1">
-                        Password: <span className="text-blue-600">{u.password}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-gray-600">Autenticación:</span>
+                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    Supabase Auth
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-gray-600">Backend:</span>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    Edge Functions
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-gray-600">Base de datos:</span>
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                    PostgreSQL
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-600">Sesión:</span>
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                    JWT Tokens
+                  </Badge>
+                </div>
               </div>
             </div>
 
             <div className="bg-white rounded-lg p-4 border">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm">Usuarios Registrados ({users.registered.length})</h3>
-                <Badge variant="default">LocalStorage</Badge>
+                <h3 className="font-semibold text-sm">Gestión de Usuarios</h3>
+                <Badge variant="outline">Supabase Dashboard</Badge>
               </div>
-              {users.registered.length === 0 ? (
-                <div className="text-center py-4 text-gray-500 text-sm">
-                  No hay usuarios registrados
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {users.registered.map((u, i) => (
-                    <div key={i} className="bg-gray-50 p-2 rounded text-xs font-mono">
-                      <div className="flex justify-between">
-                        <span className="font-semibold">{u.email}</span>
-                        <Badge variant="outline" className="text-xs">{u.role}</Badge>
-                      </div>
-                      <div className="text-gray-600 mt-1">
-                        ID: <span className="text-gray-800">{u.id}</span>
-                      </div>
-                      {showPasswords && (
-                        <div className="text-gray-600 mt-1">
-                          Password: <span className="text-blue-600 break-all">{u.password}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="text-sm text-gray-600 space-y-2">
+                <p>
+                  Para gestionar usuarios (crear, editar, eliminar), accede al Dashboard de Supabase:
+                </p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Ingresa a <code className="bg-gray-100 px-1 rounded">supabase.com</code></li>
+                  <li>Selecciona tu proyecto</li>
+                  <li>Ve a <strong>Authentication &gt; Users</strong></li>
+                  <li>Gestiona usuarios desde ahí</li>
+                </ol>
+              </div>
             </div>
           </div>
         )}
 
         <div className="border-t pt-4">
           <Button
-            onClick={handleClearUsers}
-            variant="destructive"
+            onClick={handleClearLegacyData}
+            variant="outline"
             className="w-full"
             size="sm"
           >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Limpiar Usuarios Registrados
+            <Database className="w-4 h-4 mr-2" />
+            Limpiar Datos Antiguos (localStorage)
           </Button>
           <p className="text-xs text-gray-500 mt-2 text-center">
-            ⚠️ Esta acción eliminará todos los usuarios registrados (no los demo)
+            ⚠️ Esto solo limpia datos antiguos de localStorage. No afecta usuarios de Supabase.
           </p>
         </div>
       </CardContent>

@@ -7,7 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/ta
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { AuthProvider, useAuth } from "@/app/contexts/AuthContext";
 import { ProtectedRoute } from "@/app/components/ProtectedRoute";
+import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { UserMenu } from "@/app/components/UserMenu";
+import { MigrationBanner } from "@/app/components/MigrationBanner";
 import { AddSwimmerDialog } from "@/app/components/AddSwimmerDialog";
 import { SwimmerListItem } from "@/app/components/SwimmerListItem";
 import { SwimmerDetailsDialog } from "@/app/components/SwimmerDetailsDialog";
@@ -1538,13 +1540,14 @@ function MainApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <div>
+    <ErrorBoundary>
+      <AuthProvider>
+        <MigrationBanner />
         <ProtectedRoute>
           <MainApp />
         </ProtectedRoute>
         <Toaster />
-      </div>
-    </AuthProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

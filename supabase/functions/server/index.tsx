@@ -6,7 +6,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const app = new Hono();
 
-// Initialize Supabase client for storage
+// Initialize Supabase client for auth and storage
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -14,6 +14,36 @@ const supabase = createClient(
 
 // Storage bucket name
 const COMPETITIONS_BUCKET = "make-4909a0bc-competitions";
+
+// ==================== AUTHENTICATION MIDDLEWARE ====================
+
+// Middleware to verify JWT token and get user
+async function authMiddleware(c: any, next: any) {
+  const authHeader = c.req.header('Authorization');
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Unauthorized - No token provided' }, 401);
+  }
+
+  const token = authHeader.split(' ')[1];
+  
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return c.json({ error: 'Unauthorized - Invalid token' }, 401);
+    }
+    
+    // Store user in context
+    c.set('user', user);
+    c.set('userId', user.id);
+    
+    await next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    return c.json({ error: 'Unauthorized - Auth error' }, 401);
+  }
+}
 
 // Ensure bucket exists on startup
 async function initializeStorage() {
@@ -60,13 +90,278 @@ app.use(
   }),
 );
 
+// ==================== AUTHENTICATION ROUTES ====================
+
+// Sign up new user
+app.post("/make-server-4909a0bc/auth/signup", async (c) => {
+  try {
+    const { email, password, name, role } = await c.req.json();
+    
+    console.log('🔐 SIGNUP - Creating user:', { email, name, role });
+    
+    // Create user with Supabase Auth
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email since email server not configured
+      user_metadata: {
+        name,
+        role: role || 'swimmer',
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Signup error:', error);
+      return c.json({ error: error.message }, 400);
+    }
+    
+    console.log('✅ User created:', data.user.id);
+    
+    // If role is swimmer, create swimmer profile
+    let swimmerId = null;
+    if (role === 'swimmer') {
+      try {
+        const swimmers = await kv.get("swimmers:list") || [];
+        const today = new Date();
+        const defaultBirthYear = today.getFullYear() - 25;
+        const defaultDateOfBirth = `${defaultBirthYear}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        
+        swimmerId = `s${Date.now()}`;
+        const swimmerData = {
+          id: swimmerId,
+          userId: data.user.id,
+          name,
+          email,
+          rut: '00.000.000-0',
+          gender: 'Masculino',
+          dateOfBirth: defaultDateOfBirth,
+          schedule: '7am',
+          joinDate: new Date().toISOString().split('T')[0],
+          personalBests: [],
+          personalBestsHistory: [],
+          goals: [],
+        };
+        
+        swimmers.push(swimmerData);
+        await kv.set("swimmers:list", swimmers);
+        console.log('✅ Swimmer profile created:', swimmerId);
+      } catch (err) {
+        console.error('⚠️ Error creating swimmer profile:', err);
+      }
+    }
+    
+    return c.json({
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.user_metadata.name,
+        role: data.user.user_metadata.role,
+        swimmerId,
+      }
+    }, 201);
+  } catch (error) {
+    console.error('❌ Signup error:', error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
+
+// Sign in user
+app.post("/make-server-4909a0bc/auth/signin", async (c) => {
+  try {
+    console.log('🔐 SIGNIN REQUEST RECEIVED');
+    console.log('📥 Headers:', Object.fromEntries(c.req.header()));
+    
+    const { email, password } = await c.req.json();
+    
+    console.log('🔐 SIGNIN - Authenticating:', email);
+    console.log('🔑 Password provided:', password ? '✓' : '✗');
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (error) {
+      console.error('❌ Supabase signin error:', error);
+      return c.json({ error: error.message }, 401);
+    }
+    
+    // Get swimmer ID if user is a swimmer
+    let swimmerId = null;
+    if (data.user.user_metadata.role === 'swimmer') {
+      const swimmers = await kv.get("swimmers:list") || [];
+      const swimmer = swimmers.find((s: any) => s.userId === data.user.id || s.email === email);
+      swimmerId = swimmer?.id || null;
+    }
+    
+    console.log('✅ User authenticated:', data.user.id);
+    
+    return c.json({
+      session: data.session,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.user_metadata.name,
+        role: data.user.user_metadata.role,
+        swimmerId,
+      }
+    });
+  } catch (error) {
+    console.error('❌ Signin error:', error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
+
+// Get current user session
+app.get("/make-server-4909a0bc/auth/session", async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ user: null, session: null });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return c.json({ user: null, session: null });
+    }
+    
+    // Get swimmer ID if user is a swimmer
+    let swimmerId = null;
+    if (user.user_metadata.role === 'swimmer') {
+      const swimmers = await kv.get("swimmers:list") || [];
+      const swimmer = swimmers.find((s: any) => s.userId === user.id || s.email === user.email);
+      swimmerId = swimmer?.id || null;
+    }
+    
+    return c.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata.name,
+        role: user.user_metadata.role,
+        swimmerId,
+      },
+      session: { access_token: token }
+    });
+  } catch (error) {
+    console.error('❌ Session error:', error);
+    return c.json({ user: null, session: null });
+  }
+});
+
+// Sign out user
+app.post("/make-server-4909a0bc/auth/signout", authMiddleware, async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const token = authHeader?.split(' ')[1];
+    
+    if (token) {
+      await supabase.auth.admin.signOut(token);
+    }
+    
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('❌ Signout error:', error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
+
+// Change password
+app.post("/make-server-4909a0bc/auth/change-password", authMiddleware, async (c) => {
+  try {
+    const { newPassword } = await c.req.json();
+    const userId = c.get('userId');
+    
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      password: newPassword
+    });
+    
+    if (error) {
+      console.error('❌ Change password error:', error);
+      return c.json({ error: error.message }, 400);
+    }
+    
+    console.log('✅ Password changed for user:', userId);
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('❌ Change password error:', error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
+
 // Health check endpoint
-app.get("/make-server-000a47d9/health", (c) => {
+app.get("/make-server-4909a0bc/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Initialize admin user (idempotent - only creates if not exists)
+app.post("/make-server-4909a0bc/auth/init-admin", async (c) => {
+  try {
+    const adminEmail = "admin@loprado.cl";
+    const adminPassword = "admin123";
+    
+    console.log('🔧 INIT ADMIN - Checking if admin exists...');
+    
+    // Check if admin already exists
+    const { data: existingUsers } = await supabase.auth.admin.listUsers();
+    const existingAdmin = existingUsers?.users?.find(user => user.email === adminEmail);
+    
+    if (existingAdmin) {
+      console.log('✅ Admin user found, DELETING and RECREATING with new password...');
+      
+      // Delete existing admin to ensure clean state
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(existingAdmin.id);
+      
+      if (deleteError) {
+        console.error('❌ Error deleting existing admin:', deleteError);
+        // Continue anyway, try to create
+      } else {
+        console.log('✅ Existing admin deleted successfully');
+      }
+    }
+    
+    // Create admin user (fresh or recreated)
+    console.log('🔐 Creating admin user:', adminEmail);
+    const { data, error } = await supabase.auth.admin.createUser({
+      email: adminEmail,
+      password: adminPassword,
+      email_confirm: true, // Auto-confirm email
+      user_metadata: {
+        name: "Administrador",
+        role: "admin",
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Error creating admin:', error);
+      return c.json({ error: error.message }, 400);
+    }
+    
+    console.log('✅ Admin user created successfully:', data.user.id);
+    
+    return c.json({
+      success: true,
+      message: 'Admin user created successfully',
+      email: adminEmail,
+      password: adminPassword,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.user_metadata.name,
+        role: data.user.user_metadata.role,
+      }
+    }, 201);
+  } catch (error) {
+    console.error('❌ Init admin error:', error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
+
 // Debug endpoint to check KV store contents
-app.get("/make-server-000a47d9/debug/test-controls", async (c) => {
+app.get("/make-server-4909a0bc/debug/test-controls", async (c) => {
   try {
     const testControls = await kv.get("test-controls:list");
     return c.json({ 
@@ -83,7 +378,7 @@ app.get("/make-server-000a47d9/debug/test-controls", async (c) => {
 // ==================== SWIMMERS ROUTES ====================
 
 // Get all swimmers
-app.get("/make-server-000a47d9/swimmers", async (c) => {
+app.get("/make-server-4909a0bc/swimmers", async (c) => {
   try {
     const swimmers = await kv.get("swimmers:list");
     return c.json({ swimmers: swimmers || [] });
@@ -94,7 +389,7 @@ app.get("/make-server-000a47d9/swimmers", async (c) => {
 });
 
 // Add a new swimmer
-app.post("/make-server-000a47d9/swimmers", async (c) => {
+app.post("/make-server-4909a0bc/swimmers", async (c) => {
   try {
     const newSwimmer = await c.req.json();
     const swimmers = await kv.get("swimmers:list") || [];
@@ -115,7 +410,7 @@ app.post("/make-server-000a47d9/swimmers", async (c) => {
 });
 
 // Update a swimmer
-app.put("/make-server-000a47d9/swimmers/:id", async (c) => {
+app.put("/make-server-4909a0bc/swimmers/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const updatedData = await c.req.json();
@@ -137,7 +432,7 @@ app.put("/make-server-000a47d9/swimmers/:id", async (c) => {
 });
 
 // Delete a swimmer
-app.delete("/make-server-000a47d9/swimmers/:id", async (c) => {
+app.delete("/make-server-4909a0bc/swimmers/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const swimmers = await kv.get("swimmers:list") || [];
@@ -166,7 +461,7 @@ app.delete("/make-server-000a47d9/swimmers/:id", async (c) => {
 // ==================== ATTENDANCE ROUTES ====================
 
 // Get all attendance records
-app.get("/make-server-000a47d9/attendance", async (c) => {
+app.get("/make-server-4909a0bc/attendance", async (c) => {
   try {
     const records = await kv.getByPrefix("attendance:");
     const attendanceList = records
@@ -183,7 +478,7 @@ app.get("/make-server-000a47d9/attendance", async (c) => {
 });
 
 // Add attendance record
-app.post("/make-server-000a47d9/attendance", async (c) => {
+app.post("/make-server-4909a0bc/attendance", async (c) => {
   try {
     const record = await c.req.json();
     const id = `att_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -200,7 +495,7 @@ app.post("/make-server-000a47d9/attendance", async (c) => {
 });
 
 // Update attendance record
-app.put("/make-server-000a47d9/attendance/:id", async (c) => {
+app.put("/make-server-4909a0bc/attendance/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const updatedData = await c.req.json();
@@ -224,7 +519,7 @@ app.put("/make-server-000a47d9/attendance/:id", async (c) => {
 });
 
 // Delete attendance record
-app.delete("/make-server-000a47d9/attendance/:id", async (c) => {
+app.delete("/make-server-4909a0bc/attendance/:id", async (c) => {
   try {
     const id = c.req.param("id");
     console.log("🔍 Attempting to delete attendance record with ID:", id);
@@ -260,7 +555,7 @@ app.delete("/make-server-000a47d9/attendance/:id", async (c) => {
 // ==================== COMPETITIONS ROUTES ====================
 
 // Get all competitions
-app.get("/make-server-000a47d9/competitions", async (c) => {
+app.get("/make-server-4909a0bc/competitions", async (c) => {
   try {
     const competitions = await kv.get("competitions:list");
     return c.json({ competitions: competitions || [] });
@@ -271,7 +566,7 @@ app.get("/make-server-000a47d9/competitions", async (c) => {
 });
 
 // Add a new competition
-app.post("/make-server-000a47d9/competitions", async (c) => {
+app.post("/make-server-4909a0bc/competitions", async (c) => {
   try {
     const newCompetition = await c.req.json();
     const competitions = await kv.get("competitions:list") || [];
@@ -292,7 +587,7 @@ app.post("/make-server-000a47d9/competitions", async (c) => {
 });
 
 // Update a competition
-app.put("/make-server-000a47d9/competitions/:id", async (c) => {
+app.put("/make-server-4909a0bc/competitions/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const updatedData = await c.req.json();
@@ -314,7 +609,7 @@ app.put("/make-server-000a47d9/competitions/:id", async (c) => {
 });
 
 // Delete a competition
-app.delete("/make-server-000a47d9/competitions/:id", async (c) => {
+app.delete("/make-server-4909a0bc/competitions/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const competitions = await kv.get("competitions:list") || [];
@@ -361,7 +656,7 @@ app.delete("/make-server-000a47d9/competitions/:id", async (c) => {
 });
 
 // Upload PDF for competition
-app.post("/make-server-000a47d9/competitions/:id/upload-pdf", async (c) => {
+app.post("/make-server-4909a0bc/competitions/:id/upload-pdf", async (c) => {
   try {
     const id = c.req.param("id");
     const formData = await c.req.formData();
@@ -458,7 +753,7 @@ app.post("/make-server-000a47d9/competitions/:id/upload-pdf", async (c) => {
 });
 
 // Delete PDF from competition
-app.delete("/make-server-000a47d9/competitions/:id/pdf", async (c) => {
+app.delete("/make-server-4909a0bc/competitions/:id/pdf", async (c) => {
   try {
     const id = c.req.param("id");
     
@@ -510,7 +805,7 @@ app.delete("/make-server-000a47d9/competitions/:id/pdf", async (c) => {
 // ==================== SWIMMER COMPETITIONS ROUTES ====================
 
 // Get all swimmer competition participations
-app.get("/make-server-000a47d9/swimmer-competitions", async (c) => {
+app.get("/make-server-4909a0bc/swimmer-competitions", async (c) => {
   try {
     const participations = await kv.get("swimmer_competitions:list");
     return c.json({ participations: participations || [] });
@@ -521,7 +816,7 @@ app.get("/make-server-000a47d9/swimmer-competitions", async (c) => {
 });
 
 // Add or update swimmer competition participation
-app.post("/make-server-000a47d9/swimmer-competitions", async (c) => {
+app.post("/make-server-4909a0bc/swimmer-competitions", async (c) => {
   try {
     const newParticipation = await c.req.json();
     const participations = await kv.get("swimmer_competitions:list") || [];
@@ -553,7 +848,7 @@ app.post("/make-server-000a47d9/swimmer-competitions", async (c) => {
 });
 
 // Update swimmer competition participation
-app.put("/make-server-000a47d9/swimmer-competitions/:id", async (c) => {
+app.put("/make-server-4909a0bc/swimmer-competitions/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const updatedData = await c.req.json();
@@ -575,7 +870,7 @@ app.put("/make-server-000a47d9/swimmer-competitions/:id", async (c) => {
 });
 
 // Delete swimmer competition participation
-app.delete("/make-server-000a47d9/swimmer-competitions/:id", async (c) => {
+app.delete("/make-server-4909a0bc/swimmer-competitions/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const participations = await kv.get("swimmer_competitions:list") || [];
@@ -632,7 +927,7 @@ function parseEvent(eventName: string): { distance: number; style: string } | nu
 }
 
 // Update competition results and automatically update personal bests
-app.post("/make-server-000a47d9/competition-results", async (c) => {
+app.post("/make-server-4909a0bc/competition-results", async (c) => {
   try {
     const { swimmerId, competitionId, events } = await c.req.json();
     
@@ -770,7 +1065,7 @@ app.post("/make-server-000a47d9/competition-results", async (c) => {
 // ==================== HOLIDAYS ROUTES ====================
 
 // Get all holidays
-app.get("/make-server-000a47d9/holidays", async (c) => {
+app.get("/make-server-4909a0bc/holidays", async (c) => {
   try {
     const holidays = await kv.get("holidays:list");
     return c.json({ holidays: holidays || [] });
@@ -781,7 +1076,7 @@ app.get("/make-server-000a47d9/holidays", async (c) => {
 });
 
 // Add a new holiday
-app.post("/make-server-000a47d9/holidays", async (c) => {
+app.post("/make-server-4909a0bc/holidays", async (c) => {
   try {
     const newHoliday = await c.req.json();
     const holidays = await kv.get("holidays:list") || [];
@@ -802,7 +1097,7 @@ app.post("/make-server-000a47d9/holidays", async (c) => {
 });
 
 // Update a holiday
-app.put("/make-server-000a47d9/holidays/:id", async (c) => {
+app.put("/make-server-4909a0bc/holidays/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const updatedData = await c.req.json();
@@ -824,7 +1119,7 @@ app.put("/make-server-000a47d9/holidays/:id", async (c) => {
 });
 
 // Delete a holiday
-app.delete("/make-server-000a47d9/holidays/:id", async (c) => {
+app.delete("/make-server-4909a0bc/holidays/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const holidays = await kv.get("holidays:list") || [];
@@ -847,7 +1142,7 @@ app.delete("/make-server-000a47d9/holidays/:id", async (c) => {
 // ==================== TEST CONTROL ROUTES ====================
 
 // Get all test controls
-app.get("/make-server-000a47d9/test-controls", async (c) => {
+app.get("/make-server-4909a0bc/test-controls", async (c) => {
   try {
     const testControls = await kv.get("test-controls:list");
     return c.json({ testControls: testControls || [] });
@@ -858,7 +1153,7 @@ app.get("/make-server-000a47d9/test-controls", async (c) => {
 });
 
 // Add a new test control
-app.post("/make-server-000a47d9/test-controls", async (c) => {
+app.post("/make-server-4909a0bc/test-controls", async (c) => {
   try {
     const newTestControl = await c.req.json();
     console.log("📝 Creating new test control:", newTestControl);
@@ -893,7 +1188,7 @@ app.post("/make-server-000a47d9/test-controls", async (c) => {
 });
 
 // Update a test control
-app.put("/make-server-000a47d9/test-controls/:id", async (c) => {
+app.put("/make-server-4909a0bc/test-controls/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const updatedData = await c.req.json();
@@ -915,7 +1210,7 @@ app.put("/make-server-000a47d9/test-controls/:id", async (c) => {
 });
 
 // Delete a test control
-app.delete("/make-server-000a47d9/test-controls/:id", async (c) => {
+app.delete("/make-server-4909a0bc/test-controls/:id", async (c) => {
   try {
     const id = c.req.param("id");
     
@@ -952,7 +1247,7 @@ app.delete("/make-server-000a47d9/test-controls/:id", async (c) => {
 // ==================== TEST RESULTS ROUTES ====================
 
 // Get all test results
-app.get("/make-server-000a47d9/test-results", async (c) => {
+app.get("/make-server-4909a0bc/test-results", async (c) => {
   try {
     const testResults = await kv.get("test-results:list");
     return c.json({ testResults: testResults || [] });
@@ -963,7 +1258,7 @@ app.get("/make-server-000a47d9/test-results", async (c) => {
 });
 
 // Add a new test result
-app.post("/make-server-000a47d9/test-results", async (c) => {
+app.post("/make-server-4909a0bc/test-results", async (c) => {
   try {
     const newTestResult = await c.req.json();
     const testResults = await kv.get("test-results:list") || [];
@@ -988,7 +1283,7 @@ app.post("/make-server-000a47d9/test-results", async (c) => {
 });
 
 // Update a test result
-app.put("/make-server-000a47d9/test-results/:id", async (c) => {
+app.put("/make-server-4909a0bc/test-results/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const updatedData = await c.req.json();
@@ -1010,7 +1305,7 @@ app.put("/make-server-000a47d9/test-results/:id", async (c) => {
 });
 
 // Delete a test result
-app.delete("/make-server-000a47d9/test-results/:id", async (c) => {
+app.delete("/make-server-4909a0bc/test-results/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const testResults = await kv.get("test-results:list") || [];

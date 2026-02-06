@@ -1,23 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Separator } from './ui/separator';
 import { Label } from './ui/label';
-import { Input } from './ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { UserPlus, CheckCircle, XCircle, Clock, Copy, Shield, Mail, User, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
-import { checkEmailExists } from '../services/auth';
 
 interface PasswordRequest {
   id: string;
   name: string;
   email: string;
   role: 'swimmer' | 'coach';
-  requestDate: string;
   status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;
   generatedPassword?: string;
 }
 
@@ -111,29 +110,12 @@ export function PasswordRequestsManager() {
   const handleApproveRequest = async (request: PasswordRequest) => {
     setLoading(true);
     try {
-      // Verificar si el email ya existe
-      const emailExists = checkEmailExists(request.email);
-      if (emailExists) {
-        // Si el usuario ya existe, marcar la solicitud como aprobada pero informar al admin
-        const updatedRequests = requests.map(req => 
-          req.id === request.id 
-            ? { ...req, status: 'approved' as const, generatedPassword: 'Ya existente' }
-            : req
-        );
-        
-        savePasswordRequests(updatedRequests);
-        setRequests(updatedRequests);
-        
-        toast.error('Este usuario ya tiene una cuenta creada. La solicitud se marcó como aprobada.');
-        return;
-      }
-
       console.log('🔐 PasswordRequestsManager - Iniciando aprobación de solicitud:');
       console.log('  - Email:', request.email);
       console.log('  - Nombre:', request.name);
       console.log('  - Rol:', request.role);
       
-      // Crear la cuenta del usuario
+      // Crear la cuenta del usuario con Supabase Auth
       const credentials = await createUserAccount(request.email, request.name, request.role);
       
       console.log('✅ PasswordRequestsManager - Credenciales recibidas:');
@@ -159,7 +141,25 @@ export function PasswordRequestsManager() {
       toast.success('Solicitud aprobada y cuenta creada');
     } catch (error) {
       console.error('❌ PasswordRequestsManager - Error al aprobar solicitud:', error);
-      toast.error(error instanceof Error ? error.message : 'Error al aprobar solicitud');
+      
+      // Verificar si el error es por email duplicado
+      const errorMessage = error instanceof Error ? error.message : 'Error al aprobar solicitud';
+      
+      if (errorMessage.includes('already') || errorMessage.includes('exists') || errorMessage.includes('duplicate')) {
+        // Marcar como aprobada con nota especial
+        const updatedRequests = requests.map(req => 
+          req.id === request.id 
+            ? { ...req, status: 'approved' as const, generatedPassword: 'Usuario ya existe' }
+            : req
+        );
+        
+        savePasswordRequests(updatedRequests);
+        setRequests(updatedRequests);
+        
+        toast.error('Este usuario ya tiene una cuenta creada. La solicitud se marcó como aprobada.');
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -330,7 +330,7 @@ export function PasswordRequestsManager() {
                           {request.role === 'coach' ? 'Entrenador' : 'Nadador'}
                         </Badge>
                       </TableCell>
-                      <TableCell>{new Date(request.requestDate).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(request.requestedAt).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
@@ -406,7 +406,7 @@ export function PasswordRequestsManager() {
                           {request.generatedPassword?.substring(0, 20)}...
                         </code>
                       </TableCell>
-                      <TableCell>{new Date(request.requestDate).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(request.requestedAt).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           size="sm"
@@ -567,7 +567,7 @@ export function createPasswordRequest(name: string, email: string, role: 'swimme
     name,
     email,
     role,
-    requestDate: new Date().toISOString(),
+    requestedAt: new Date().toISOString(),
     status: 'pending',
   };
   
