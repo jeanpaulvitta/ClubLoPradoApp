@@ -12,6 +12,12 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
 );
 
+// Create a separate client for auth operations (uses ANON_KEY)
+const supabaseAuth = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+);
+
 // Storage bucket name
 const COMPETITIONS_BUCKET = "make-4909a0bc-competitions";
 
@@ -176,33 +182,158 @@ app.post("/make-server-4909a0bc/auth/signin", async (c) => {
     console.log('🔐 SIGNIN - Authenticating:', email);
     console.log('🔑 Password provided:', password ? '✓' : '✗');
     
-    const { data, error } = await supabase.auth.signInWithPassword({
+    // First, try to authenticate with ANON client to verify password
+    const { data: authData, error: authError } = await supabaseAuth.auth.signInWithPassword({
       email,
       password,
     });
     
-    if (error) {
-      console.error('❌ Supabase signin error:', error);
-      return c.json({ error: error.message }, 401);
+    // If email not confirmed, confirm it and create session using admin API
+    if (authError && authError.message.includes('Email not confirmed')) {
+      console.log('📧 Email not confirmed, handling with admin API...');
+      
+      // Get user using admin API
+      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+      
+      if (listError) {
+        console.error('❌ Error listing users:', listError);
+        return c.json({ error: 'Error al verificar usuario' }, 500);
+      }
+      
+      const user = users?.find(u => u.email === email);
+      
+      if (!user) {
+        console.log('❌ User not found:', email);
+        return c.json({ error: 'Credenciales inválidas' }, 401);
+      }
+      
+      // Confirm email
+      console.log('📧 Confirming email for user:', user.id);
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        user.id,
+        { email_confirm: true }
+      );
+      
+      if (updateError) {
+        console.error('❌ Error confirming email:', updateError);
+        return c.json({ error: 'Error al confirmar email' }, 500);
+      }
+      
+      console.log('✅ Email confirmed, generating access token...');
+      
+      // Verify password by trying to sign in again with ANON client
+      // Wait a bit for the confirmation to propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const { data: retryData, error: retryError } = await supabaseAuth.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (retryError) {
+        console.error('❌ Password verification failed:', retryError);
+        
+        // If still failing due to email confirmation, generate token directly using admin
+        if (retryError.message.includes('Email not confirmed')) {
+          console.log('⚠️ Still not confirmed, generating link with admin API...');
+          
+          // Generate magic link to get token
+          const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+            type: 'magiclink',
+            email: email,
+          });
+          
+          if (linkError || !linkData) {
+            console.error('❌ Error generating link:', linkError);
+            return c.json({ error: 'Error al generar sesión' }, 500);
+          }
+          
+          console.log('✅ Magic link generated, extracting session...');
+          
+          // Get swimmer ID if user is a swimmer
+          let swimmerId = null;
+          if (user.user_metadata.role === 'swimmer') {
+            const swimmers = await kv.get("swimmers:list") || [];
+            const swimmer = swimmers.find((s: any) => s.userId === user.id || s.email === email);
+            swimmerId = swimmer?.id || null;
+          }
+          
+          // Return session from magic link
+          return c.json({
+            session: {
+              access_token: linkData.properties.access_token,
+              refresh_token: linkData.properties.refresh_token,
+            },
+            user: {
+              id: user.id,
+              email: user.email,
+              name: user.user_metadata.name,
+              role: user.user_metadata.role,
+              swimmerId,
+            }
+          });
+        }
+        
+        return c.json({ error: retryError.message }, 401);
+      }
+      
+      // Use retry data
+      if (!retryData.user || !retryData.session) {
+        console.error('❌ No user or session returned after retry');
+        return c.json({ error: 'Error de autenticación' }, 401);
+      }
+      
+      // Get swimmer ID if user is a swimmer
+      let swimmerId = null;
+      if (retryData.user.user_metadata.role === 'swimmer') {
+        const swimmers = await kv.get("swimmers:list") || [];
+        const swimmer = swimmers.find((s: any) => s.userId === retryData.user.id || s.email === email);
+        swimmerId = swimmer?.id || null;
+      }
+      
+      console.log('✅ User authenticated after confirmation:', retryData.user.id);
+      
+      return c.json({
+        session: retryData.session,
+        user: {
+          id: retryData.user.id,
+          email: retryData.user.email,
+          name: retryData.user.user_metadata.name,
+          role: retryData.user.user_metadata.role,
+          swimmerId,
+        }
+      });
+    }
+    
+    // Handle other auth errors
+    if (authError) {
+      console.error('❌ Supabase signin error:', authError);
+      return c.json({ error: authError.message }, 401);
+    }
+    
+    // Success - email was already confirmed
+    if (!authData.user || !authData.session) {
+      console.error('❌ No user or session returned');
+      return c.json({ error: 'Error de autenticación' }, 401);
     }
     
     // Get swimmer ID if user is a swimmer
     let swimmerId = null;
-    if (data.user.user_metadata.role === 'swimmer') {
+    if (authData.user.user_metadata.role === 'swimmer') {
       const swimmers = await kv.get("swimmers:list") || [];
-      const swimmer = swimmers.find((s: any) => s.userId === data.user.id || s.email === email);
+      const swimmer = swimmers.find((s: any) => s.userId === authData.user.id || s.email === email);
       swimmerId = swimmer?.id || null;
     }
     
-    console.log('✅ User authenticated:', data.user.id);
+    console.log('✅ User authenticated:', authData.user.id);
     
     return c.json({
-      session: data.session,
+      session: authData.session,
       user: {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.user_metadata.name,
-        role: data.user.user_metadata.role,
+        id: authData.user.id,
+        email: authData.user.email,
+        name: authData.user.user_metadata.name,
+        role: authData.user.user_metadata.role,
         swimmerId,
       }
     });
@@ -299,6 +430,51 @@ app.get("/make-server-4909a0bc/health", (c) => {
     timestamp: new Date().toISOString(),
     version: "2.0.2" // Updated - removed init-admin endpoint
   });
+});
+
+// Utility endpoint to confirm all unconfirmed emails
+app.post("/make-server-4909a0bc/util/confirm-emails", async (c) => {
+  try {
+    console.log('🔧 UTILITY - Confirming all unconfirmed emails...');
+    
+    const { data: { users }, error } = await supabase.auth.admin.listUsers();
+    
+    if (error) {
+      console.error('❌ Error listing users:', error);
+      return c.json({ error: error.message }, 500);
+    }
+    
+    const unconfirmedUsers = users?.filter(u => !u.email_confirmed_at) || [];
+    
+    console.log(`📧 Found ${unconfirmedUsers.length} unconfirmed users`);
+    
+    const results = [];
+    for (const user of unconfirmedUsers) {
+      console.log(`📧 Confirming email for: ${user.email}`);
+      
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        user.id,
+        { email_confirm: true }
+      );
+      
+      if (updateError) {
+        console.error(`❌ Error confirming ${user.email}:`, updateError);
+        results.push({ email: user.email, success: false, error: updateError.message });
+      } else {
+        console.log(`✅ Confirmed: ${user.email}`);
+        results.push({ email: user.email, success: true });
+      }
+    }
+    
+    return c.json({ 
+      totalUsers: users?.length || 0,
+      unconfirmedCount: unconfirmedUsers.length,
+      results 
+    });
+  } catch (error) {
+    console.error('❌ Error in confirm-emails utility:', error);
+    return c.json({ error: String(error) }, 500);
+  }
 });
 
 // Debug endpoint to check KV store contents

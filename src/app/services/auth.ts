@@ -11,107 +11,121 @@ export async function login(email: string, password: string): Promise<User> {
     console.log('🔐 LOGIN - Autenticando con Supabase Auth:', email);
     console.log('🔗 API URL:', API_URL);
     
-    // Primero intentar con el servidor backend
-    try {
-      const response = await fetch(`${API_URL}/auth/signin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+    // Primero intentar con Supabase Auth directamente
+    console.log('🔄 Intentando autenticación directa con Supabase...');
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (error) {
+      console.error('❌ Supabase Auth error:', error);
       
-      console.log('📡 Response status:', response.status);
-      
-      if (!response.ok) {
-        const error = await response.json();
+      // Si el error es de email no confirmado, intentar con el backend para confirmar
+      if (error.message.includes('Email not confirmed')) {
+        console.log('📧 Email no confirmado, confirmando automáticamente...');
         
-        // Si es error 401, probablemente el usuario no existe o credenciales inválidas
-        if (response.status === 401) {
-          // Log informativo, no error
-          console.log('ℹ️ Error de autenticación:', error);
-          throw new Error('Credenciales inválidas. Verifica tu email y contraseña.');
-        }
-        
-        // Si el servidor no está disponible o tiene problemas, usar fallback
-        if (response.status === 404 || response.status === 500) {
-          console.log('⚠️ Backend no disponible, intentando autenticación directa con Supabase...');
-          throw new Error('Backend unavailable');
-        }
-        
-        // Para otros errores, mostrar como error técnico
-        console.error('❌ Error response:', error);
-        throw new Error(error.error || error.message || 'Error al iniciar sesión');
-      }
-      
-      const { user, session } = await response.json();
-      
-      // Guardar sesión en localStorage
-      if (session) {
-        saveSession({ ...user, accessToken: session.access_token });
-      }
-      
-      console.log('✅ Login exitoso (via backend):', user);
-      return user;
-    } catch (fetchError: any) {
-      // Si ya es un mensaje de error específico, propagarlo
-      if (fetchError.message.includes('Credenciales inválidas')) {
-        throw fetchError;
-      }
-      
-      // Si el backend no está disponible, intentar directamente con Supabase
-      if (fetchError.message === 'Backend unavailable' || fetchError.message === 'Failed to fetch') {
-        console.log('🔄 Intentando autenticación directa con Supabase...');
-        
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (error) {
-          // Para errores de credenciales, log informativo
-          if (error.message.includes('Invalid login credentials')) {
-            console.log('ℹ️ Credenciales inválidas proporcionadas');
-            throw new Error('Credenciales inválidas. Verifica tu email y contraseña.');
-          }
+        try {
+          // Llamar al utilitario para confirmar emails
+          const confirmResponse = await fetch(`${API_URL}/util/confirm-emails`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
           
-          // Solo mostrar error real para problemas técnicos
-          console.error('❌ Supabase Auth error técnico:', error);
-          throw new Error(error.message);
+          if (confirmResponse.ok) {
+            console.log('✅ Email confirmado, reintentando login...');
+            
+            // Reintentar el login
+            const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
+            
+            if (retryError) {
+              console.error('❌ Error en reintento:', retryError);
+              throw new Error(retryError.message);
+            }
+            
+            if (!retryData.user || !retryData.session) {
+              throw new Error('Error de autenticación - no se recibió usuario o sesión');
+            }
+            
+            // Guardar sesión en localStorage
+            if (retryData.session) {
+              localStorage.setItem('supabase.auth.token', JSON.stringify(retryData.session));
+            }
+            
+            // Obtener swimmerId si es nadador
+            let swimmerId = null;
+            if (retryData.user.user_metadata.role === 'swimmer') {
+              try {
+                const swimmers = await fetchSwimmers();
+                const swimmer = swimmers.find(s => s.userId === retryData.user.id || s.email === email);
+                swimmerId = swimmer?.id || null;
+              } catch (err) {
+                console.warn('⚠️ No se pudo obtener perfil de nadador:', err);
+              }
+            }
+            
+            const user: User = {
+              id: retryData.user.id,
+              email: retryData.user.email!,
+              name: retryData.user.user_metadata.name || email,
+              role: retryData.user.user_metadata.role || 'swimmer',
+              swimmerId,
+            };
+            
+            console.log('✅ Login exitoso (después de confirmar email):', user.email);
+            return user;
+          }
+        } catch (confirmError) {
+          console.error('❌ Error al confirmar email:', confirmError);
         }
-        
-        if (!data.user || !data.session) {
-          throw new Error('No se pudo obtener la sesión del usuario');
-        }
-        
-        // Crear objeto de usuario compatible
-        const user: User = {
-          id: data.user.id,
-          email: data.user.email!,
-          name: data.user.user_metadata?.name || data.user.email!.split('@')[0],
-          role: data.user.user_metadata?.role || 'swimmer',
-          swimmerId: data.user.user_metadata?.swimmerId || null,
-        };
-        
-        // Guardar sesión
-        saveSession({ ...user, accessToken: data.session.access_token });
-        
-        console.log('✅ Login exitoso (directo con Supabase):', user);
-        return user;
       }
       
-      throw fetchError;
+      throw new Error(error.message);
     }
-  } catch (error: any) {
-    // Solo mostrar como error si NO es un caso esperado
-    if (error?.message?.includes('Credenciales inválidas')) {
-      // Estos son casos de uso normales, no errores técnicos
-      console.log('ℹ️ Intento de login sin éxito:', error.message);
-    } else {
-      // Error técnico real
-      console.error('❌ Login error técnico:', error);
+    
+    if (!data.user || !data.session) {
+      throw new Error('Error de autenticación - no se recibió usuario o sesión');
     }
-    throw error;
+    
+    // Guardar sesión en localStorage
+    if (data.session) {
+      localStorage.setItem('supabase.auth.token', JSON.stringify(data.session));
+    }
+    
+    // Obtener swimmerId si es nadador
+    let swimmerId = null;
+    if (data.user.user_metadata.role === 'swimmer') {
+      try {
+        const swimmers = await fetchSwimmers();
+        const swimmer = swimmers.find(s => s.userId === data.user.id || s.email === email);
+        swimmerId = swimmer?.id || null;
+      } catch (err) {
+        console.warn('⚠️ No se pudo obtener perfil de nadador:', err);
+      }
+    }
+    
+    const user: User = {
+      id: data.user.id,
+      email: data.user.email!,
+      name: data.user.user_metadata.name || email,
+      role: data.user.user_metadata.role || 'swimmer',
+      swimmerId,
+    };
+    
+    console.log('✅ Login exitoso (directo con Supabase):', user.email);
+    return user;
+    
+  } catch (error) {
+    console.error('❌ Login error técnico:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al iniciar sesión';
+    console.log('ℹ️ Intento de login sin éxito:', errorMessage);
+    throw new Error(errorMessage);
   }
 }
 
@@ -321,4 +335,17 @@ export function clearLegacyData(): void {
   localStorage.removeItem('natacion_master_users');
   
   console.log('✅ Datos antiguos de localStorage limpiados');
+}
+
+// ==================== HELPER FUNCTIONS ====================
+
+async function fetchSwimmers() {
+  const response = await fetch(`${API_URL}/swimmers`);
+  
+  if (!response.ok) {
+    throw new Error('Error al obtener lista de nadadores');
+  }
+  
+  const swimmers = await response.json();
+  return swimmers;
 }
