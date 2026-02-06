@@ -38,6 +38,28 @@ export async function login(email: string, password: string): Promise<User> {
           if (confirmResponse.ok) {
             console.log('✅ Email confirmado, reintentando login...');
             
+            // Si es admin@loprado.cl, actualizar rol a admin
+            if (email === 'admin@loprado.cl') {
+              console.log('👑 Actualizando rol a administrador...');
+              try {
+                const roleResponse = await fetch(`${API_URL}/util/set-admin-role`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ email }),
+                });
+                
+                if (roleResponse.ok) {
+                  console.log('✅ Rol actualizado a administrador');
+                } else {
+                  console.warn('⚠️ No se pudo actualizar el rol');
+                }
+              } catch (roleError) {
+                console.warn('⚠️ Error al actualizar rol:', roleError);
+              }
+            }
+            
             // Reintentar el login
             const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
               email,
@@ -74,7 +96,7 @@ export async function login(email: string, password: string): Promise<User> {
               id: retryData.user.id,
               email: retryData.user.email!,
               name: retryData.user.user_metadata.name || email,
-              role: retryData.user.user_metadata.role || 'swimmer',
+              role: retryData.user.user_metadata.role || 'admin', // Default a admin para admin@loprado.cl
               swimmerId,
             };
             
@@ -91,6 +113,30 @@ export async function login(email: string, password: string): Promise<User> {
     
     if (!data.user || !data.session) {
       throw new Error('Error de autenticación - no se recibió usuario o sesión');
+    }
+    
+    // Si es admin@loprado.cl y no tiene rol admin, actualizar
+    if (email === 'admin@loprado.cl' && data.user.user_metadata.role !== 'admin') {
+      console.log('👑 Detectado admin@loprado.cl sin rol admin, actualizando...');
+      try {
+        const roleResponse = await fetch(`${API_URL}/util/set-admin-role`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+        });
+        
+        if (roleResponse.ok) {
+          console.log('✅ Rol actualizado a administrador');
+          // Actualizar el rol localmente
+          data.user.user_metadata.role = 'admin';
+        } else {
+          console.warn('⚠️ No se pudo actualizar el rol');
+        }
+      } catch (roleError) {
+        console.warn('⚠️ Error al actualizar rol:', roleError);
+      }
     }
     
     // Guardar sesión en localStorage
@@ -114,7 +160,7 @@ export async function login(email: string, password: string): Promise<User> {
       id: data.user.id,
       email: data.user.email!,
       name: data.user.user_metadata.name || email,
-      role: data.user.user_metadata.role || 'swimmer',
+      role: data.user.user_metadata.role || (email === 'admin@loprado.cl' ? 'admin' : 'swimmer'),
       swimmerId,
     };
     

@@ -477,6 +477,67 @@ app.post("/make-server-4909a0bc/util/confirm-emails", async (c) => {
   }
 });
 
+// Utility endpoint to update user role to admin
+app.post("/make-server-4909a0bc/util/set-admin-role", async (c) => {
+  try {
+    const { email } = await c.req.json();
+    
+    if (!email) {
+      return c.json({ error: 'Email is required' }, 400);
+    }
+    
+    console.log(`🔧 UTILITY - Updating role to admin for: ${email}`);
+    
+    // Buscar el usuario por email
+    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+    
+    if (listError) {
+      console.error('❌ Error listing users:', listError);
+      return c.json({ error: listError.message }, 500);
+    }
+    
+    const user = users?.find(u => u.email === email);
+    
+    if (!user) {
+      console.error(`❌ User not found: ${email}`);
+      return c.json({ error: `User not found: ${email}` }, 404);
+    }
+    
+    // Actualizar el rol a admin
+    const { data, error: updateError } = await supabase.auth.admin.updateUserById(
+      user.id,
+      {
+        user_metadata: {
+          ...user.user_metadata,
+          role: 'admin',
+          name: user.user_metadata?.name || email.split('@')[0]
+        }
+      }
+    );
+    
+    if (updateError) {
+      console.error(`❌ Error updating role for ${email}:`, updateError);
+      return c.json({ error: updateError.message }, 500);
+    }
+    
+    console.log(`✅ Role updated to admin for: ${email}`);
+    
+    return c.json({ 
+      success: true,
+      email: email,
+      role: 'admin',
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        role: data.user.user_metadata.role
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error in set-admin-role utility:', error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
+
 // Debug endpoint to check KV store contents
 app.get("/make-server-4909a0bc/debug/test-controls", async (c) => {
   try {

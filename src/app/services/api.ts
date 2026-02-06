@@ -1,5 +1,6 @@
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import type { TestControl, TestResult } from '../data/testControl';
+import type { Swimmer, Competition, SwimmerCompetition, Workout, Holiday } from '../data/swimmers';
 import * as localStorage from './localStorage';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;
@@ -85,10 +86,26 @@ export async function fetchSwimmers(): Promise<Swimmer[]> {
     }
     const data = await response.json();
     console.log('✅ Swimmers fetched from server:', data.swimmers);
+    
+    // Cache en localStorage para fallback
+    localStorage.saveSwimmers(data.swimmers);
+    
     return data.swimmers;
   } catch (error) {
     console.error('❌ Error fetching swimmers:', error);
-    throw error;
+    
+    // Fallback automático a localStorage
+    console.log('🔄 Usando fallback de localStorage para swimmers...');
+    const cachedSwimmers = localStorage.getSwimmers();
+    
+    if (cachedSwimmers.length > 0) {
+      console.log(`✅ Recuperados ${cachedSwimmers.length} nadadores desde localStorage`);
+      return cachedSwimmers;
+    }
+    
+    // Si no hay cache, retornar array vacío en lugar de error
+    console.warn('⚠️ No hay nadadores en cache, retornando array vacío');
+    return [];
   }
 }
 
@@ -105,10 +122,27 @@ export async function addSwimmer(swimmer: Omit<Swimmer, 'id'>): Promise<Swimmer>
     }
     const data = await response.json();
     console.log('✅ Swimmer added:', data.swimmer);
+    
+    // Actualizar cache en localStorage
+    const swimmers = localStorage.getSwimmers();
+    localStorage.saveSwimmers([...swimmers, data.swimmer]);
+    
     return data.swimmer;
   } catch (error) {
     console.error('❌ Error adding swimmer:', error);
-    throw error;
+    
+    // Fallback automático a localStorage
+    console.log('🔄 Guardando nadador en localStorage (modo offline)...');
+    const newSwimmer: Swimmer = {
+      ...swimmer,
+      id: `swimmer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    };
+    
+    const swimmers = localStorage.getSwimmers();
+    localStorage.saveSwimmers([...swimmers, newSwimmer]);
+    
+    console.log('✅ Nadador guardado en localStorage:', newSwimmer);
+    return newSwimmer;
   }
 }
 
@@ -125,10 +159,25 @@ export async function updateSwimmer(id: string, swimmer: Omit<Swimmer, 'id'>): P
     }
     const data = await response.json();
     console.log('✅ Swimmer updated:', data.swimmer);
+    
+    // Actualizar cache en localStorage
+    const swimmers = localStorage.getSwimmers();
+    const updatedSwimmers = swimmers.map(s => s.id === id ? data.swimmer : s);
+    localStorage.saveSwimmers(updatedSwimmers);
+    
     return data.swimmer;
   } catch (error) {
     console.error('❌ Error updating swimmer:', error);
-    throw error;
+    
+    // Fallback automático a localStorage
+    console.log('🔄 Actualizando nadador en localStorage (modo offline)...');
+    const swimmers = localStorage.getSwimmers();
+    const updatedSwimmer: Swimmer = { ...swimmer, id };
+    const updatedSwimmers = swimmers.map(s => s.id === id ? updatedSwimmer : s);
+    localStorage.saveSwimmers(updatedSwimmers);
+    
+    console.log('✅ Nadador actualizado en localStorage:', updatedSwimmer);
+    return updatedSwimmer;
   }
 }
 
@@ -143,9 +192,19 @@ export async function deleteSwimmer(id: string): Promise<void> {
       throw new Error(`Failed to delete swimmer: ${error.error || response.statusText}`);
     }
     console.log('✅ Swimmer deleted:', id);
+    
+    // Actualizar cache en localStorage
+    const swimmers = localStorage.getSwimmers();
+    localStorage.saveSwimmers(swimmers.filter(s => s.id !== id));
   } catch (error) {
     console.error('❌ Error deleting swimmer:', error);
-    throw error;
+    
+    // Fallback automático a localStorage
+    console.log('🔄 Eliminando nadador en localStorage (modo offline)...');
+    const swimmers = localStorage.getSwimmers();
+    localStorage.saveSwimmers(swimmers.filter(s => s.id !== id));
+    
+    console.log('✅ Nadador eliminado de localStorage');
   }
 }
 
