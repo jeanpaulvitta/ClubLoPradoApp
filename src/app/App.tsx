@@ -72,7 +72,8 @@ import type {
 import * as api from "@/app/services/apiWithFallback";
 import { isTeamRecord } from "@/app/utils/recordsUtils";
 import { calculateAge, calculateCategoryFromBirthDate, getTrainingGroupFromBirthDate } from "@/app/utils/swimmerUtils";
-import logo from "figma:asset/ef5b202caab93507d38c5dc837f143cfa0a3e82a.png";
+// Logo para Vercel deployment
+const logo = "/logo.svg";
 
 // Función auxiliar para convertir tiempo MM:SS.SS a segundos
 function timeToSeconds(time: string): number {

@@ -294,7 +294,11 @@ app.post("/make-server-4909a0bc/auth/change-password", authMiddleware, async (c)
 
 // Health check endpoint
 app.get("/make-server-4909a0bc/health", (c) => {
-  return c.json({ status: "ok", timestamp: new Date().toISOString() });
+  return c.json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    version: "2.0.1" // Force redeploy
+  });
 });
 
 // Initialize admin user (idempotent - only creates if not exists)

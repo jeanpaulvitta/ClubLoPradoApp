@@ -6,7 +6,8 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Waves, Lock, Mail, User, Shield, AlertCircle } from 'lucide-react';
-import logo from "figma:asset/ef5b202caab93507d38c5dc837f143cfa0a3e82a.png";
+// Logo para Vercel deployment
+const logo = "/logo.svg";
 import { createPasswordRequest } from './PasswordRequestsManager';
 import { toast } from 'sonner';
 import { InitializeAdmin } from './InitializeAdmin';
