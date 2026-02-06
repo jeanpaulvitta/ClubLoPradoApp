@@ -10,7 +10,6 @@ import { Waves, Lock, Mail, User, Shield, AlertCircle } from 'lucide-react';
 const logo = "/logo.svg";
 import { createPasswordRequest } from './PasswordRequestsManager';
 import { toast } from 'sonner';
-import { InitializeAdmin } from './InitializeAdmin';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -22,12 +21,6 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [showInitializeAdmin, setShowInitializeAdmin] = useState(false);
-
-  // Si se muestra el InitializeAdmin, renderizar solo ese componente
-  if (showInitializeAdmin) {
-    return <InitializeAdmin />;
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,14 +34,6 @@ export function LoginPage() {
       const errorMessage = err.message || 'Error al iniciar sesión';
       setError(errorMessage);
       toast.error(errorMessage);
-      
-      // Si el error es que el admin no existe, redirigir automáticamente después de 2 segundos
-      if (errorMessage.includes('Usuario administrador no encontrado')) {
-        toast.info('Redirigiendo a crear administrador...', { duration: 2000 });
-        setTimeout(() => {
-          setShowInitializeAdmin(true);
-        }, 2000);
-      }
     }
   };
 
@@ -96,36 +81,6 @@ export function LoginPage() {
           <div className="flex items-center justify-center gap-2 mt-3">
             <Waves className="w-5 h-5 text-red-400" />
             <span className="text-gray-400">Temporada 2026</span>
-          </div>
-        </div>
-
-        {/* Banner de primer uso - MUY DESTACADO */}
-        <div className="mb-6 bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 p-1 rounded-xl shadow-2xl animate-pulse">
-          <div className="bg-gray-900 rounded-lg p-5">
-            <div className="flex items-start gap-3">
-              <div className="bg-gradient-to-br from-purple-500 to-blue-500 rounded-full p-2 flex-shrink-0">
-                <Shield className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-white font-bold text-lg mb-2">
-                  🎉 ¡Bienvenido! Primera vez usando el sistema
-                </h3>
-                <p className="text-gray-300 text-sm mb-3">
-                  Si eres el <strong>primer usuario</strong>, necesitas crear el usuario administrador antes de poder iniciar sesión.
-                </p>
-                <Button
-                  type="button"
-                  onClick={() => setShowInitializeAdmin(true)}
-                  className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold shadow-lg"
-                >
-                  <Shield className="w-4 h-4 mr-2" />
-                  Crear Usuario Administrador Ahora
-                </Button>
-                <p className="text-gray-400 text-xs mt-2 text-center">
-                  Credenciales: <code className="text-purple-400">admin@loprado.cl</code>
-                </p>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -202,41 +157,14 @@ export function LoginPage() {
                     {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
                   </Button>
 
-                  {/* Divider */}
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-300"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-white text-gray-500">Primera vez</span>
-                    </div>
-                  </div>
-
-                  {/* Botón de inicialización del admin */}
-                  <Button
-                    type="button"
-                    onClick={() => setShowInitializeAdmin(true)}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                  >
-                    <Shield className="w-4 h-4 mr-2" />
-                    Crear Usuario Administrador
-                  </Button>
-
                   {/* Nota informativa */}
-                  <div className="mt-4 p-3 bg-gray-100 rounded-lg">
-                    <p className="text-xs text-gray-600 text-center">
-                      💡 <strong>Administrador:</strong> admin@loprado.cl / admin123
-                    </p>
-                  </div>
-                  
-                  {/* Instrucciones para primer uso - ahora simplificado */}
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-start gap-2">
                       <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                       <div className="text-xs text-blue-800">
-                        <strong className="block mb-1">🔧 Primera vez usando el sistema:</strong>
-                        <p className="mt-2">
-                          Usa el botón <strong>"Crear Usuario Administrador"</strong> arriba para crear automáticamente el usuario admin con credenciales predefinidas. Una vez creado, podrás iniciar sesión inmediatamente.
+                        <strong className="block mb-1">💡 ¿No tienes acceso?</strong>
+                        <p className="mt-1">
+                          Si eres nuevo, usa la pestaña <strong>"Solicitar Acceso"</strong> para que el administrador te cree una cuenta.
                         </p>
                       </div>
                     </div>
@@ -252,30 +180,7 @@ export function LoginPage() {
                       <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-red-800">
                         <strong>Solicitud de Acceso:</strong> Completa este formulario para solicitar acceso al sistema. 
-                        El administrador revisará tu solicitud y te enviará tus credenciales de acceso.
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Botón de inicialización del admin también en signup tab */}
-                  <div className="bg-purple-50 border-2 border-purple-300 rounded-lg p-4 mb-4">
-                    <div className="flex flex-col items-center gap-3">
-                      <Shield className="w-8 h-8 text-purple-600" />
-                      <div className="text-center">
-                        <p className="text-sm font-semibold text-purple-900 mb-1">
-                          ¿Eres el primer usuario?
-                        </p>
-                        <p className="text-xs text-purple-800 mb-3">
-                          Crea el usuario administrador primero
-                        </p>
-                        <Button
-                          type="button"
-                          onClick={() => setShowInitializeAdmin(true)}
-                          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                        >
-                          <Shield className="w-4 h-4 mr-2" />
-                          Crear Usuario Administrador
-                        </Button>
+                        El administrador revisará tu solicitud y te creará una cuenta.
                       </div>
                     </div>
                   </div>
@@ -334,7 +239,7 @@ export function LoginPage() {
                       <Lock className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
                       <div className="text-xs text-yellow-800">
                         <strong>Proceso de aprobación:</strong> Una vez enviada tu solicitud, el administrador 
-                        la revisará y te enviará tus credenciales de acceso por correo electrónico.
+                        la revisará y te creará una cuenta con una contraseña que recibirás por correo electrónico.
                         {requestRole === 'swimmer' && (
                           <p className="mt-2">
                             ℹ️ También se creará automáticamente tu ficha de nadador con tus datos básicos.

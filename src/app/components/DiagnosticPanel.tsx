@@ -42,37 +42,41 @@ export function DiagnosticPanel() {
 
       // Test 2: Health endpoint
       console.log('🔍 Test 2: Verificando endpoint de salud...');
-      const healthUrl = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc/health`;
       try {
+        const healthUrl = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc/health`;
         const response = await fetch(healthUrl, {
-          headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+          },
         });
+        
         if (response.ok) {
-          newResults.healthCheck = true;
-          console.log('✅ Health endpoint OK');
+          newResults.healthEndpoint = true;
+          const data = await response.json();
+          console.log('✅ Health endpoint OK:', data);
         } else {
           newResults.errorDetails += `Health endpoint retornó status ${response.status}\n`;
           console.error('❌ Health endpoint falló:', response.status);
         }
       } catch (err) {
-        newResults.errorDetails += `Error en health check: ${err}\n`;
+        newResults.errorDetails += `Error en health endpoint: ${err}\n`;
         console.error('❌ Health check error:', err);
       }
 
       // Test 3: Auth endpoint
       console.log('🔍 Test 3: Verificando endpoint de autenticación...');
-      const authUrl = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc/auth/init-admin`;
+      const authUrl = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc/auth/session`;
       try {
         const response = await fetch(authUrl, {
-          method: 'POST',
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`,
           },
         });
         
-        // Si es 200 o 409 (already exists), consideramos que funciona
-        if (response.ok || response.status === 409) {
+        // Session endpoint devuelve 200 incluso sin sesión activa
+        if (response.ok) {
           newResults.authEndpoint = true;
           const data = await response.json();
           console.log('✅ Auth endpoint OK:', data);
@@ -191,7 +195,7 @@ export function DiagnosticPanel() {
                 <li className="text-red-300">❌ El endpoint de autenticación falló. Revisa los logs del servidor.</li>
               )}
               {results.authEndpoint === true && (
-                <li className="text-green-300">✅ Todo está funcionando correctamente. Puedes crear el administrador.</li>
+                <li className="text-green-300">✅ Todo está funcionando correctamente.</li>
               )}
             </ul>
           </div>

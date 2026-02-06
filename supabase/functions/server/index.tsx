@@ -297,71 +297,8 @@ app.get("/make-server-4909a0bc/health", (c) => {
   return c.json({ 
     status: "ok", 
     timestamp: new Date().toISOString(),
-    version: "2.0.1" // Force redeploy
+    version: "2.0.2" // Updated - removed init-admin endpoint
   });
-});
-
-// Initialize admin user (idempotent - only creates if not exists)
-app.post("/make-server-4909a0bc/auth/init-admin", async (c) => {
-  try {
-    const adminEmail = "admin@loprado.cl";
-    const adminPassword = "admin123";
-    
-    console.log('🔧 INIT ADMIN - Checking if admin exists...');
-    
-    // Check if admin already exists
-    const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const existingAdmin = existingUsers?.users?.find(user => user.email === adminEmail);
-    
-    if (existingAdmin) {
-      console.log('✅ Admin user found, DELETING and RECREATING with new password...');
-      
-      // Delete existing admin to ensure clean state
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(existingAdmin.id);
-      
-      if (deleteError) {
-        console.error('❌ Error deleting existing admin:', deleteError);
-        // Continue anyway, try to create
-      } else {
-        console.log('✅ Existing admin deleted successfully');
-      }
-    }
-    
-    // Create admin user (fresh or recreated)
-    console.log('🔐 Creating admin user:', adminEmail);
-    const { data, error } = await supabase.auth.admin.createUser({
-      email: adminEmail,
-      password: adminPassword,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: {
-        name: "Administrador",
-        role: "admin",
-      }
-    });
-    
-    if (error) {
-      console.error('❌ Error creating admin:', error);
-      return c.json({ error: error.message }, 400);
-    }
-    
-    console.log('✅ Admin user created successfully:', data.user.id);
-    
-    return c.json({
-      success: true,
-      message: 'Admin user created successfully',
-      email: adminEmail,
-      password: adminPassword,
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.user_metadata.name,
-        role: data.user.user_metadata.role,
-      }
-    }, 201);
-  } catch (error) {
-    console.error('❌ Init admin error:', error);
-    return c.json({ error: String(error) }, 500);
-  }
 });
 
 // Debug endpoint to check KV store contents

@@ -73,8 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
     } catch (error: any) {
       // Solo mostrar como error si NO es un caso esperado
-      if (error?.message?.includes('Usuario administrador no encontrado') || 
-          error?.message?.includes('Credenciales inválidas')) {
+      if (error?.message?.includes('Credenciales inválidas') || 
+          error?.message?.includes('Invalid login credentials')) {
         // Estos son casos de uso normales, no errores técnicos
         // No mostrar en consola, el usuario ya ve el mensaje en la UI
       } else {

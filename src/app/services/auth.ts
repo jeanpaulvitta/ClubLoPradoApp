@@ -30,11 +30,6 @@ export async function login(email: string, password: string): Promise<User> {
         if (response.status === 401) {
           // Log informativo, no error
           console.log('ℹ️ Error de autenticación:', error);
-          
-          // Mensaje específico para el usuario admin que no existe
-          if (email === 'admin@loprado.cl') {
-            throw new Error('Usuario administrador no encontrado. Por favor, usa el botón "Crear Usuario Administrador" primero.');
-          }
           throw new Error('Credenciales inválidas. Verifica tu email y contraseña.');
         }
         
@@ -60,8 +55,7 @@ export async function login(email: string, password: string): Promise<User> {
       return user;
     } catch (fetchError: any) {
       // Si ya es un mensaje de error específico, propagarlo
-      if (fetchError.message.includes('Usuario administrador no encontrado') || 
-          fetchError.message.includes('Credenciales inválidas')) {
+      if (fetchError.message.includes('Credenciales inválidas')) {
         throw fetchError;
       }
       
@@ -75,13 +69,7 @@ export async function login(email: string, password: string): Promise<User> {
         });
         
         if (error) {
-          // Mensaje específico para el usuario admin - NO mostrar como error sino como info
-          if (email === 'admin@loprado.cl' && error.message.includes('Invalid login credentials')) {
-            console.log('ℹ️ Admin no encontrado - necesita ser creado primero');
-            throw new Error('Usuario administrador no encontrado. Por favor, usa el botón "Crear Usuario Administrador" primero.');
-          }
-          
-          // Para otros errores de credenciales, log informativo
+          // Para errores de credenciales, log informativo
           if (error.message.includes('Invalid login credentials')) {
             console.log('ℹ️ Credenciales inválidas proporcionadas');
             throw new Error('Credenciales inválidas. Verifica tu email y contraseña.');
@@ -116,8 +104,7 @@ export async function login(email: string, password: string): Promise<User> {
     }
   } catch (error: any) {
     // Solo mostrar como error si NO es un caso esperado
-    if (error?.message?.includes('Usuario administrador no encontrado') || 
-        error?.message?.includes('Credenciales inválidas')) {
+    if (error?.message?.includes('Credenciales inválidas')) {
       // Estos son casos de uso normales, no errores técnicos
       console.log('ℹ️ Intento de login sin éxito:', error.message);
     } else {
