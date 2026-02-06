@@ -1,69 +1,40 @@
 # Club Natación Lo Prado - Sistema de Gestión
 
+> **Haz que todo sea posible** 🏊‍♂️
+
 Sistema completo de gestión para el Club Natación Lo Prado con entrenamientos, asistencia, competencias, y análisis de rendimiento.
 
-## 🚀 Deployment en Vercel
+---
 
-### Prerequisitos
+## 🚨 ¿Ves el error "Servidor no alcanzable"?
 
-1. Cuenta en [Vercel](https://vercel.com)
-2. Proyecto de Supabase configurado
-3. Git instalado
-
-### Pasos para Deploy
-
-#### 1. Configurar Supabase
-
-Ya tienes un proyecto de Supabase configurado con:
-- **Project ID:** `tvkrvozifmbgkaztwxib`
-- **URL:** `https://tvkrvozifmbgkaztwxib.supabase.co`
-
-#### 2. Preparar el Repositorio
-
-```bash
-# Inicializar git (si no lo has hecho)
-git init
-
-# Agregar todos los archivos
-git add .
-
-# Hacer commit
-git commit -m "Initial commit - Club Natación Lo Prado"
-
-# Crear repositorio en GitHub y conectarlo
-git remote add origin https://github.com/TU_USUARIO/TU_REPOSITORIO.git
-git branch -M main
-git push -u origin main
+```
+❌ Servidor no alcanzable: TypeError: Failed to fetch
 ```
 
-#### 3. Deploy en Vercel
+### ✅ Solución Rápida (1 comando):
 
-1. Ve a [Vercel](https://vercel.com) e inicia sesión
-2. Click en **"Add New Project"**
-3. Importa tu repositorio de GitHub
-4. Vercel detectará automáticamente que es un proyecto Vite
-5. **NO necesitas configurar variables de entorno** porque ya están en `/utils/supabase/info.tsx`
-6. Click en **"Deploy"**
+```bash
+npm run deploy
+```
 
-#### 4. Inicializar Admin (Después del Deploy)
+Este comando ejecuta un asistente interactivo que te guiará paso a paso.
 
-Una vez desplegado:
+### 📚 Documentación Completa de Deployment:
 
-1. Visita tu aplicación en Vercel
-2. En la página de login, busca el botón **"Inicializar Admin"** (ícono de escudo en la esquina superior derecha)
-3. Haz clic para crear el usuario administrador
-4. Credenciales por defecto:
-   - **Email:** `admin@loprado.cl`
-   - **Password:** `admin123`
+- **`LEEME_DEPLOYMENT.md`** ⭐ **EMPIEZA AQUÍ** - Guía completa con todas las opciones
+- **`SOLUCION_RAPIDA.md`** - Comandos directos (2 minutos)
+- **`DESPLIEGUE_PASO_A_PASO.md`** - Guía detallada para principiantes
+- **`INDICE_DOCUMENTACION.md`** - Índice completo de toda la documentación
 
-⚠️ **IMPORTANTE:** Cambia la contraseña del administrador inmediatamente después del primer login.
+### 🔍 Comandos de Diagnóstico:
 
-### 5. Configurar Dominio Personalizado (Opcional)
+```bash
+npm run check-server    # Verificar estado rápido
+npm run verify          # Verificación completa de endpoints
+```
 
-En Vercel:
-1. Ve a tu proyecto → Settings → Domains
-2. Agrega tu dominio personalizado
-3. Sigue las instrucciones para configurar DNS
+---
 
 ## 🏊 Características
 
@@ -80,6 +51,17 @@ En Vercel:
 
 ## 🔧 Desarrollo Local
 
+### Primera vez o después de cambios importantes
+
+Si obtienes errores de `figma:asset` en desarrollo local, limpia el caché primero:
+
+```bash
+# Limpiar caché y ejecutar
+npm run dev:clean
+```
+
+### Desarrollo normal
+
 ```bash
 # Instalar dependencias
 npm install
@@ -92,7 +74,31 @@ npm run build
 
 # Preview del build
 npm run preview
+
+# Limpiar solo el caché (sin iniciar servidor)
+npm run clean
 ```
+
+### 🔧 Solución de Problemas en Desarrollo Local
+
+Si ves el error `Rollup failed to resolve import "figma:asset/..."`:
+
+1. **Detén el servidor** (Ctrl+C)
+2. **Limpia el caché:**
+   ```bash
+   npm run clean
+   ```
+3. **Reinicia el servidor:**
+   ```bash
+   npm run dev
+   ```
+
+O usa el comando combinado:
+```bash
+npm run dev:clean
+```
+
+📖 Para más detalles, consulta [DEV_LOCAL_FIX.md](./DEV_LOCAL_FIX.md)
 
 ## 📝 Notas Técnicas
 

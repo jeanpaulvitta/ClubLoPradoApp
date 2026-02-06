@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Shield, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { DiagnosticPanel } from './DiagnosticPanel';
 
 export function InitializeAdmin() {
   const [loading, setLoading] = useState(false);
@@ -216,6 +217,9 @@ export function InitializeAdmin() {
               <li>Verifica las variables de entorno SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY</li>
             </ul>
           </div>
+
+          {/* Panel de diagnóstico */}
+          <DiagnosticPanel />
         </CardContent>
       </Card>
     </div>
