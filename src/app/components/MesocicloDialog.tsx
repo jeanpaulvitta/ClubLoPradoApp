@@ -32,6 +32,11 @@ interface MesocicloDialogProps {
     description: string;
     icon: typeof Target;
     color: string;
+    dateRange?: string;
+    competition?: string;
+    competitionDate?: string;
+    bgColor?: string;
+    borderColor?: string;
   };
   sessions: SessionType[];
   selectedGroup?: "group1" | "group2";
@@ -73,15 +78,32 @@ export function MesocicloDialog({ mesociclo, sessions, selectedGroup }: Mesocicl
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <div>
-          <Card className="hover:shadow-lg transition-all cursor-pointer hover:scale-105">
+          <Card className={`hover:shadow-lg transition-all cursor-pointer hover:scale-105 ${mesociclo.borderColor || 'border-gray-200'} ${mesociclo.bgColor || ''}`}>
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
                 <Icon className={`w-6 h-6 ${mesociclo.color}`} />
                 <div className="flex-1">
                   <h3 className="font-semibold mb-1">{mesociclo.name}</h3>
+                  {mesociclo.dateRange && (
+                    <p className="text-xs text-gray-500 mb-1">
+                      📅 {mesociclo.dateRange}
+                    </p>
+                  )}
                   <p className="text-sm text-gray-600 mb-2">
                     {mesociclo.description}
                   </p>
+                  {mesociclo.competition && (
+                    <div className="mb-2 p-2 bg-white rounded border border-red-200">
+                      <p className="text-xs font-semibold text-red-600 mb-0.5">
+                        🏆 {mesociclo.competition}
+                      </p>
+                      {mesociclo.competitionDate && (
+                        <p className="text-xs text-gray-500">
+                          {mesociclo.competitionDate}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{mesociclo.weeks} semanas</Badge>
                     <ChevronRight className="w-4 h-4 text-gray-400" />

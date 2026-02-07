@@ -75,11 +75,6 @@ export async function login(email: string, password: string): Promise<User> {
               throw new Error('Error de autenticación - no se recibió usuario o sesión');
             }
             
-            // Guardar sesión en localStorage
-            if (retryData.session) {
-              localStorage.setItem('supabase.auth.token', JSON.stringify(retryData.session));
-            }
-            
             // Obtener swimmerId si es nadador
             let swimmerId = null;
             if (retryData.user.user_metadata.role === 'swimmer') {
@@ -90,6 +85,21 @@ export async function login(email: string, password: string): Promise<User> {
               } catch (err) {
                 console.warn('⚠️ No se pudo obtener perfil de nadador:', err);
               }
+            }
+            
+            // Guardar sesión en localStorage
+            if (retryData.session) {
+              localStorage.setItem('supabase.auth.token', JSON.stringify(retryData.session));
+              
+              // Guardar también en el formato que usa nuestra app
+              saveSession({
+                id: retryData.user.id,
+                email: retryData.user.email!,
+                name: retryData.user.user_metadata.name || email,
+                role: retryData.user.user_metadata.role || 'admin',
+                swimmerId: swimmerId,
+                accessToken: retryData.session.access_token,
+              });
             }
             
             const user: User = {
@@ -139,11 +149,6 @@ export async function login(email: string, password: string): Promise<User> {
       }
     }
     
-    // Guardar sesión en localStorage
-    if (data.session) {
-      localStorage.setItem('supabase.auth.token', JSON.stringify(data.session));
-    }
-    
     // Obtener swimmerId si es nadador
     let swimmerId = null;
     if (data.user.user_metadata.role === 'swimmer') {
@@ -154,6 +159,21 @@ export async function login(email: string, password: string): Promise<User> {
       } catch (err) {
         console.warn('⚠️ No se pudo obtener perfil de nadador:', err);
       }
+    }
+    
+    // Guardar sesión en localStorage
+    if (data.session) {
+      localStorage.setItem('supabase.auth.token', JSON.stringify(data.session));
+      
+      // Guardar también en el formato que usa nuestra app
+      saveSession({
+        id: data.user.id,
+        email: data.user.email!,
+        name: data.user.user_metadata.name || email,
+        role: data.user.user_metadata.role || (email === 'admin@loprado.cl' ? 'admin' : 'swimmer'),
+        swimmerId: swimmerId,
+        accessToken: data.session.access_token,
+      });
     }
     
     const user: User = {
@@ -235,30 +255,30 @@ export async function logout(): Promise<void> {
 
 export async function changePassword(newPassword: string): Promise<void> {
   try {
-    const session = getSession();
+    console.log('🔑 Cambiando contraseña...');
     
-    if (!session?.accessToken) {
-      throw new Error('No hay sesión activa');
-    }
-    
-    const response = await fetch(`${API_URL}/auth/change-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.accessToken}`,
-      },
-      body: JSON.stringify({ newPassword }),
+    // Intentar con Supabase directamente (más confiable)
+    const { error: supabaseError } = await supabase.auth.updateUser({
+      password: newPassword
     });
     
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Error al cambiar contraseña');
+    if (supabaseError) {
+      console.error('❌ Error de Supabase al cambiar contraseña:', supabaseError);
+      throw new Error(supabaseError.message || 'Error al cambiar contraseña');
     }
     
-    console.log('✅ Contraseña cambiada exitosamente');
+    console.log('✅ Contraseña cambiada exitosamente con Supabase');
+    return;
+    
   } catch (error) {
     console.error('❌ Error al cambiar contraseña:', error);
-    throw error;
+    
+    // Mejorar mensaje de error
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    
+    throw new Error('Error desconocido al cambiar contraseña');
   }
 }
 

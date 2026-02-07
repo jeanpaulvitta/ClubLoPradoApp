@@ -34,7 +34,7 @@ export const minimumTimesFemale: MinimumTime[] = [
   { event: "50 MARIPOSA", juvA1: "00:39,10", juvA2: "00:34,85", juvB: "00:32,74", mayores: "00:32,74" },
   { event: "100 MARIPOSA", juvA1: "01:23,19", juvA2: "01:20,11", juvB: "01:17,02", mayores: "01:13,94" },
   { event: "200 MARIPOSA", juvA1: "S/MM", juvA2: "S/MM", juvB: "S/MM", mayores: "S/MM" },
-  { event: "200 COMBINADO", infC: "3:40.0", infA: "3:30.0", infB1: "3:25.0", juvA1: "03:10,12", juvA2: "03:03,08", juvB: "02:56,04", mayores: "02:49,00" },
+  { event: "200 COMBINADO", infC: "3:40.0", infA: "3:40.0", infB1: "3:30.0", infB2: "3:25.0", juvA1: "03:10,12", juvA2: "03:03,08", juvB: "02:56,04", mayores: "02:49,00" },
   { event: "400 COMBINADO", juvA1: "06:44,70", juvA2: "06:29,71", juvB: "06:14,73", mayores: "05:59,74" },
 ];
 
@@ -55,7 +55,7 @@ export const minimumTimesMale: MinimumTime[] = [
   { event: "50 MARIPOSA", juvA1: "00:33,38", juvA2: "00:31,00", juvB: "00:27,67", mayores: "0:27,67" },
   { event: "100 MARIPOSA", juvA1: "01:12,97", juvA2: "01:10,27", juvB: "01:07,56", mayores: "01:04,86" },
   { event: "200 MARIPOSA", juvA1: "S/MM", juvA2: "S/MM", juvB: "S/MM", mayores: "S/MM" },
-  { event: "200 COMBINADO", infC: "3:30.00", infA: "3:25.00", infB1: "3:20.00", juvA1: "02:48,99", juvA2: "02:42,73", juvB: "02:36,48", mayores: "02:30,22" },
+  { event: "200 COMBINADO", infC: "3:30.00", infA: "3:30.00", infB1: "3:25.00", infB2: "3:20.00", juvA1: "02:48,99", juvA2: "02:42,73", juvB: "02:36,48", mayores: "02:30,22" },
   { event: "400 COMBINADO", juvA1: "06:03,56", juvA2: "05:50,09", juvB: "05:36,63", mayores: "05:23,16" },
 ];
 

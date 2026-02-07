@@ -35,6 +35,7 @@ import { MinimumTimesReference } from "@/app/components/MinimumTimesReference";
 import { GroupStatistics } from "@/app/components/GroupStatistics";
 import { GroupFilterSelector } from "@/app/components/GroupFilterSelector";
 import { SeasonStructureInfo } from "@/app/components/SeasonStructureInfo";
+import { PhysicalPreparation } from "@/app/components/PhysicalPreparation";
 import { generateAllSwimmersPDF } from "@/app/utils/pdfGenerator";
 import { 
   Users, 
@@ -54,7 +55,8 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Activity
 } from "lucide-react";
 import type { 
   Swimmer, 
@@ -778,72 +780,133 @@ function MainApp() {
   const totalWorkouts = workouts.length;
   const avgDistance = totalWorkouts > 0 ? Math.round(totalDistance / totalWorkouts) : 0;
 
-  // Estructura de temporada para GRUPO 1 (Menores hasta Inf A)
-  const mesocicloStatsGroup1 = [
+  // Estructura de temporada 2026-2027 - 10 BLOQUES
+  // Inicio: 9 de febrero 2026
+  const bloqueTemporada = [
     {
-      name: "Base",
+      name: "Bloque 1",
       weeks: 6,
-      description: "Construcción de resistencia aeróbica y técnica fundamental",
+      dateRange: "9 Feb - 22 Mar 2026",
+      description: "Salidas, reacción, subacuático inicial, frecuencia de brazada alta, patada explosiva, posición hidrodinámica",
+      competition: "Copas Chile 1 - Velocidad (50m)",
+      competitionDate: "21-22 Mar 2026",
       icon: Target,
       color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-200",
     },
     {
-      name: "Desarrollo",
-      weeks: 6,
-      description: "Aumento progresivo de volumen e intensidad",
+      name: "Bloque 2",
+      weeks: 4,
+      dateRange: "23 Mar - 19 Abr 2026",
+      description: "Ritmo aeróbico, eficiencia técnica, control respiratorio, virajes largos y económicos",
+      competition: "Copas Chile 2 - Fondo (800-1500m)",
+      competitionDate: "17-19 Abr 2026",
       icon: TrendingUp,
-      color: "text-purple-600",
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+      borderColor: "border-green-200",
     },
     {
-      name: "Pre-competitivo",
+      name: "Bloque 3",
       weeks: 4,
-      description: "Trabajo específico de competencia y velocidad",
+      dateRange: "20 Abr - 17 May 2026",
+      description: "Ritmos de prueba, control de parciales, virajes rápidos, subacuático reglamentario",
+      competition: "Copas Chile 3 - Medio Fondo (100-400m)",
+      competitionDate: "15-17 May 2026",
       icon: CalendarDays,
-      color: "text-orange-600",
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
+      borderColor: "border-purple-200",
     },
     {
-      name: "Competitivo",
-      weeks: 4,
-      description: "Puesta a punto y campeonatos",
+      name: "Bloque 4",
+      weeks: 6,
+      dateRange: "18 May - 5 Jul 2026",
+      description: "Consolidación técnica por estilo, ejecución bajo presión competitiva",
+      competition: "Festival Menores (6-7 Jun) | Nacional Infantil (18-21 Jun) | Nacional Categorías (1-5 Jul)",
+      competitionDate: "6 Jun - 5 Jul 2026",
       icon: Trophy,
       color: "text-red-600",
+      bgColor: "bg-red-50",
+      borderColor: "border-red-200",
+    },
+    {
+      name: "Bloque 5",
+      weeks: 6,
+      dateRange: "6 Jul - 16 Ago 2026",
+      description: "Volumen competitivo, experiencia multievento, estabilidad técnica",
+      competition: "Internacional Brasil (20-26 Jul) | Nacional Desarrollo (13-16 Ago)",
+      competitionDate: "20 Jul - 16 Ago 2026",
+      icon: Target,
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
+      borderColor: "border-orange-200",
+    },
+    {
+      name: "Bloque 6",
+      weeks: 4,
+      dateRange: "17 Ago - 13 Sep 2026",
+      description: "Salidas, break out, subacuático máximo reglamentario, velocidad pura (50m)",
+      competition: "Copas Chile 1 - Velocidad",
+      competitionDate: "12-13 Sep 2026",
+      icon: TrendingUp,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-200",
+    },
+    {
+      name: "Bloque 7",
+      weeks: 4,
+      dateRange: "14 Sep - 4 Oct 2026",
+      description: "Sostener ritmos altos, eficiencia técnica, control de virajes y respiración",
+      competition: "Copas Chile 2 - Fondo",
+      competitionDate: "2-4 Oct 2026",
+      icon: CalendarDays,
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+      borderColor: "border-green-200",
+    },
+    {
+      name: "Bloque 8",
+      weeks: 5,
+      dateRange: "5 Oct - 8 Nov 2026",
+      description: "Economía de nado, control técnico en acumulación de pruebas",
+      competition: "Copas Chile 3 - Medio Fondo",
+      competitionDate: "6-8 Nov 2026",
+      icon: Trophy,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
+      borderColor: "border-purple-200",
+    },
+    {
+      name: "Bloque 9",
+      weeks: 9,
+      dateRange: "9 Nov 2026 - 9 Ene 2027",
+      description: "Reforzamiento técnico general, ajustes individuales. Preparación Nacionales Verano 2027",
+      competition: "Preparación Campeonatos",
+      competitionDate: "Nov-Dic 2026",
+      icon: Target,
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
+      borderColor: "border-orange-200",
+    },
+    {
+      name: "Bloque 10",
+      weeks: 4,
+      dateRange: "10 Ene - 7 Feb 2027",
+      description: "Pico competitivo, ejecución técnica óptima, control emocional",
+      competition: "Festival Menores (9-10 Ene) | Nacional Desarrollo (14-17 Ene) | Nacional Infantil (21-24 Ene)",
+      competitionDate: "9 Ene - 7 Feb 2027",
+      icon: Trophy,
+      color: "text-red-600",
+      bgColor: "bg-red-50",
+      borderColor: "border-red-200",
     },
   ];
 
-  // Estructura de temporada para GRUPO 2 (Inf B hasta Mayores)
-  const mesocicloStatsGroup2 = [
-    {
-      name: "Base",
-      weeks: 5,
-      description: "Construcción de resistencia aeróbica y capacidad",
-      icon: Target,
-      color: "text-blue-600",
-    },
-    {
-      name: "Desarrollo",
-      weeks: 5,
-      description: "Aumento de intensidad, velocidad y potencia",
-      icon: TrendingUp,
-      color: "text-purple-600",
-    },
-    {
-      name: "Pre-competitivo",
-      weeks: 5,
-      description: "Trabajo específico de competencia y ritmo de carrera",
-      icon: CalendarDays,
-      color: "text-orange-600",
-    },
-    {
-      name: "Competitivo",
-      weeks: 5,
-      description: "Puesta a punto, tapering y campeonato",
-      icon: Trophy,
-      color: "text-red-600",
-    },
-  ];
-
-  // Seleccionar estructura según grupo activo
-  const mesocicloStats = selectedSeasonGroup === "group1" ? mesocicloStatsGroup1 : mesocicloStatsGroup2;
+  // Usar la estructura de bloques (sin división por grupos)
+  const mesocicloStats = bloqueTemporada;
   const totalWeeksInSeason = mesocicloStats.reduce((sum, m) => sum + m.weeks, 0);
 
   return (
@@ -869,8 +932,8 @@ function MainApp() {
           </div>
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-4 mt-4 sm:mt-6">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 sm:px-4 py-1.5 sm:py-2 border border-white/20">
-              <p className="text-xs sm:text-sm text-gray-300">Período 1er Semestre 2026</p>
-              <p className="font-semibold text-xs sm:text-base">2 Mar - 20 Jul</p>
+              <p className="text-xs sm:text-sm text-gray-300">Temporada 2026-2027</p>
+              <p className="font-semibold text-xs sm:text-base">9 Feb 2026 - 7 Feb 2027</p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 sm:px-4 py-1.5 sm:py-2 border border-white/20">
               <p className="text-xs sm:text-sm text-gray-300">Entrenamientos</p>
@@ -891,11 +954,16 @@ function MainApp() {
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* NAVEGACIÓN PRINCIPAL POR SECCIONES */}
         <Tabs value={activeSection} onValueChange={setActiveSection} className="w-full">
-          <TabsList className={`grid w-full ${user?.role === "admin" ? "grid-cols-4 sm:grid-cols-9" : "grid-cols-4 sm:grid-cols-8"} mb-4 sm:mb-8 h-auto gap-1`}>
+          <TabsList className={`grid w-full ${user?.role === "admin" ? "grid-cols-5 sm:grid-cols-10" : "grid-cols-5 sm:grid-cols-9"} mb-4 sm:mb-8 h-auto gap-1`}>
             <TabsTrigger value="entrenamientos" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
               <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden lg:inline">Entrenamientos</span>
               <span className="lg:hidden">Entrenos</span>
+            </TabsTrigger>
+            <TabsTrigger value="preparacion-fisica" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden lg:inline">Prep. Física</span>
+              <span className="lg:hidden">Física</span>
             </TabsTrigger>
             <TabsTrigger value="calendario" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
               <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -945,7 +1013,7 @@ function MainApp() {
                   <div className="w-full sm:w-auto">
                     <h3 className="text-base sm:text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
                       <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" />
-                      <span className="break-words">Estructura de Temporada</span>
+                      <span className="break-words">Estructura Temporada 2026-2027</span>
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-600 break-words">
                       Selecciona el grupo para ver su planificación específica
@@ -959,7 +1027,7 @@ function MainApp() {
                     >
                       <Users className="w-4 h-4 flex-shrink-0" />
                       <span className="flex-1 sm:flex-none text-left sm:text-center">Grupo 1 (Menores)</span>
-                      <span className="text-xs opacity-75 flex-shrink-0">({mesocicloStatsGroup1.reduce((s, m) => s + m.weeks, 0)} sem)</span>
+                      <span className="text-xs opacity-75 flex-shrink-0">({totalWeeksInSeason} sem)</span>
                     </Button>
                     <Button
                       variant={selectedSeasonGroup === "group2" ? "default" : "outline"}
@@ -968,22 +1036,22 @@ function MainApp() {
                     >
                       <Users className="w-4 h-4 flex-shrink-0" />
                       <span className="flex-1 sm:flex-none text-left sm:text-center">Grupo 2 (Mayores)</span>
-                      <span className="text-xs opacity-75 flex-shrink-0">({mesocicloStatsGroup2.reduce((s, m) => s + m.weeks, 0)} sem)</span>
+                      <span className="text-xs opacity-75 flex-shrink-0">({totalWeeksInSeason} sem)</span>
                     </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Mesociclos Overview */}
+            {/* Planificación de Bloques */}
             <div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
                 <div className="w-full sm:w-auto">
                   <h2 className="text-xl sm:text-2xl font-bold break-words">
-                    Estructura: {selectedSeasonGroup === "group1" ? "Grupo 1 (Menores hasta Inf A)" : "Grupo 2 (Inf B hasta Mayores)"}
+                    {selectedSeasonGroup === "group1" ? "Grupo 1: Menores (E-D-C-A)" : "Grupo 2: Mayores (Inf B - Juvenil - Mayores)"}
                   </h2>
                   <p className="text-sm sm:text-base text-gray-600 mt-1 break-words">
-                    Total: {totalWeeksInSeason} semanas · Haz clic en cada mesociclo para ver detalles
+                    10 Bloques · {totalWeeksInSeason} semanas · Haz clic en cada bloque para ver detalles
                   </p>
                 </div>
               </div>
@@ -997,7 +1065,7 @@ function MainApp() {
                 >
                   <div className="flex items-center gap-2">
                     <InfoIcon className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm font-semibold">Información de la Estructura</span>
+                    <span className="text-sm font-semibold">Información del Grupo</span>
                   </div>
                   {showStructureInfo ? (
                     <ChevronUp className="w-4 h-4 flex-shrink-0" />
@@ -1014,7 +1082,7 @@ function MainApp() {
                 </div>
               )}
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                 {mesocicloStats.map((mesociclo) => (
                   <MesocicloDialog
                     key={mesociclo.name}
@@ -1111,7 +1179,12 @@ function MainApp() {
             </Card>
           </TabsContent>
 
-          {/* SECCIÓN 1.5: CALENDARIO INTEGRADO */}
+          {/* SECCIÓN 1.5: PREPARACIÓN FÍSICA */}
+          <TabsContent value="preparacion-fisica" className="space-y-8">
+            <PhysicalPreparation />
+          </TabsContent>
+
+          {/* SECCIÓN 2: CALENDARIO INTEGRADO */}
           <TabsContent value="calendario" className="space-y-8">
             <IntegratedCalendar
               sessions={allSessionsWithDates.map((s, idx) => ({
@@ -1487,7 +1560,7 @@ function MainApp() {
             Club Natación Lo Prado
           </p>
           <p className="text-sm text-red-400 mt-2">
-            Haz que todo sea posible | Temporada 2026
+            Haz que todo sea posible | Temporada 2026-2027
           </p>
           <p className="text-xs text-gray-400 mt-2">
             3 entrenamientos semanales | Lunes, Miércoles, Viernes + Sábados de Desafíos
