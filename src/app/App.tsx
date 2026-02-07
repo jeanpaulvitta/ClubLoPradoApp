@@ -74,8 +74,7 @@ import type {
 import * as api from "@/app/services/apiWithFallback";
 import { isTeamRecord } from "@/app/utils/recordsUtils";
 import { calculateAge, calculateCategoryFromBirthDate, getTrainingGroupFromBirthDate } from "@/app/utils/swimmerUtils";
-// Logo para Vercel deployment
-const logo = "/logo.svg";
+import { Logo } from "./components/Logo";
 
 // Función auxiliar para convertir tiempo MM:SS.SS a segundos
 function timeToSeconds(time: string): number {
@@ -917,11 +916,7 @@ function MainApp() {
           <div className="flex items-center justify-between gap-3 sm:gap-6 mb-3 sm:mb-4">
             <div className="flex items-center gap-3 sm:gap-6">
               <div className="bg-white rounded-lg p-1.5 sm:p-2 shadow-md">
-                <img
-                  src={logo}
-                  alt="Club Natación Lo Prado Logo"
-                  className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
-                />
+                <Logo className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
               </div>
               <div>
                 <h1 className="text-2xl sm:text-4xl font-bold leading-tight">Club Natación Lo Prado</h1>

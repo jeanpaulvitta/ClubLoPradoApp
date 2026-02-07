@@ -80,7 +80,7 @@ export function LoginPage() {
           </p>
           <div className="flex items-center justify-center gap-2 mt-3">
             <Waves className="w-5 h-5 text-red-400" />
-            <span className="text-gray-400">Temporada 2026</span>
+            <span className="text-gray-400">Temporada 2026-2027</span>
           </div>
         </div>
 
