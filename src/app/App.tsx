@@ -20,8 +20,8 @@ import { WorkoutManager } from "@/app/components/WorkoutManager";
 import { HolidayManager } from "@/app/components/HolidayManager";
 import { TrashManager } from "@/app/components/TrashManager";
 import { MesocicloDialog } from "@/app/components/MesocicloDialog";
-import { GroupMesocicloManager } from "@/app/components/GroupMesocicloManager";
-import { TrainingVolumeCharts } from "@/app/components/TrainingVolumeCharts";
+import { GroupBloqueManager } from "@/app/components/GroupBloqueManager";
+import { TrainingVolumeBloqueCharts } from "@/app/components/TrainingVolumeBloqueCharts";
 import { TrainingStats } from "@/app/components/TrainingStats";
 import { IntegratedCalendar } from "@/app/components/IntegratedCalendar";
 import { TeamRecordsBoard } from "@/app/components/TeamRecordsBoard";
@@ -32,7 +32,6 @@ import { UserManager } from "@/app/components/UserManager";
 import { MinimumTimesChecker } from "@/app/components/MinimumTimesChecker";
 import { SwimmerMinimumTimesView } from "@/app/components/SwimmerMinimumTimesView";
 import { MinimumTimesReference } from "@/app/components/MinimumTimesReference";
-import { GroupStatistics } from "@/app/components/GroupStatistics";
 import { GroupFilterSelector } from "@/app/components/GroupFilterSelector";
 import { SeasonStructureInfo } from "@/app/components/SeasonStructureInfo";
 import { PhysicalPreparation } from "@/app/components/PhysicalPreparation";
@@ -1112,8 +1111,8 @@ function MainApp() {
               </div>
             )}
 
-            {/* Resumen de Entrenamientos por Grupo y Mesociclo */}
-            <GroupMesocicloManager workouts={workouts} />
+            {/* Resumen de Entrenamientos por Grupo y Bloques */}
+            <GroupBloqueManager workouts={workouts} />
 
             {/* Botón para ver estadísticas de entrenamiento */}
             <div className="mb-6">
@@ -1138,40 +1137,16 @@ function MainApp() {
             {showTrainingStats && (
               <div className="space-y-6 animate-in slide-in-from-top duration-300">
                 <div>
-                  <h2 className="text-2xl font-bold mb-4">Análisis de Volumen de Entrenamiento</h2>
-                  <TrainingVolumeCharts sessions={allSessions} />
+                  <h2 className="text-2xl font-bold mb-4">Análisis de Volumen de Entrenamiento por Bloques</h2>
+                  <TrainingVolumeBloqueCharts sessions={allSessions} />
                 </div>
 
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Estadísticas de Entrenamiento</h2>
                   <TrainingStats sessions={allSessions} />
                 </div>
-
-                {/* Estadísticas por Grupo de Entrenamiento */}
-                <GroupStatistics swimmers={swimmers} workouts={workouts} />
               </div>
             )}
-
-            {/* Objetivo del campeonato */}
-            <Card className="mt-8 bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-4">
-                  <Trophy className="w-8 h-8 text-red-600" />
-                  <div>
-                    <h3 className="text-xl font-bold mb-2">
-                      Campeonato Nacional 2026
-                    </h3>
-                    <p className="text-gray-700 mb-2">
-                      <strong>Fecha:</strong> ultima Semana de junio de 2026
-                    </p>
-                    <p className="text-gray-700">
-                      Después de 20 semanas de preparación sistemática, estaremos listos
-                      para competir al más alto nivel. 
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* SECCIÓN 1.5: PREPARACIÓN FÍSICA */}

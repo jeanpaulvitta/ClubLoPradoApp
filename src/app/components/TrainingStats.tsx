@@ -1,13 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Activity, Zap, TrendingUp, Target, Wind, Waves, Hand, Footprints, Anchor, Fish, Download } from "lucide-react";
-import { generateTrainingPacePDF } from "../utils/pdfGenerator";
+import { Activity, Zap, TrendingUp, Target, Wind, Waves, Hand, Footprints, Anchor, Download, PieChart as PieChartIcon, BarChart3 } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, RadialBarChart, RadialBar } from "recharts";
 import { toast } from "sonner";
+import { generateTrainingStatsPDF } from "../utils/pdfStatsGenerator";
 
 type SessionType = {
   type: 'workout' | 'challenge';
-  mesociclo: string;
+  mesociclo?: string;
+  bloque?: string;
   week: number;
   date: string;
   day: string;
@@ -34,7 +36,7 @@ export function TrainingStats({ sessions, mesociclo }: TrainingStatsProps) {
   // Función para descargar PDF
   const handleDownloadPDF = () => {
     try {
-      generateTrainingPacePDF(filteredSessions);
+      generateTrainingStatsPDF(filteredSessions);
       toast.success("PDF descargado exitosamente");
     } catch (error) {
       toast.error("Error al generar el PDF");
@@ -164,47 +166,48 @@ export function TrainingStats({ sessions, mesociclo }: TrainingStatsProps) {
     ? Math.round((techniqueVolume / totalDistance) * 100) 
     : 0;
 
-  const getIntensityColor = (intensity: string) => {
-    switch (intensity) {
-      case "Baja": return "text-green-600 bg-green-50";
-      case "Media": return "text-blue-600 bg-blue-50";
-      case "Alta": return "text-orange-600 bg-orange-50";
-      case "Muy alta": return "text-red-600 bg-red-50";
-      default: return "text-gray-600 bg-gray-50";
-    }
+  // Preparar datos para gráficos
+  const intensityChartData = Object.entries(intensityVolumes)
+    .filter(([_, value]) => value > 0)
+    .map(([name, value]) => ({
+      name,
+      value: Math.round(value / 1000 * 10) / 10,
+      percentage: totalDistance > 0 ? Math.round((value / totalDistance) * 100) : 0
+    }));
+
+  const techniqueStyleData = Object.entries(techniqueByStyle)
+    .filter(([_, value]) => value > 0)
+    .map(([name, value]) => ({
+      name,
+      value: Math.round(value / 1000 * 10) / 10,
+      percentage: techniqueVolume > 0 ? Math.round((value / techniqueVolume) * 100) : 0
+    }));
+
+  const equipmentChartData = Object.entries(equipmentVolumes)
+    .filter(([_, value]) => value > 0)
+    .map(([name, value]) => ({
+      name,
+      value: Math.round(value / 1000 * 10) / 10,
+      sessions: equipmentSessionCount[name],
+      percentage: totalDistance > 0 ? Math.round((value / totalDistance) * 100) : 0
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const COLORS_INTENSITY = {
+    'Baja': '#10b981',
+    'Media': '#3b82f6',
+    'Alta': '#f97316',
+    'Muy alta': '#ef4444'
   };
 
-  const getIntensityIcon = (intensity: string) => {
-    switch (intensity) {
-      case "Baja": return Activity;
-      case "Media": return Target;
-      case "Alta": return TrendingUp;
-      case "Muy alta": return Zap;
-      default: return Activity;
-    }
+  const COLORS_STYLE = {
+    'Crol': '#3b82f6',
+    'Espalda': '#a855f7',
+    'Pecho': '#10b981',
+    'Mariposa': '#ec4899'
   };
 
-  const getEquipmentIcon = (equipment: string) => {
-    switch (equipment) {
-      case "Pull Buoy": return Waves;
-      case "Aletas": return Wind;
-      case "Paletas": return Hand;
-      case "Patada": return Footprints;
-      case "Paracaídas": return Anchor;
-      default: return Activity;
-    }
-  };
-
-  const getEquipmentColor = (equipment: string) => {
-    switch (equipment) {
-      case "Pull Buoy": return "text-blue-600 bg-blue-50";
-      case "Aletas": return "text-cyan-600 bg-cyan-50";
-      case "Paletas": return "text-indigo-600 bg-indigo-50";
-      case "Patada": return "text-teal-600 bg-teal-50";
-      case "Paracaídas": return "text-slate-600 bg-slate-50";
-      default: return "text-gray-600 bg-gray-50";
-    }
-  };
+  const COLORS_EQUIPMENT = ['#3b82f6', '#06b6d4', '#6366f1', '#14b8a6', '#64748b'];
 
   const getStyleColor = (style: string) => {
     switch (style) {
@@ -217,9 +220,9 @@ export function TrainingStats({ sessions, mesociclo }: TrainingStatsProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header con botón de descarga */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <p className="text-sm text-gray-600">
             Análisis detallado de volumen, intensidades y equipamiento
@@ -235,30 +238,127 @@ export function TrainingStats({ sessions, mesociclo }: TrainingStatsProps) {
         </Button>
       </div>
 
-      {/* Grid de estadísticas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Volumen en Técnica */}
+      {/* Estadísticas Resumen */}
+      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-1">Volumen Total</p>
+              <p className="text-3xl font-bold text-blue-600">{(totalDistance / 1000).toFixed(1)} km</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-1">Total Entrenamientos</p>
+              <p className="text-3xl font-bold text-purple-600">{totalWorkouts}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-1">Volumen Técnica</p>
+              <p className="text-3xl font-bold text-green-600">{(techniqueVolume / 1000).toFixed(1)} km</p>
+              <Badge className="bg-green-100 text-green-700 text-xs mt-1">
+                {techniquePercentage}%
+              </Badge>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-1">Promedio/Sesión</p>
+              <p className="text-3xl font-bold text-orange-600">
+                {totalWorkouts > 0 ? Math.round(totalDistance / totalWorkouts) : 0}m
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Gráfico de Intensidades */}
+      {intensityChartData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PieChartIcon className="w-5 h-5 text-blue-600" />
+              Distribución por Intensidad
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Gráfico de Torta */}
+              <div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={intensityChartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percentage }) => `${name}: ${percentage}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {intensityChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS_INTENSITY[entry.name as keyof typeof COLORS_INTENSITY]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => `${value} km`}
+                      contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '8px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Tabla de datos */}
+              <div className="space-y-3">
+                {intensityChartData.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: COLORS_INTENSITY[item.name as keyof typeof COLORS_INTENSITY] }}
+                      />
+                      <span className="font-medium">{item.name}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Badge variant="outline">{item.percentage}%</Badge>
+                      <span className="font-bold text-lg">{item.value} km</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Gráfico de Técnica por Estilo */}
+      {techniqueStyleData.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="w-5 h-5 text-purple-600" />
-              Volumen en Técnica
+              Volumen en Técnica por Estilo
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              {/* Estadística principal */}
-              <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Volumen estimado en técnica</p>
-                <p className="text-4xl font-bold text-purple-600 mb-1">
-                  {(techniqueVolume / 1000).toFixed(1)} km
-                </p>
-                <Badge variant="outline" className="mt-2">
-                  {techniquePercentage}% del total
-                </Badge>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Gráfico de Barras */}
+              <div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={techniqueStyleData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" style={{ fontSize: '12px' }} />
+                    <YAxis label={{ value: 'km', angle: -90, position: 'insideLeft' }} style={{ fontSize: '12px' }} />
+                    <Tooltip 
+                      formatter={(value: number) => `${value} km`}
+                      contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '8px' }}
+                    />
+                    <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                      {techniqueStyleData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS_STYLE[entry.name as keyof typeof COLORS_STYLE]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
 
-              {/* Detalles por estilo */}
+              {/* Grid de estilos */}
               <div className="grid grid-cols-2 gap-3">
                 {Object.entries(techniqueByStyle).map(([style, volume]) => {
                   const color = getStyleColor(style);
@@ -269,136 +369,134 @@ export function TrainingStats({ sessions, mesociclo }: TrainingStatsProps) {
                   return (
                     <div 
                       key={style} 
-                      className={`p-3 rounded-lg border ${
+                      className={`p-4 rounded-lg border-2 ${
                         volume > 0 ? 'border-current' : 'border-gray-200'
                       } ${volume > 0 ? color : 'bg-gray-50'}`}
                     >
-                      <p className={`text-xs mb-1 ${volume > 0 ? '' : 'text-gray-500'}`}>
+                      <p className={`text-sm font-semibold mb-2 ${volume > 0 ? '' : 'text-gray-500'}`}>
                         {style}
                       </p>
-                      <p className={`text-xl font-bold ${volume > 0 ? color.split(' ')[0] : 'text-gray-400'}`}>
+                      <p className={`text-2xl font-bold ${volume > 0 ? color.split(' ')[0] : 'text-gray-400'}`}>
                         {(volume / 1000).toFixed(1)} km
                       </p>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                         <div
-                          className={`h-1.5 rounded-full transition-all ${volume > 0 ? color : ''}`}
+                          className={`h-2 rounded-full transition-all ${volume > 0 ? color : ''}`}
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
                       {volume > 0 && (
-                        <p className="text-xs text-gray-600 mt-1">{percentage}%</p>
+                        <Badge variant="outline" className="mt-2 text-xs">
+                          {percentage}%
+                        </Badge>
                       )}
                     </div>
                   );
                 })}
               </div>
-
-              {/* Información adicional */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t">
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">Sesiones</p>
-                  <p className="text-xl font-bold text-gray-800">{techniqueCount}</p>
-                </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">Promedio</p>
-                  <p className="text-xl font-bold text-gray-800">
-                    {techniqueCount > 0 ? Math.round(techniqueVolume / techniqueCount) : 0}m
-                  </p>
-                </div>
-              </div>
-
-              {/* Nota explicativa */}
-              <p className="text-xs text-gray-500 text-center pt-2 border-t">
-                * Solo sesiones con palabras clave: técnica o drills
-              </p>
             </div>
+
+            {/* Info adicional */}
+            <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-4 text-center">
+              <div className="p-3 bg-purple-50 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Total Técnica</p>
+                <p className="text-2xl font-bold text-purple-600">{(techniqueVolume / 1000).toFixed(1)} km</p>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Sesiones</p>
+                <p className="text-2xl font-bold text-blue-600">{techniqueCount}</p>
+              </div>
+              <div className="p-3 bg-green-50 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Promedio/Sesión</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {techniqueCount > 0 ? Math.round(techniqueVolume / techniqueCount) : 0}m
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 text-center pt-4 border-t mt-4">
+              * Solo sesiones con palabras clave: técnica o drills
+            </p>
           </CardContent>
         </Card>
+      )}
 
-        {/* Volumen por Equipamiento */}
+      {/* Gráfico de Equipamiento */}
+      {equipmentChartData.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-indigo-600" />
-              Volumen por Equipamiento
+              <BarChart3 className="w-5 h-5 text-indigo-600" />
+              Uso de Equipamiento
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {Object.entries(equipmentVolumes)
-                .map(([equipment, volume]) => {
-                  const Icon = getEquipmentIcon(equipment);
-                  const color = getEquipmentColor(equipment);
-                  const percentage = totalDistance > 0 
-                    ? Math.round((volume / totalDistance) * 100) 
-                    : 0;
-                  const sessionCount = equipmentSessionCount[equipment];
-                  const averagePerSession = sessionCount > 0 
-                    ? Math.round(volume / sessionCount) 
-                    : 0;
-                  
-                  return (
-                    <div 
-                      key={equipment} 
-                      className={`p-4 rounded-lg border-2 ${
-                        volume > 0 ? 'border-current' : 'border-gray-200'
-                      } ${volume > 0 ? color : 'bg-gray-50'} transition-all`}
-                    >
-                      <div className="flex items-center gap-2 mb-3">
-                        <Icon className={`w-5 h-5 ${volume > 0 ? color.split(' ')[0] : 'text-gray-400'}`} />
-                        <span className={`font-medium text-sm ${volume > 0 ? '' : 'text-gray-500'}`}>
-                          {equipment}
-                        </span>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="text-center">
-                          <p className={`text-2xl font-bold ${volume > 0 ? color.split(' ')[0] : 'text-gray-400'}`}>
-                            {volume > 0 ? (volume / 1000).toFixed(1) : '0.0'} km
-                          </p>
-                          {volume > 0 && (
-                            <Badge variant="outline" className="mt-1 text-xs">
-                              {percentage}% del total
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all ${volume > 0 ? color : ''}`}
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
+            <div className="space-y-6">
+              {/* Gráfico de Barras Horizontal */}
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={equipmentChartData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" label={{ value: 'km', position: 'insideBottom' }} style={{ fontSize: '12px' }} />
+                  <YAxis dataKey="name" type="category" width={100} style={{ fontSize: '12px' }} />
+                  <Tooltip 
+                    formatter={(value: number) => `${value} km`}
+                    contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '8px' }}
+                  />
+                  <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                    {equipmentChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS_EQUIPMENT[index % COLORS_EQUIPMENT.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
 
-                        {/* Promedio por sesión */}
-                        {volume > 0 && (
-                          <div className="pt-2 border-t border-gray-300">
-                            <p className="text-xs text-gray-600 text-center">
-                              {sessionCount} sesión{sessionCount !== 1 ? 'es' : ''}
-                            </p>
-                            <p className={`text-sm font-bold text-center ${color.split(' ')[0]}`}>
-                              ~{averagePerSession}m/sesión
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* Tabla de equipamiento */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-gray-300">
+                      <th className="text-left py-2 px-3 font-semibold">Equipamiento</th>
+                      <th className="text-center py-2 px-3 font-semibold">Sesiones</th>
+                      <th className="text-right py-2 px-3 font-semibold">Volumen (km)</th>
+                      <th className="text-right py-2 px-3 font-semibold">%</th>
+                      <th className="text-right py-2 px-3 font-semibold">Promedio/Sesión</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {equipmentChartData.map((item, idx) => (
+                      <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="py-2 px-3 font-medium">{item.name}</td>
+                        <td className="text-center py-2 px-3">{item.sessions}</td>
+                        <td className="text-right py-2 px-3 font-bold">{item.value}</td>
+                        <td className="text-right py-2 px-3">
+                          <Badge variant="outline">{item.percentage}%</Badge>
+                        </td>
+                        <td className="text-right py-2 px-3 text-gray-600">
+                          {Math.round((item.value * 1000) / item.sessions)}m
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            
-            {Object.values(equipmentVolumes).every(v => v === 0) && (
-              <p className="text-sm text-gray-500 text-center py-4 mt-4 border-t">
-                No se detectó uso de equipamiento específico en las sesiones
-              </p>
-            )}
             
             <p className="text-xs text-gray-500 text-center pt-4 mt-4 border-t">
               * Estimación basada en palabras clave detectadas en las descripciones de entrenamientos
             </p>
           </CardContent>
         </Card>
-      </div>
+      )}
+
+      {equipmentChartData.length === 0 && techniqueStyleData.length === 0 && (
+        <Card>
+          <CardContent className="py-8">
+            <p className="text-center text-gray-500">
+              No hay suficientes datos para mostrar gráficos detallados
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

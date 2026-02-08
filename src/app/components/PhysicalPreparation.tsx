@@ -27,8 +27,6 @@ interface BlockExercise {
   ageRange: string;
   sessionsPerWeek: number;
   focus: string;
-  title: string;
-  description: string;
   objectives: string[];
   benefit: string;
   sessions: WeeklySession[];
@@ -64,8 +62,6 @@ export function PhysicalPreparation() {
         ageRange: "7–10 años",
         sessionsPerWeek: 2,
         focus: "Desarrollo de coordinación explosiva básica",
-        title: "Juego de reacción con salida explosiva",
-        description: "Niños acostados boca abajo → señal sonora → salto y sprint 5 m",
         objectives: [
           "Reacción motriz lúdica",
           "Saltos y empujes",
@@ -101,8 +97,6 @@ export function PhysicalPreparation() {
         ageRange: "11–17 años",
         sessionsPerWeek: 3,
         focus: "Potencia neuromuscular aplicada a la salida",
-        title: "Saltos pliométricos + salida simulada",
-        description: "3 saltos al cajón + salida explosiva con banda elástica",
         objectives: [
           "Fuerza explosiva tren inferior",
           "Velocidad de reacción",
@@ -150,8 +144,6 @@ export function PhysicalPreparation() {
         ageRange: "7–10 años",
         sessionsPerWeek: 2,
         focus: "Desarrollo aeróbico general",
-        title: "Circuito aeróbico lúdico",
-        description: "Correr – saltar cuerda – gatear – lanzar balón (30\" cada estación)",
         objectives: [
           "Resistencia lúdica progresiva",
           "Control respiratorio",
@@ -183,8 +175,6 @@ export function PhysicalPreparation() {
         ageRange: "11–17 años",
         sessionsPerWeek: 3,
         focus: "Optimización aeróbica específica",
-        title: "Carrera continua técnica",
-        description: "10–15 min carrera suave + ejercicios de respiración nasal",
         objectives: [
           "Capacidad aeróbica sostenida",
           "Eficiencia energética",
@@ -227,8 +217,6 @@ export function PhysicalPreparation() {
         ageRange: "7–10 años",
         sessionsPerWeek: 2,
         focus: "Coordinación bajo esfuerzo",
-        title: "Carreras por relevos con ritmo controlado",
-        description: "Relevo manteniendo velocidad constante marcada por el entrenador",
         objectives: [
           "Mantener técnica en fatiga leve",
           "Control corporal en velocidad",
@@ -260,8 +248,6 @@ export function PhysicalPreparation() {
         ageRange: "11–17 años",
         sessionsPerWeek: 3,
         focus: "Tolerancia al lactato inicial",
-        title: "Sprint repetidos incompletos",
-        description: "6×20 m sprint / pausa corta",
         objectives: [
           "Ritmos de competencia",
           "Resistencia anaeróbica",
@@ -303,8 +289,6 @@ export function PhysicalPreparation() {
         ageRange: "7–10 años",
         sessionsPerWeek: 2,
         focus: "Fuerza general y postura",
-        title: "Plancha + equilibrio en un pie",
-        description: "Mantener postura estable 15–20 s",
         objectives: [
           "Core básico",
           "Equilibrio corporal",
@@ -336,8 +320,6 @@ export function PhysicalPreparation() {
         ageRange: "11–17 años",
         sessionsPerWeek: 3,
         focus: "Fuerza específica competitiva",
-        title: "Core dinámico con balón medicinal",
-        description: "Rotaciones + lanzamientos controlados",
         objectives: [
           "Core avanzado",
           "Estabilidad escapular",
@@ -378,8 +360,6 @@ export function PhysicalPreparation() {
         ageRange: "7–10 años",
         sessionsPerWeek: 2,
         focus: "Adaptación al volumen",
-        title: "Mini circuito continuo 8–10 min",
-        description: "Sin parar, intensidad moderada",
         objectives: [
           "Tolerancia al esfuerzo",
           "Recuperación activa",
@@ -409,8 +389,6 @@ export function PhysicalPreparation() {
         ageRange: "11–17 años",
         sessionsPerWeek: 3,
         focus: "Resistencia competitiva",
-        title: "Circuito funcional continuo",
-        description: "15–20 min estaciones fuerza + aeróbico",
         objectives: [
           "Multievento",
           "Acumulación de pruebas",
@@ -449,8 +427,6 @@ export function PhysicalPreparation() {
         ageRange: "7–10 años",
         sessionsPerWeek: 2,
         focus: "Explosividad controlada",
-        title: "Saltos cortos explosivos en escalera",
-        description: "Secuencia rápida de saltos coordinados en escalera de agilidad",
         objectives: [
           "Reacción rápida",
           "Coordinación acelerada",
@@ -480,8 +456,6 @@ export function PhysicalPreparation() {
         ageRange: "11–17 años",
         sessionsPerWeek: 3,
         focus: "Máxima potencia aplicada",
-        title: "Sprints máximos con trineo liviano",
-        description: "Series cortas con resistencia progresiva",
         objectives: [
           "Fuerza explosiva máxima",
           "Velocidad pura",
@@ -520,8 +494,6 @@ export function PhysicalPreparation() {
         ageRange: "7–10 años",
         sessionsPerWeek: 2,
         focus: "Resistencia coordinativa",
-        title: "Juego de persecución por tiempo",
-        description: "Mantener intensidad 1–2 min",
         objectives: [
           "Mantener técnica",
           "Ritmo estable",
@@ -549,8 +521,6 @@ export function PhysicalPreparation() {
         ageRange: "11–17 años",
         sessionsPerWeek: 3,
         focus: "Resistencia específica alta",
-        title: "Intervalos 30\" fuerte / 30\" suave",
-        description: "8–10 repeticiones",
         objectives: [
           "Sostener intensidad",
           "Control fisiológico",
@@ -589,8 +559,6 @@ export function PhysicalPreparation() {
         ageRange: "7–10 años",
         sessionsPerWeek: 2,
         focus: "Eficiencia motriz",
-        title: "Carrera técnica con conos",
-        description: "Movimientos suaves y controlados entre obstáculos",
         objectives: [
           "Movimiento económico",
           "Coordinación fina",
@@ -618,8 +586,6 @@ export function PhysicalPreparation() {
         ageRange: "11–17 años",
         sessionsPerWeek: 3,
         focus: "Economía competitiva",
-        title: "Técnica de carrera + movilidad activa",
-        description: "Drills técnicos combinados con estiramientos dinámicos",
         objectives: [
           "Eficiencia energética avanzada",
           "Técnica bajo acumulación",
@@ -658,8 +624,6 @@ export function PhysicalPreparation() {
         ageRange: "7–10 años",
         sessionsPerWeek: 2,
         focus: "Refinamiento motor",
-        title: "Movilidad + juegos de equilibrio",
-        description: "Ejercicios lúdicos de balance y flexibilidad",
         objectives: [
           "Corrección postural",
           "Coordinación específica",
@@ -687,8 +651,6 @@ export function PhysicalPreparation() {
         ageRange: "11–17 años",
         sessionsPerWeek: 3,
         focus: "Optimización física individual",
-        title: "Trabajo correctivo individual",
-        description: "Bandas elásticas + estabilidad articular",
         objectives: [
           "Ajustes de fuerza",
           "Prevención lesiones",
@@ -727,8 +689,6 @@ export function PhysicalPreparation() {
         ageRange: "7–10 años",
         sessionsPerWeek: 2,
         focus: "Preparación física competitiva básica",
-        title: "Activación corta explosiva",
-        description: "Saltos + reacción rápida",
         objectives: [
           "Activación neuromotora",
           "Coordinación máxima",
@@ -756,8 +716,6 @@ export function PhysicalPreparation() {
         ageRange: "11–17 años",
         sessionsPerWeek: 3,
         focus: "Pico de rendimiento",
-        title: "Activación neural precompetitiva",
-        description: "Sprint 10 m + pliometría ligera",
         objectives: [
           "Potenciación final",
           "Frescura neuromuscular",
@@ -886,16 +844,6 @@ export function PhysicalPreparation() {
                       </div>
 
                       <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Zap className="w-4 h-4 text-orange-600" />
-                            <h4 className="font-bold text-gray-800">{block.group1.title}</h4>
-                          </div>
-                          <p className="text-sm text-gray-700 ml-6 mb-3">
-                            {block.group1.description}
-                          </p>
-                        </div>
-
                         {/* Objetivos */}
                         <div className="bg-amber-50 rounded-md p-3 border border-amber-200">
                           <div className="flex items-start gap-2 mb-2">
@@ -1014,16 +962,6 @@ export function PhysicalPreparation() {
                       </div>
 
                       <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Zap className="w-4 h-4 text-orange-600" />
-                            <h4 className="font-bold text-gray-800">{block.group2.title}</h4>
-                          </div>
-                          <p className="text-sm text-gray-700 ml-6 mb-3">
-                            {block.group2.description}
-                          </p>
-                        </div>
-
                         {/* Objetivos */}
                         <div className="bg-amber-50 rounded-md p-3 border border-amber-200">
                           <div className="flex items-start gap-2 mb-2">
