@@ -1,0 +1,322 @@
+# ⚡ QUICK START: Visualizar Entrenamientos Grupo 2
+
+## 🎯 **3 PASOS EN 5 MINUTOS**
+
+---
+
+### **PASO 1: IMPORTAR** 📥 (2 min)
+
+```
+┌─────────────────────────────────────────┐
+│  1. Login como ADMIN                    │
+│  2. Click pestaña "ENTRENAMIENTOS" 🏋️   │
+│  3. Click botón "IMPORTAR GRUPO 2" 👥   │
+│  4. Click "Importar Entrenamientos"     │
+│  5. Espera → ✅ "252 importados"        │
+└─────────────────────────────────────────┘
+```
+
+**Ubicación del botón:**
+```
+┌────────────────────────────────────────────┐
+│ Entrenamientos                             │
+│                     [👥 Importar Grupo 2] ← AQUÍ
+└────────────────────────────────────────────┘
+```
+
+---
+
+### **PASO 2: VISUALIZAR** 👀 (2 min)
+
+```
+┌─────────────────────────────────────────┐
+│  1. Scroll hacia abajo ↓                │
+│  2. Encuentra "📊 Resumen por Bloques"  │
+│  3. Click "Grupo 2: Mayores"            │
+│  4. ¡VE LOS 10 BLOQUES! 🎉              │
+└─────────────────────────────────────────┘
+```
+
+**Verás:**
+```
+╔═══════════════════════════════════╗
+║  GRUPO 2: INF B HASTA MAYORES    ║
+╠═══════════════════════════════════╣
+║  Total: 252 entrenamientos        ║
+║  Distancia: 1300km               ║
+║  Promedio: 5200m/sesión          ║
+║                                   ║
+║  [B1:36] [B2:24] [B3:24] ...     ║
+║                                   ║
+║  ┌─────────┐ ┌─────────┐          ║
+║  │Bloque 1│ │Bloque 2│ ...      ║
+║  │Velocidad│ │Fondo   │          ║
+║  │36 entr. │ │24 entr.│          ║
+║  └─────────┘ └─────────┘          ║
+╚═══════════════════════════════════╝
+```
+
+---
+
+### **PASO 3: VERIFICAR** ✅ (1 min)
+
+```
+┌─────────────────────────────────────────┐
+│  1. Click pestaña "DIAGNÓSTICO" ⚙️      │
+│  2. Click "Ejecutar Test Completo"      │
+│  3. Verifica: ✅ 252 entrenamientos     │
+│  4. Verifica: ✅ 10 bloques             │
+│  5. Verifica: ✅ Datos válidos          │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## 🎨 **LO QUE VERÁS EN CADA BLOQUE**
+
+```
+┌──────────────────────────────────┐
+│ 🎯 Bloque 3                      │
+│ 20 Abr - 17 May 2026             │
+├──────────────────────────────────┤
+│ 🏊 Medio Fondo                   │
+│ 🏆 Copa Chile 3 - 100-400m       │
+├──────────────────────────────────┤
+│ ✅ Entrenamientos: 24            │
+│ 📅 Semanas: 4/4                  │
+│ 📏 Distancia total: 124.8 km     │
+│ 📊 Promedio: 5200m/sesión        │
+└──────────────────────────────────┘
+```
+
+---
+
+## 📊 **RESUMEN DE LOS 10 BLOQUES**
+
+```
+┌──────┬────────┬─────────────────┬──────────┐
+│Bloque│Semanas │Enfoque          │Entrenos  │
+├──────┼────────┼─────────────────┼──────────┤
+│  1   │   6    │Velocidad        │   36     │
+│  2   │   4    │Fondo            │   24     │
+│  3   │   4    │Medio Fondo      │   24     │
+│  4   │   6    │Competitivo Mayor│   36     │
+│  5   │   6    │Internacional    │   36     │
+│  6   │   4    │Velocidad 2      │   24     │
+│  7   │   4    │Fondo 2          │   24     │
+│  8   │   5    │Medio Fondo 2    │   30     │
+│  9   │   9    │Preparación      │   54     │
+│  10  │   4    │Pico Competitivo │   24     │
+├──────┼────────┼─────────────────┼──────────┤
+│TOTAL │  52    │10 Bloques       │  252     │
+└──────┴────────┴─────────────────┴──────────┘
+```
+
+---
+
+## 🏆 **9 COMPETENCIAS INTEGRADAS**
+
+```
+1. 🥇 Copa Chile 1 - 50m              (Mar 2026)
+2. 🥇 Copa Chile 2 - 800-1500m        (Abr 2026)
+3. 🥇 Copa Chile 3 - 100-400m         (May 2026)
+4. 🏆 Nacionales Jun-Jul              (Jun-Jul 2026)
+5. 🌎 Brasil + Nac. Desarrollo        (Jul-Ago 2026)
+6. 🥇 Copa Chile 1 - Velocidad        (Sep 2026)
+7. 🥇 Copa Chile 2 - Fondo            (Oct 2026)
+8. 🥇 Copa Chile 3 - Medio Fondo      (Nov 2026)
+9. 🏆 Nacionales Verano 2027          (Ene-Feb 2027)
+```
+
+---
+
+## 🔧 **ATAJOS Y COMANDOS ÚTILES**
+
+### **En el Panel de Diagnóstico:**
+```
+┌────────────────────────────────────┐
+│ [▶ Ejecutar Test Completo]        │ → Test general
+│ [📅 Ver Semana 1]                  │ → Ejemplo semana
+│ [📊 Ver Bloque 3]                  │ → Ejemplo bloque
+│ [🏆 Ver Competencias]              │ → Lista completa
+└────────────────────────────────────┘
+```
+
+### **En la Consola (F12):**
+```javascript
+// Test completo
+testWorkoutsGroup2()
+
+// Ver semana específica
+getWeekWorkouts(5)
+
+// Ver bloque específico
+getBlockWorkouts(3)
+
+// Ver competencias
+getAllCompetitions()
+```
+
+---
+
+## 📈 **ESTADÍSTICAS CLAVE**
+
+```
+┌─────────────────────────────────────┐
+│  📊 TEMPORADA 2026-2027            │
+├─────────────────────────────────────┤
+│  🏊 252 entrenamientos              │
+│  📅 52 semanas                      │
+│  🎯 10 bloques                      │
+│  📏 ~1,300 km total                 │
+│  📊 ~5,200m promedio/sesión         │
+│  🏆 9 competencias                  │
+│  👥 Grupo 2: Inf B → Mayores        │
+└─────────────────────────────────────┘
+```
+
+---
+
+## ✅ **CHECKLIST RÁPIDO**
+
+Antes de empezar:
+- [ ] Login como **administrador**
+- [ ] Conexión a internet activa
+- [ ] Navegador actualizado (Chrome/Firefox/Safari)
+
+Para importar:
+- [ ] Click en "Importar Grupo 2"
+- [ ] Confirmar importación
+- [ ] Esperar mensaje de éxito
+
+Para verificar:
+- [ ] Ver estadísticas en bloques
+- [ ] Ejecutar test de diagnóstico
+- [ ] Verificar en consola (F12)
+
+---
+
+## 🚨 **SI ALGO FALLA**
+
+### **No veo el botón "Importar Grupo 2"**
+→ Solo admins pueden verlo. Verifica tu rol.
+
+### **Los bloques muestran 0 entrenamientos**
+→ Aún no has importado. Sigue el Paso 1.
+
+### **La importación falla**
+→ Verifica internet y refresca (F5).
+
+### **Necesito ayuda**
+→ Lee GUIA_VISUALIZAR_ENTRENAMIENTOS_GRUPO2.md
+
+---
+
+## 🎯 **OBJETIVO FINAL**
+
+```
+┌─────────────────────────────────────────┐
+│                                         │
+│  ✅ 252 entrenamientos IMPORTADOS       │
+│  ✅ 10 bloques VISIBLES                 │
+│  ✅ Estadísticas CORRECTAS              │
+│  ✅ Sistema FUNCIONANDO                 │
+│                                         │
+│  🎉 ¡LISTO PARA USAR!                   │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 **SIGUIENTE NIVEL**
+
+Una vez importado:
+1. 📝 Asigna entrenamientos a nadadores
+2. 📊 Registra asistencia
+3. 🏆 Configura competencias
+4. 📈 Analiza progreso
+
+---
+
+## 📚 **MÁS INFORMACIÓN**
+
+- **Guía completa:** GUIA_VISUALIZAR_ENTRENAMIENTOS_GRUPO2.md
+- **Test del sistema:** INSTRUCCIONES_TEST_GRUPO2.md  
+- **Resumen general:** RESUMEN_FINAL_GRUPO2.md
+- **Docs técnicas:** /src/app/data/WORKOUTS_GROUP2_README.md
+
+---
+
+## ⏱️ **TIEMPO TOTAL: ~5 MINUTOS**
+
+```
+Import (2min) + Visualizar (2min) + Verificar (1min) = ¡LISTO!
+```
+
+---
+
+**Club Natación Lo Prado**  
+**"Haz que todo sea posible"** 🏊‍♂️💪🔴
+
+---
+
+## 🎁 **BONUS: FLUJO VISUAL COMPLETO**
+
+```
+    START
+      ↓
+┌─────────────┐
+│ Login Admin │
+└─────────────┘
+      ↓
+┌─────────────────────┐
+│ Entrenamientos Tab  │
+└─────────────────────┘
+      ↓
+┌─────────────────────┐
+│ Click "Importar G2" │
+└─────────────────────┘
+      ↓
+┌─────────────────────┐
+│ Confirmar Import    │
+└─────────────────────┘
+      ↓
+┌─────────────────────┐
+│ ⏳ Esperar 2-3min  │
+└─────────────────────┘
+      ↓
+┌─────────────────────┐
+│ ✅ 252 importados   │
+└─────────────────────┘
+      ↓
+┌─────────────────────┐
+│ Scroll ↓ a Bloques │
+└─────────────────────┘
+      ↓
+┌─────────────────────┐
+│ Tab "Grupo 2"       │
+└─────────────────────┘
+      ↓
+┌─────────────────────┐
+│ 🎉 VER 10 BLOQUES  │
+└─────────────────────┘
+      ↓
+┌─────────────────────┐
+│ Pestaña Diagnóstico │
+└─────────────────────┘
+      ↓
+┌─────────────────────┐
+│ Test Completo       │
+└─────────────────────┘
+      ↓
+┌─────────────────────┐
+│ ✅ VALIDADO         │
+└─────────────────────┘
+      ↓
+    DONE! 🎉
+```
+
+---
+
+**¡Comienza ahora mismo!** ⚡

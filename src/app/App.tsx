@@ -35,6 +35,8 @@ import { MinimumTimesReference } from "@/app/components/MinimumTimesReference";
 import { GroupFilterSelector } from "@/app/components/GroupFilterSelector";
 import { SeasonStructureInfo } from "@/app/components/SeasonStructureInfo";
 import { PhysicalPreparation } from "@/app/components/PhysicalPreparation";
+import { ImportGroup2WorkoutsDialog } from "@/app/components/ImportGroup2WorkoutsDialog";
+import { DiagnosticPanel } from "@/app/components/DiagnosticPanel";
 import { generateAllSwimmersPDF } from "@/app/utils/pdfGenerator";
 import { 
   Users, 
@@ -55,7 +57,8 @@ import {
   ChevronDown,
   ChevronUp,
   Info as InfoIcon,
-  Activity
+  Activity,
+  Settings
 } from "lucide-react";
 import type { 
   Swimmer, 
@@ -948,7 +951,7 @@ function MainApp() {
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* NAVEGACIÓN PRINCIPAL POR SECCIONES */}
         <Tabs value={activeSection} onValueChange={setActiveSection} className="w-full">
-          <TabsList className={`grid w-full ${user?.role === "admin" ? "grid-cols-5 sm:grid-cols-10" : "grid-cols-5 sm:grid-cols-9"} mb-4 sm:mb-8 h-auto gap-1`}>
+          <TabsList className={`grid w-full ${user?.role === "admin" ? "grid-cols-5 sm:grid-cols-11" : "grid-cols-5 sm:grid-cols-9"} mb-4 sm:mb-8 h-auto gap-1`}>
             <TabsTrigger value="entrenamientos" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
               <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden lg:inline">Entrenamientos</span>
@@ -991,10 +994,17 @@ function MainApp() {
             </TabsTrigger>
             {/* Pestaña de Usuarios - Solo para Administradores */}
             {user?.role === "admin" && (
-              <TabsTrigger value="usuarios" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
-                <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>Usuarios</span>
-              </TabsTrigger>
+              <>
+                <TabsTrigger value="usuarios" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
+                  <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span>Usuarios</span>
+                </TabsTrigger>
+                <TabsTrigger value="diagnostico" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
+                  <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden lg:inline">Diagnóstico</span>
+                  <span className="lg:hidden">Diag.</span>
+                </TabsTrigger>
+              </>
             )}
           </TabsList>
 
@@ -1091,6 +1101,13 @@ function MainApp() {
             {/* Gestión de Entrenamientos (solo para admins/coaches) */}
             {(user?.role === "admin" || user?.role === "coach") && (
               <div className="space-y-4">
+                {/* Botón de importación de entrenamientos Grupo 2 (solo admin) */}
+                {user?.role === "admin" && (
+                  <div className="flex justify-end">
+                    <ImportGroup2WorkoutsDialog onImportComplete={loadData} />
+                  </div>
+                )}
+
                 <WorkoutManager
                   workouts={workouts}
                   onAddWorkout={handleAddWorkout}
@@ -1519,6 +1536,11 @@ function MainApp() {
           {/* SECCIÓN 7: USUARIOS */}
           <TabsContent value="usuarios" className="space-y-8">
             <UserManager swimmers={swimmers} />
+          </TabsContent>
+
+          {/* SECCIÓN 8: DIAGNÓSTICO - Solo para Administradores */}
+          <TabsContent value="diagnostico" className="space-y-8">
+            <DiagnosticPanel />
           </TabsContent>
         </Tabs>
       </div>

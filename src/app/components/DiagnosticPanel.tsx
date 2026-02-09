@@ -1,206 +1,284 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import React, { useState } from 'react';
 import { Button } from './ui/button';
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Server, Database, Shield } from 'lucide-react';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { Alert, AlertDescription } from './ui/alert';
+import { testWorkoutsGroup2System, getWeekWorkouts, getBlockWorkouts, getAllCompetitions } from '../utils/testWorkoutsGroup2';
+import { FileText, Play, CheckCircle, XCircle, TrendingUp, Calendar, Trophy, Info, Eye, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function DiagnosticPanel() {
-  const [testing, setTesting] = useState(false);
-  const [results, setResults] = useState<{
-    serverReachable: boolean | null;
-    healthCheck: boolean | null;
-    authEndpoint: boolean | null;
-    errorDetails: string;
-  }>({
-    serverReachable: null,
-    healthCheck: null,
-    authEndpoint: null,
-    errorDetails: '',
-  });
+  const [testResults, setTestResults] = useState<any>(null);
+  const [isRunning, setIsRunning] = useState(false);
 
-  const runDiagnostics = async () => {
-    setTesting(true);
-    const newResults = {
-      serverReachable: false,
-      healthCheck: false,
-      authEndpoint: false,
-      errorDetails: '',
-    };
-
+  const runTest = () => {
+    setIsRunning(true);
+    toast.info('Ejecutando test del sistema...', { duration: 2000 });
+    
     try {
-      // Test 1: Server reachable
-      console.log('🔍 Test 1: Verificando conectividad al servidor...');
-      const baseUrl = `https://${projectId}.supabase.co`;
-      try {
-        const response = await fetch(baseUrl);
-        newResults.serverReachable = true;
-        console.log('✅ Servidor alcanzable');
-      } catch (err) {
-        newResults.errorDetails += `Error conectando al servidor: ${err}\n`;
-        console.error('❌ Servidor no alcanzable:', err);
+      const results = testWorkoutsGroup2System();
+      setTestResults(results);
+      
+      if (results.validation.isValid) {
+        toast.success('✅ Test completado exitosamente', { duration: 3000 });
+      } else {
+        toast.warning('⚠️ Test completado con advertencias', { duration: 3000 });
       }
-
-      // Test 2: Health endpoint
-      console.log('🔍 Test 2: Verificando endpoint de salud...');
-      try {
-        const healthUrl = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc/health`;
-        const response = await fetch(healthUrl, {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-          },
-        });
-        
-        if (response.ok) {
-          newResults.healthEndpoint = true;
-          const data = await response.json();
-          console.log('✅ Health endpoint OK:', data);
-        } else {
-          newResults.errorDetails += `Health endpoint retornó status ${response.status}\n`;
-          console.error('❌ Health endpoint falló:', response.status);
-        }
-      } catch (err) {
-        newResults.errorDetails += `Error en health endpoint: ${err}\n`;
-        console.error('❌ Health check error:', err);
-      }
-
-      // Test 3: Auth endpoint
-      console.log('🔍 Test 3: Verificando endpoint de autenticación...');
-      const authUrl = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc/auth/session`;
-      try {
-        const response = await fetch(authUrl, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${publicAnonKey}`,
-          },
-        });
-        
-        // Session endpoint devuelve 200 incluso sin sesión activa
-        if (response.ok) {
-          newResults.authEndpoint = true;
-          const data = await response.json();
-          console.log('✅ Auth endpoint OK:', data);
-        } else {
-          const data = await response.json().catch(() => ({}));
-          newResults.errorDetails += `Auth endpoint retornó status ${response.status}: ${JSON.stringify(data)}\n`;
-          console.error('❌ Auth endpoint falló:', response.status, data);
-        }
-      } catch (err) {
-        newResults.errorDetails += `Error en auth endpoint: ${err}\n`;
-        console.error('❌ Auth endpoint error:', err);
-      }
-
-    } catch (err) {
-      newResults.errorDetails += `Error general: ${err}\n`;
-      console.error('❌ Error general en diagnóstico:', err);
+    } catch (error) {
+      console.error('Error ejecutando test:', error);
+      toast.error('❌ Error ejecutando el test');
     } finally {
-      setResults(newResults);
-      setTesting(false);
+      setIsRunning(false);
     }
   };
 
-  const TestStatus = ({ status }: { status: boolean | null }) => {
-    if (status === null) return <div className="w-5 h-5 border-2 border-gray-400 rounded-full" />;
-    return status ? (
-      <CheckCircle2 className="w-5 h-5 text-green-500" />
-    ) : (
-      <XCircle className="w-5 h-5 text-red-500" />
-    );
+  const showWeekExample = () => {
+    const week1 = getWeekWorkouts(1);
+    console.log('📅 Entrenamientos de la Semana 1:', week1);
+    toast.success(`Semana 1: ${week1.length} entrenamientos (Ver consola F12)`, { duration: 3000 });
+  };
+
+  const showBlockExample = () => {
+    const block3 = getBlockWorkouts(3);
+    console.log('📋 Entrenamientos del Bloque 3:', block3);
+    toast.success(`Bloque 3: ${block3.length} entrenamientos (Ver consola F12)`, { duration: 3000 });
+  };
+
+  const showCompetitions = () => {
+    const competitions = getAllCompetitions();
+    console.log('🏆 Todas las competencias:', competitions);
+    toast.success(`${competitions.length} competencias encontradas (Ver consola F12)`, { duration: 3000 });
   };
 
   return (
-    <Card className="border-blue-500/20">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-blue-600">
-          <Server className="w-5 h-5" />
-          Panel de Diagnóstico
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="bg-blue-950/20 border border-blue-500/30 rounded-lg p-3 text-sm">
-          <p className="text-blue-200 mb-2">
-            Este panel verifica la conectividad con el servidor de Supabase.
-          </p>
-          <div className="text-xs text-blue-300/70 space-y-1">
-            <p><strong>Project ID:</strong> {projectId}</p>
-            <p><strong>Base URL:</strong> https://{projectId}.supabase.co</p>
+    <div className="space-y-6">
+      {/* Instrucciones de uso */}
+      <Alert className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-300">
+        <Info className="h-5 w-5 text-blue-600" />
+        <AlertDescription>
+          <div className="space-y-3">
+            <div>
+              <p className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                <Eye className="h-4 w-4" />
+                ¿Cómo visualizar los entrenamientos del Grupo 2 en la interfaz?
+              </p>
+              <ol className="text-sm text-blue-800 space-y-2 ml-4 list-decimal">
+                <li>
+                  <strong>Importa los entrenamientos:</strong> Ve a la pestaña <strong>"Entrenamientos"</strong> 
+                  y haz clic en el botón <Upload className="h-3 w-3 inline mx-1" /><strong>"Importar Grupo 2"</strong> 
+                  (esquina superior derecha)
+                </li>
+                <li>
+                  <strong>Confirma la importación:</strong> En el diálogo que aparece, 
+                  haz clic en <strong>"Importar Entrenamientos"</strong> y espera a que termine
+                </li>
+                <li>
+                  <strong>Visualiza los bloques:</strong> Desplázate hacia abajo en la misma pestaña 
+                  hasta <strong>"📊 Resumen de Entrenamientos por Bloques"</strong>
+                </li>
+                <li>
+                  <strong>Selecciona Grupo 2:</strong> Haz clic en la pestaña 
+                  <strong>"Grupo 2: Inf B hasta Mayores"</strong>
+                </li>
+                <li>
+                  <strong>Explora:</strong> Verás los 10 bloques con todos sus entrenamientos, 
+                  estadísticas y detalles
+                </li>
+              </ol>
+            </div>
+            <div className="pt-2 border-t border-blue-200">
+              <p className="text-xs text-blue-700">
+                💡 <strong>Este panel de diagnóstico</strong> solo verifica que los datos están correctos en el código. 
+                Para verlos en la interfaz visual, debes importarlos a la base de datos siguiendo los pasos anteriores.
+              </p>
+            </div>
           </div>
-        </div>
+        </AlertDescription>
+      </Alert>
 
-        <Button
-          onClick={runDiagnostics}
-          disabled={testing}
-          className="w-full bg-blue-500 hover:bg-blue-600"
-        >
-          {testing ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Ejecutando diagnóstico...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Ejecutar Diagnóstico
-            </>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Test del Sistema de Entrenamientos - Grupo 2
+          </CardTitle>
+          <CardDescription>
+            Verifica que todos los entrenamientos estén correctamente cargados y validados
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-3">
+            <Button 
+              onClick={runTest} 
+              disabled={isRunning}
+              className="flex items-center gap-2"
+            >
+              <Play className="h-4 w-4" />
+              {isRunning ? 'Ejecutando...' : 'Ejecutar Test Completo'}
+            </Button>
+            
+            <Button 
+              onClick={showWeekExample} 
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              Ver Semana 1
+            </Button>
+            
+            <Button 
+              onClick={showBlockExample} 
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Ver Bloque 3
+            </Button>
+            
+            <Button 
+              onClick={showCompetitions} 
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Trophy className="h-4 w-4" />
+              Ver Competencias
+            </Button>
+          </div>
+
+          {testResults && (
+            <div className="mt-6 space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold text-red-600">
+                      {testResults.total}
+                    </div>
+                    <p className="text-xs text-gray-600">Total Entrenamientos</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold text-red-600">
+                      {testResults.stats.totalBlocks}
+                    </div>
+                    <p className="text-xs text-gray-600">Bloques</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold text-red-600">
+                      {testResults.stats.totalWeeks}
+                    </div>
+                    <p className="text-xs text-gray-600">Semanas</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold text-red-600">
+                      {testResults.stats.competitions.length}
+                    </div>
+                    <p className="text-xs text-gray-600">Competencias</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Estadísticas del Sistema</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Distancia Promedio:</span>
+                    <span className="font-semibold">{testResults.stats.averageDistance}m</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Distancia Total:</span>
+                    <span className="font-semibold">
+                      {(testResults.stats.totalDistance / 1000).toFixed(1)}km
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {testResults.validation.isValid ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-yellow-600" />
+                    )}
+                    Validación de Datos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Entrenamientos sin semana:</span>
+                    <Badge variant={testResults.validation.withoutWeek === 0 ? "default" : "destructive"}>
+                      {testResults.validation.withoutWeek}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Entrenamientos sin distancia:</span>
+                    <Badge variant={testResults.validation.withoutDistance === 0 ? "default" : "destructive"}>
+                      {testResults.validation.withoutDistance}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Entrenamientos sin grupo:</span>
+                    <Badge variant={testResults.validation.withoutGroup === 0 ? "default" : "destructive"}>
+                      {testResults.validation.withoutGroup}
+                    </Badge>
+                  </div>
+                  
+                  {testResults.validation.isValid && (
+                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                      <p className="text-sm text-green-800 font-medium flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        ¡Todos los datos son válidos!
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Competencias Programadas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {testResults.stats.competitions.map((comp: any, idx: number) => (
+                      <div 
+                        key={idx}
+                        className="flex items-start justify-between p-2 bg-gray-50 rounded-md"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Trophy className="h-4 w-4 text-red-600 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium">{comp.name}</p>
+                            <p className="text-xs text-gray-600">{comp.date}</p>
+                          </div>
+                        </div>
+                        <Badge variant="outline">Bloque {comp.block}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                <p className="text-sm text-blue-800">
+                  💡 <strong>Tip:</strong> Abre la consola del navegador (F12) para ver el informe completo con todos los detalles del test.
+                </p>
+              </div>
+            </div>
           )}
-        </Button>
-
-        {/* Resultados */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
-            <Server className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-300 flex-1">Servidor alcanzable</span>
-            <TestStatus status={results.serverReachable} />
-          </div>
-
-          <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
-            <Database className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-300 flex-1">Health endpoint</span>
-            <TestStatus status={results.healthCheck} />
-          </div>
-
-          <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
-            <Shield className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-300 flex-1">Auth endpoint</span>
-            <TestStatus status={results.authEndpoint} />
-          </div>
-        </div>
-
-        {/* Error details */}
-        {results.errorDetails && (
-          <details className="bg-red-900/20 border border-red-500/30 rounded-lg p-3">
-            <summary className="text-sm text-red-200 cursor-pointer font-semibold">
-              Ver detalles de errores
-            </summary>
-            <pre className="text-xs text-red-300 mt-2 overflow-x-auto whitespace-pre-wrap">
-              {results.errorDetails}
-            </pre>
-          </details>
-        )}
-
-        {/* Recomendaciones */}
-        {!testing && results.authEndpoint !== null && (
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-            <p className="text-xs font-semibold text-gray-300 mb-2">
-              💡 Interpretación de resultados:
-            </p>
-            <ul className="text-xs text-gray-400 space-y-1">
-              {results.serverReachable === false && (
-                <li className="text-red-300">❌ No hay conexión a Supabase. Verifica tu internet.</li>
-              )}
-              {results.healthCheck === false && (
-                <li className="text-yellow-300">⚠️ El servidor Edge Function no responde. Verifica que esté desplegado.</li>
-              )}
-              {results.authEndpoint === false && (
-                <li className="text-red-300">❌ El endpoint de autenticación falló. Revisa los logs del servidor.</li>
-              )}
-              {results.authEndpoint === true && (
-                <li className="text-green-300">✅ Todo está funcionando correctamente.</li>
-              )}
-            </ul>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

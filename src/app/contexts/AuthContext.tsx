@@ -16,7 +16,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   signup: (email: string, password: string, name: string, role: 'admin' | 'swimmer' | 'coach', swimmerId?: string) => Promise<{ email: string; password: string }>;
   createUserAccount: (email: string, name: string, role: 'admin' | 'swimmer' | 'coach') => Promise<{ email: string; password: string }>;
-  changePassword: (newPassword: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 // Valor por defecto para evitar errores de contexto undefined
@@ -48,8 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Verificar si hay una sesión guardada al cargar
     checkSession();
     
+    // Verificar sesión cada 5 minutos para mantenerla activa
+    const sessionCheckInterval = setInterval(() => {
+      checkSession();
+    }, 5 * 60 * 1000); // 5 minutos
+    
     return () => {
       setMounted(false);
+      clearInterval(sessionCheckInterval);
     };
   }, []);
 
@@ -58,11 +64,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const session = await authApi.checkSession();
       if (session) {
         setUser(session);
+      } else if (user) {
+        // Si teníamos usuario pero checkSession retorna null, cerrar sesión
+        console.log('⚠️ Sesión expirada o inválida, cerrando sesión...');
+        setUser(null);
       }
     } catch (error) {
-      console.error('Error checking session:', error);
+      // No cerrar sesión en caso de error - checkSession ya maneja esto internamente
+      console.warn('⚠️ Error en checkSession, sesión puede estar temporalmente no disponible:', error);
+      // Mantener el usuario actual si existe
     } finally {
-      setLoading(false);
+      if (loading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -143,9 +157,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const changePassword = async (newPassword: string) => {
+  const changePassword = async (currentPassword: string, newPassword: string) => {
     try {
-      await authApi.changePassword(newPassword);
+      await authApi.changePassword(currentPassword, newPassword);
     } catch (error) {
       console.error('Change password error:', error);
       throw error;

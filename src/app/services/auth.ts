@@ -253,21 +253,63 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function changePassword(newPassword: string): Promise<void> {
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   try {
     console.log('🔑 Cambiando contraseña...');
     
-    // Intentar con Supabase directamente (más confiable)
-    const { error: supabaseError } = await supabase.auth.updateUser({
-      password: newPassword
-    });
+    // Primero intentar obtener el access token de la sesión local
+    let accessToken: string | null = null;
+    const session = getSession();
     
-    if (supabaseError) {
-      console.error('❌ Error de Supabase al cambiar contraseña:', supabaseError);
-      throw new Error(supabaseError.message || 'Error al cambiar contraseña');
+    if (session?.accessToken) {
+      accessToken = session.accessToken;
+      console.log('✅ Token obtenido de sesión local');
     }
     
-    console.log('✅ Contraseña cambiada exitosamente con Supabase');
+    // Si no hay token local o está vacío, intentar obtenerlo de Supabase Auth
+    if (!accessToken || accessToken === '') {
+      console.log('🔄 Token local no disponible, obteniendo de Supabase Auth...');
+      
+      const { data: { session: supabaseSession }, error } = await supabase.auth.getSession();
+      
+      if (error || !supabaseSession) {
+        console.error('❌ No se pudo obtener sesión de Supabase:', error);
+        throw new Error('No hay sesión activa. Por favor, vuelve a iniciar sesión.');
+      }
+      
+      accessToken = supabaseSession.access_token;
+      console.log('✅ Token obtenido de Supabase Auth');
+      
+      // Actualizar la sesión local con el nuevo token
+      if (session) {
+        saveSession({
+          ...session,
+          accessToken: accessToken,
+        });
+        console.log('✅ Sesión local actualizada con nuevo token');
+      }
+    }
+    
+    if (!accessToken) {
+      throw new Error('No hay sesión activa. Por favor, vuelve a iniciar sesión.');
+    }
+
+    // Usar el servidor backend para cambiar la contraseña
+    const response = await fetch(`${API_URL}/auth/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Error al cambiar contraseña' }));
+      throw new Error(errorData.message || errorData.error || 'Error al cambiar contraseña');
+    }
+
+    console.log('✅ Contraseña cambiada exitosamente');
     return;
     
   } catch (error) {
@@ -301,14 +343,28 @@ export async function checkSession(): Promise<User | null> {
       });
       
       if (!response.ok) {
-        // Sesión inválida, limpiar silenciosamente
-        clearSession();
-        return null;
+        // Solo limpiar si es un error 401 (Unauthorized)
+        if (response.status === 401) {
+          console.log('⚠️ Sesión expirada (401), limpiando...');
+          clearSession();
+          return null;
+        }
+        
+        // Para otros errores (500, 503, etc.), mantener la sesión local
+        console.warn('⚠️ Error temporal del servidor, manteniendo sesión local');
+        return {
+          id: session.id,
+          email: session.email,
+          name: session.name,
+          role: session.role,
+          swimmerId: session.swimmerId,
+        };
       }
       
       const { user, session: newSession } = await response.json();
       
       if (!user) {
+        console.log('⚠️ No hay usuario en la respuesta, limpiando sesión');
         clearSession();
         return null;
       }
@@ -321,35 +377,21 @@ export async function checkSession(): Promise<User | null> {
       console.log('✅ Sesión verificada correctamente');
       return user;
     } catch (fetchError) {
-      // Si hay error de red, intentar con Supabase directamente SOLO si tenemos un token
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error || !data.session) {
-          clearSession();
-          return null;
-        }
-        
-        const supaUser = data.session.user;
-        const user: User = {
-          id: supaUser.id,
-          email: supaUser.email!,
-          name: supaUser.user_metadata?.name || supaUser.email!.split('@')[0],
-          role: supaUser.user_metadata?.role || 'swimmer',
-          swimmerId: supaUser.user_metadata?.swimmerId || null,
-        };
-        
-        saveSession({ ...user, accessToken: data.session.access_token });
-        console.log('✅ Sesión restaurada desde Supabase');
-        return user;
-      } catch (supabaseError) {
-        // Error silencioso - no hay sesión
-        clearSession();
-        return null;
-      }
+      // Error de red (timeout, conexión perdida, etc.)
+      console.warn('⚠️ Error de red al verificar sesión, manteniendo sesión local:', fetchError);
+      
+      // Mantener la sesión local en caso de error de red
+      return {
+        id: session.id,
+        email: session.email,
+        name: session.name,
+        role: session.role,
+        swimmerId: session.swimmerId,
+      };
     }
   } catch (error) {
-    // Error silencioso - no hay sesión
+    console.error('❌ Error crítico en checkSession:', error);
+    // Solo en caso de error crítico, limpiar sesión
     clearSession();
     return null;
   }

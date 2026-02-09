@@ -5,12 +5,14 @@ export interface Workout {
   day: string;
   schedule?: "AM" | "PM"; // Horario del entrenamiento (mañana o tarde)
   mesociclo: string;
+  bloque?: string; // Nombre del bloque específico (para Grupo 2)
   distance: number;
   duration: number;
   warmup: string;
   mainSet: string[];
   cooldown: string;
   intensity: string;
+  focus?: string; // Enfoque específico del entrenamiento
   isChallenge?: boolean;
   challengeName?: string;
   deleted?: boolean;

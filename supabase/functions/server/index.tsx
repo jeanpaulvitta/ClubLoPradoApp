@@ -403,16 +403,36 @@ app.post("/make-server-4909a0bc/auth/signout", authMiddleware, async (c) => {
 // Change password
 app.post("/make-server-4909a0bc/auth/change-password", authMiddleware, async (c) => {
   try {
-    const { newPassword } = await c.req.json();
+    const { currentPassword, newPassword } = await c.req.json();
     const userId = c.get('userId');
     
-    const { error } = await supabase.auth.admin.updateUserById(userId, {
+    // Obtener el usuario actual
+    const { data: userData, error: getUserError } = await supabase.auth.admin.getUserById(userId);
+    
+    if (getUserError || !userData?.user) {
+      console.error('❌ Get user error:', getUserError);
+      return c.json({ error: 'Usuario no encontrado' }, 404);
+    }
+    
+    // Verificar la contraseña actual intentando hacer login
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: userData.user.email!,
+      password: currentPassword,
+    });
+    
+    if (signInError) {
+      console.error('❌ Current password verification failed:', signInError);
+      return c.json({ error: 'La contraseña actual es incorrecta' }, 401);
+    }
+    
+    // Cambiar a la nueva contraseña
+    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
       password: newPassword
     });
     
-    if (error) {
-      console.error('❌ Change password error:', error);
-      return c.json({ error: error.message }, 400);
+    if (updateError) {
+      console.error('❌ Change password error:', updateError);
+      return c.json({ error: updateError.message }, 400);
     }
     
     console.log('✅ Password changed for user:', userId);

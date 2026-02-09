@@ -122,23 +122,8 @@ export function ChangePasswordDialog({ open, onOpenChange, user }: ChangePasswor
     setError("");
 
     try {
-      // Primero verificar contraseña actual intentando login
-      const loginResponse = await fetch(`https://${user.email.split('@')[0]}.supabase.co/functions/v1/make-server-4909a0bc/auth/signin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: user.email, password: currentPassword }),
-      });
-      
-      if (!loginResponse.ok) {
-        setError("La contraseña actual es incorrecta");
-        setLoading(false);
-        return;
-      }
-
-      // Cambiar contraseña usando el contexto
-      await changePassword(newPassword);
+      // Cambiar contraseña usando el contexto (que usa el backend correcto)
+      await changePassword(currentPassword, newPassword);
 
       setSuccess(true);
       console.log('✅ Contraseña actualizada exitosamente');
