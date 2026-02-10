@@ -85,6 +85,7 @@ import * as api from "@/app/services/apiWithFallback";
 import { isTeamRecord } from "@/app/utils/recordsUtils";
 import { calculateAge, calculateCategoryFromBirthDate, getTrainingGroupFromBirthDate } from "@/app/utils/swimmerUtils";
 import { Logo } from "./components/Logo";
+import { QuickFix } from "./components/QuickFix";
 
 // Función auxiliar para convertir tiempo MM:SS.SS a segundos
 function timeToSeconds(time: string): number {
@@ -1802,6 +1803,7 @@ export default function App() {
           <MainApp />
         </ProtectedRoute>
         <PWAInstaller />
+        <QuickFix />
         <Toaster />
       </AuthProvider>
     </ErrorBoundary>

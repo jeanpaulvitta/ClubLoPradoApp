@@ -6,6 +6,34 @@ Sistema completo de gestión para el Club Natación Lo Prado con entrenamientos,
 
 ---
 
+## 🆘 ¿LA APP NO FUNCIONA?
+
+### ⚡ TRES FORMAS DE SOLUCIONAR (Elige la más fácil para ti):
+
+#### 1️⃣ Botón de Emergencia (MÁS FÁCIL)
+Si la app carga algo: Busca el **botón rojo pulsante ⚠️** en la esquina inferior derecha → Click → "Arreglo Rápido"
+
+#### 2️⃣ Página de Troubleshooting (VISUAL)
+Abre en tu navegador: **[`troubleshoot.html`](./troubleshoot.html)** → Click en "Arreglo Rápido"
+
+#### 3️⃣ Consola del Navegador (RÁPIDO)
+Presiona F12 → Pestaña "Console" → Pega y presiona Enter:
+```javascript
+navigator.serviceWorker.getRegistrations().then(r=>r.forEach(e=>e.unregister()));caches.keys().then(k=>k.forEach(n=>caches.delete(n)));localStorage.clear();sessionStorage.clear();location.reload();
+```
+
+### 📚 Guías Completas:
+- **[`COMO_SOLUCIONAR.md`](./COMO_SOLUCIONAR.md)** ⭐ Guía completa de todas las soluciones
+- **[`SOLUCION_INMEDIATA.md`](./SOLUCION_INMEDIATA.md)** - Soluciones paso a paso
+- **[`DIAGNOSTICO_RAPIDO.md`](./DIAGNOSTICO_RAPIDO.md)** - Diagnóstico detallado
+
+### 🔧 Comandos de Terminal:
+```bash
+npm run diagnose        # Verificar estado de la app
+```
+
+---
+
 ## 🚨 ¿Ves el error "Servidor no alcanzable"?
 
 ```

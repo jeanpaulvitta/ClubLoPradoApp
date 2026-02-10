@@ -12,7 +12,8 @@
     "check-server": "node check-server.js",
     "deploy": "node deploy-helper.js",
     "verify": "node verify-deployment.js",
-    "help": "node show-help.js"
+    "help": "node show-help.js",
+    "diagnose": "node diagnose.js"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
