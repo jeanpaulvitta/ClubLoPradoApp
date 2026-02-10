@@ -1581,8 +1581,11 @@ app.delete("/make-server-4909a0bc/test-results/:id", async (c) => {
 // Get all workouts
 app.get("/make-server-4909a0bc/workouts", async (c) => {
   try {
-    const workouts = await kv.get("workouts:list");
-    return c.json({ workouts: workouts || [] });
+    const workouts = await kv.get("workouts:list") || [];
+    // Filter out deleted workouts - only return active ones
+    const activeWorkouts = workouts.filter((w: any) => !w.deleted);
+    console.log(`📊 Returning ${activeWorkouts.length} active workouts (${workouts.length} total, ${workouts.length - activeWorkouts.length} deleted)`);
+    return c.json({ workouts: activeWorkouts });
   } catch (error) {
     console.error("Error fetching workouts:", error);
     return c.json({ error: "Failed to fetch workouts", details: String(error) }, 500);
