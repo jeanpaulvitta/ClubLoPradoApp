@@ -5,11 +5,13 @@ import { Button } from "@/app/components/ui/button";
 import { Card, CardContent } from "@/app/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
+import { Alert, AlertDescription } from "@/app/components/ui/alert";
 import { AuthProvider, useAuth } from "@/app/contexts/AuthContext";
 import { ProtectedRoute } from "@/app/components/ProtectedRoute";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { UserMenu } from "@/app/components/UserMenu";
 import { MigrationBanner } from "@/app/components/MigrationBanner";
+import { PWAInstaller } from "@/app/components/PWAInstaller";
 import { AddSwimmerDialog } from "@/app/components/AddSwimmerDialog";
 import { SwimmerListItem } from "@/app/components/SwimmerListItem";
 import { SwimmerDetailsDialog } from "@/app/components/SwimmerDetailsDialog";
@@ -20,9 +22,10 @@ import { WorkoutManager } from "@/app/components/WorkoutManager";
 import { HolidayManager } from "@/app/components/HolidayManager";
 import { TrashManager } from "@/app/components/TrashManager";
 import { MesocicloDialog } from "@/app/components/MesocicloDialog";
-import { GroupBloqueManager } from "@/app/components/GroupBloqueManager";
+
 import { TrainingVolumeBloqueCharts } from "@/app/components/TrainingVolumeBloqueCharts";
 import { TrainingStats } from "@/app/components/TrainingStats";
+import { VolumeTrendSync } from "@/app/components/VolumeTrendSync";
 import { IntegratedCalendar } from "@/app/components/IntegratedCalendar";
 import { TeamRecordsBoard } from "@/app/components/TeamRecordsBoard";
 import { AchievementsBoard } from "@/app/components/AchievementsBoard";
@@ -37,6 +40,8 @@ import { SeasonStructureInfo } from "@/app/components/SeasonStructureInfo";
 import { PhysicalPreparation } from "@/app/components/PhysicalPreparation";
 import { ImportGroup2WorkoutsDialog } from "@/app/components/ImportGroup2WorkoutsDialog";
 import { DiagnosticPanel } from "@/app/components/DiagnosticPanel";
+import { BulkWorkoutEditor } from "@/app/components/BulkWorkoutEditor";
+import { BloqueAssignmentChecker } from "@/app/components/BloqueAssignmentChecker";
 import { generateAllSwimmersPDF } from "@/app/utils/pdfGenerator";
 import { 
   Users, 
@@ -58,7 +63,10 @@ import {
   ChevronUp,
   Info as InfoIcon,
   Activity,
-  Settings
+  Settings,
+  Upload,
+  Info,
+  CheckCircle
 } from "lucide-react";
 import type { 
   Swimmer, 
@@ -166,6 +174,16 @@ function MainApp() {
       
       // Cargar entrenamientos - usar los que vienen de la BD
       console.log('📊 Entrenamientos cargados desde BD:', workoutsData.length);
+      if (workoutsData.length > 0) {
+        console.log('📋 Muestra de entrenamientos:', workoutsData.slice(0, 3).map(w => ({
+          id: w.id,
+          week: w.week,
+          bloque: w.bloque,
+          mesociclo: w.mesociclo,
+          day: w.day,
+          group: w.group
+        })));
+      }
       setWorkouts(workoutsData);
       
       // Cargar días feriados
@@ -453,6 +471,45 @@ function MainApp() {
     }
   };
 
+  const handleBulkUpdateWorkouts = async (workoutIds: string[], updates: Partial<Workout>) => {
+    try {
+      console.log(`🔄 Iniciando actualización masiva de ${workoutIds.length} entrenamientos...`);
+      console.log('📝 Actualizaciones a aplicar:', updates);
+      
+      // Actualizar cada entrenamiento
+      const updatePromises = workoutIds.map(async (id) => {
+        const existingWorkout = workouts.find(w => w.id === id);
+        if (!existingWorkout) {
+          console.warn(`⚠️ Entrenamiento no encontrado: ${id}`);
+          return null;
+        }
+        
+        const updatedData = { 
+          ...existingWorkout, 
+          ...updates 
+        };
+        
+        console.log(`📤 Actualizando entrenamiento ${id}:`, updatedData);
+        return api.updateWorkout(id, updatedData);
+      });
+      
+      const updatedWorkouts = await Promise.all(updatePromises);
+      const validUpdates = updatedWorkouts.filter(w => w !== null);
+      
+      console.log(`✅ ${validUpdates.length} entrenamientos actualizados en el servidor`);
+      
+      // Recargar todos los datos desde el servidor para asegurar consistencia
+      console.log('🔄 Recargando datos desde el servidor...');
+      await loadData();
+      
+      console.log(`✅ Actualización masiva completada y datos recargados`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Error desconocido";
+      alert(`Error en actualización masiva: ${errorMsg}`);
+      console.error("❌ Error en actualización masiva:", err);
+    }
+  };
+
   const handleDeleteWorkout = async (id: string) => {
     try {
       await api.deleteWorkout(id);
@@ -462,6 +519,75 @@ function MainApp() {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
       alert(`Error al eliminar entrenamiento: ${errorMsg}`);
       console.error("❌ Error al eliminar entrenamiento:", err);
+    }
+  };
+
+  // Auto-corrección de bloques basada en semanas
+  const handleAutoFixBloques = async () => {
+    const bloqueDefinitions = [
+      { name: "Bloque 1", weekStart: 1, weekEnd: 6 },
+      { name: "Bloque 2", weekStart: 7, weekEnd: 10 },
+      { name: "Bloque 3", weekStart: 11, weekEnd: 14 },
+      { name: "Bloque 4", weekStart: 15, weekEnd: 20 },
+      { name: "Bloque 5", weekStart: 21, weekEnd: 26 },
+      { name: "Bloque 6", weekStart: 27, weekEnd: 30 },
+      { name: "Bloque 7", weekStart: 31, weekEnd: 34 },
+      { name: "Bloque 8", weekStart: 35, weekEnd: 39 },
+      { name: "Bloque 9", weekStart: 40, weekEnd: 48 },
+      { name: "Bloque 10", weekStart: 49, weekEnd: 52 },
+    ];
+
+    const getExpectedBloque = (week: number): string | null => {
+      const bloque = bloqueDefinitions.find(
+        b => week >= b.weekStart && week <= b.weekEnd
+      );
+      return bloque ? bloque.name : null;
+    };
+
+    const activeWorkouts = workouts.filter(w => !w.deleted);
+    const updatesByBloque: { [key: string]: string[] } = {};
+    let totalUpdates = 0;
+
+    activeWorkouts.forEach(workout => {
+      if (!workout.id) return;
+      
+      const expectedBloque = getExpectedBloque(workout.week);
+      const currentBloque = workout.bloque || workout.mesociclo;
+      
+      if (expectedBloque && currentBloque !== expectedBloque) {
+        if (!updatesByBloque[expectedBloque]) {
+          updatesByBloque[expectedBloque] = [];
+        }
+        updatesByBloque[expectedBloque].push(workout.id);
+        totalUpdates++;
+      }
+    });
+
+    if (totalUpdates === 0) {
+      alert("✅ Todos los bloques están correctamente asignados");
+      return;
+    }
+
+    const confirmed = confirm(
+      `Se corregirán ${totalUpdates} entrenamientos.\n\n` +
+      `¿Deseas continuar con la corrección automática?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      console.log(`🔧 Iniciando corrección automática de ${totalUpdates} entrenamientos...`);
+      
+      for (const [bloque, ids] of Object.entries(updatesByBloque)) {
+        console.log(`📝 Asignando ${bloque} a ${ids.length} entrenamientos...`);
+        await handleBulkUpdateWorkouts(ids, { bloque, mesociclo: bloque });
+      }
+
+      alert(`✅ Se corrigieron ${totalUpdates} entrenamientos exitosamente`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Error desconocido";
+      alert(`Error en corrección automática: ${errorMsg}`);
+      console.error("❌ Error en corrección automática:", err);
     }
   };
 
@@ -637,16 +763,29 @@ function MainApp() {
 
   // Lista de sesiones de entrenamientos (sin desafíos)
   const allSessions = [
-    // Filtrar entrenamientos de sábado (solo quedan Lunes, Miércoles, Viernes)
+    // Mapear todos los entrenamientos (sin filtros restrictivos)
     ...workouts
-      .filter(w => w.day !== "Sábado")
+      .filter(w => !w.deleted) // Solo excluir los explícitamente eliminados
       .map((w, idx) => ({ 
         ...w, 
         type: 'workout' as const,
+        mesociclo: w.bloque || w.mesociclo || "Bloque 1", // Mapear bloque a mesociclo
         // Si week no existe, calcularlo basado en el índice (3 entrenamientos por semana)
         week: w.week || Math.floor(idx / 3) + 1
       }))
   ];
+
+  // Debug: Log para verificar entrenamientos
+  console.log("🏊 Entrenamientos procesados:", {
+    totalWorkouts: workouts.length,
+    afterFilter: allSessions.length,
+    sample: allSessions.slice(0, 3).map(s => ({ 
+      bloque: s.mesociclo, 
+      week: s.week, 
+      day: s.day,
+      distance: s.distance 
+    }))
+  });
 
   // Función para convertir texto de fecha a formato ISO
   const parseDateToISO = (dateText: string, week: number): string => {
@@ -1047,6 +1186,51 @@ function MainApp() {
               </CardContent>
             </Card>
 
+            {/* Alerta de Estado de Entrenamientos */}
+            {workouts.length > 0 && (
+              <Alert className="bg-gradient-to-r from-green-50 to-blue-50 border-green-300">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <AlertDescription>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-green-900 mb-1">
+                        ✅ Sistema de Entrenamientos Activo
+                      </p>
+                      <p className="text-sm text-green-800">
+                        📊 {workouts.length} entrenamientos cargados en la base de datos
+                        {workouts.filter(w => w.bloque || w.mesociclo).length > 0 && (
+                          <span className="ml-2">
+                            • {workouts.filter(w => w.bloque || w.mesociclo).length} con bloque asignado
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {workouts.length === 0 && (
+              <Alert className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300">
+                <Info className="h-5 w-5 text-yellow-600" />
+                <AlertDescription>
+                  <div>
+                    <p className="font-semibold text-yellow-900 mb-1">
+                      ⚠️ No hay entrenamientos en la base de datos
+                    </p>
+                    <p className="text-sm text-yellow-800 mb-3">
+                      Para comenzar, necesitas importar los entrenamientos del Grupo 2 o agregar entrenamientos manualmente.
+                    </p>
+                    {user?.role === "admin" && (
+                      <p className="text-xs text-yellow-700 bg-yellow-100 p-2 rounded border border-yellow-300">
+                        💡 Desplázate hacia abajo para usar el botón "Importar Grupo 2" o agregar entrenamientos manualmente.
+                      </p>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Planificación de Bloques */}
             <div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
@@ -1101,18 +1285,45 @@ function MainApp() {
             {/* Gestión de Entrenamientos (solo para admins/coaches) */}
             {(user?.role === "admin" || user?.role === "coach") && (
               <div className="space-y-4">
-                {/* Botón de importación de entrenamientos Grupo 2 (solo admin) */}
+                {/* Botones de gestión (solo admin) */}
                 {user?.role === "admin" && (
-                  <div className="flex justify-end">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <BloqueAssignmentChecker
+                      workouts={workouts}
+                      onAutoFix={handleAutoFixBloques}
+                    />
+                    <BulkWorkoutEditor 
+                      workouts={workouts}
+                      onBulkUpdate={handleBulkUpdateWorkouts}
+                    />
                     <ImportGroup2WorkoutsDialog onImportComplete={loadData} />
                   </div>
                 )}
 
+                {/* Indicador de Grupo Activo */}
+                <Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
+                  <CardContent className="pt-4">
+                    <p className="text-sm font-semibold text-gray-700">
+                      📝 Gestionando entrenamientos de: <span className="text-red-600">
+                        {selectedSeasonGroup === "group1" ? "Grupo 1 - Menores (E-D-C-A)" : "Grupo 2 - Mayores (Inf B - Juvenil - Mayores)"}
+                      </span>
+                    </p>
+                  </CardContent>
+                </Card>
+
                 <WorkoutManager
-                  workouts={workouts}
+                  key={selectedSeasonGroup}
+                  workouts={workouts.filter(w => {
+                    if (selectedSeasonGroup === "group1") {
+                      return w.group === "1" || w.group === 1 || w.group === "Ambos";
+                    } else {
+                      return w.group === "2" || w.group === 2 || w.group === "Ambos";
+                    }
+                  })}
                   onAddWorkout={handleAddWorkout}
                   onEditWorkout={handleEditWorkout}
                   onDeleteWorkout={handleDeleteWorkout}
+                  defaultGroup={selectedSeasonGroup === "group1" ? 1 : 2}
                 />
 
                 {/* Gestión de Días Feriados */}
@@ -1127,9 +1338,6 @@ function MainApp() {
                 <TrashManager />
               </div>
             )}
-
-            {/* Resumen de Entrenamientos por Grupo y Bloques */}
-            <GroupBloqueManager workouts={workouts} />
 
             {/* Botón para ver estadísticas de entrenamiento */}
             <div className="mb-6">
@@ -1153,6 +1361,11 @@ function MainApp() {
             {/* Estadísticas de Entrenamiento */}
             {showTrainingStats && (
               <div className="space-y-6 animate-in slide-in-from-top duration-300">
+                <div>
+                  <h2 className="text-2xl font-bold mb-4">Sincronización de Tendencia de Volumen</h2>
+                  <VolumeTrendSync workouts={workouts} />
+                </div>
+
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Análisis de Volumen de Entrenamiento por Bloques</h2>
                   <TrainingVolumeBloqueCharts sessions={allSessions} />
@@ -1588,6 +1801,7 @@ export default function App() {
         <ProtectedRoute>
           <MainApp />
         </ProtectedRoute>
+        <PWAInstaller />
         <Toaster />
       </AuthProvider>
     </ErrorBoundary>

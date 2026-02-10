@@ -181,37 +181,37 @@ export function CompetitionResults({
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Trophy className="w-7 h-7 text-yellow-600" />
+          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600" />
             Mis Competencias
           </h2>
-          <p className="text-gray-600 mt-1">
-            Registra tus resultados y mejora tus marcas personales
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">
+            Registra tus resultados y mejora tus marcas
           </p>
         </div>
         <div className="text-right">
-          <div className="text-sm text-gray-600">Competencias</div>
-          <div className="text-2xl font-bold text-yellow-600">{myCompetitions.length}</div>
+          <div className="text-xs text-gray-600">Competencias</div>
+          <div className="text-xl sm:text-2xl font-bold text-yellow-600">{myCompetitions.length}</div>
         </div>
       </div>
 
       {sortedCompetitions.length === 0 ? (
         <Card className="bg-gradient-to-br from-blue-50 to-purple-50">
-          <CardContent className="pt-12 pb-12 text-center">
-            <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+          <CardContent className="pt-8 pb-8 text-center">
+            <Trophy className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3" />
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">
               No hay competencias programadas
             </h3>
-            <p className="text-gray-600">
+            <p className="text-sm text-gray-600">
               Aún no estás registrado en ninguna competencia. Consulta con tu entrenador.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {sortedCompetitions.map((competition) => {
             const participation = swimmerCompetitions.find(
               (sc) => sc.competitionId === competition.id && sc.swimmerId === swimmer.id
@@ -224,42 +224,42 @@ export function CompetitionResults({
             return (
               <Card
                 key={competition.id}
-                className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 hover:shadow-lg transition-shadow"
+                className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 hover:shadow-md transition-shadow"
               >
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Trophy className="w-6 h-6 text-yellow-600" />
-                        <CardTitle>{competition.name}</CardTitle>
-                        <Badge className={getCompetitionTypeColor(competition.type)}>
+                <CardHeader className="pb-3 space-y-2">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 flex-shrink-0" />
+                        <CardTitle className="text-base sm:text-lg truncate">{competition.name}</CardTitle>
+                        <Badge className={`${getCompetitionTypeColor(competition.type)} text-xs`}>
                           {competition.type}
                         </Badge>
                         {hasResults && (
-                          <Badge className="bg-green-100 text-green-800">
+                          <Badge className="bg-green-100 text-green-800 text-xs">
                             <Check className="w-3 h-3 mr-1" />
-                            Resultados Registrados
+                            Registrado
                           </Badge>
                         )}
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-700">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <span>{formatDate(competition.startDate)}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs sm:text-sm text-gray-700">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                          <span className="truncate">{formatDate(competition.startDate)}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-gray-500" />
-                          <span>{competition.location}</span>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                          <span className="truncate">{competition.location}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Waves className="w-4 h-4 text-gray-500" />
+                        <div className="flex items-center gap-1.5">
+                          <Waves className="w-3 h-3 text-gray-500 flex-shrink-0" />
                           <span>Piscina {competition.poolType}</span>
                         </div>
                         {totalEvents > 0 && (
-                          <div className="flex items-center gap-2">
-                            <Award className="w-4 h-4 text-gray-500" />
-                            <span>{completedEvents} de {totalEvents} pruebas completadas</span>
+                          <div className="flex items-center gap-1.5">
+                            <Award className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                            <span>{completedEvents}/{totalEvents} pruebas</span>
                           </div>
                         )}
                       </div>
@@ -273,34 +273,36 @@ export function CompetitionResults({
                     }}>
                       <DialogTrigger asChild>
                         <Button
+                          size="sm"
                           variant={hasResults ? "outline" : "default"}
                           onClick={() => handleOpenDialog(competition)}
+                          className="flex-shrink-0"
                         >
                           {hasResults ? (
                             <>
-                              <TrendingUp className="w-4 h-4 mr-2" />
-                              Actualizar
+                              <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Actualizar</span>
                             </>
                           ) : (
                             <>
-                              <Plus className="w-4 h-4 mr-2" />
-                              Registrar Resultados
+                              <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Registrar</span>
                             </>
                           )}
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                         <DialogHeader>
-                          <DialogTitle className="flex items-center gap-2">
-                            <Trophy className="w-5 h-5 text-yellow-600" />
+                          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                            <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
                             Registrar Resultados - {selectedCompetition?.name}
                           </DialogTitle>
-                          <DialogDescription>
+                          <DialogDescription className="text-xs sm:text-sm">
                             Ingresa tus tiempos y posiciones. Los tiempos se actualizarán automáticamente en tu ficha personal si son mejoras.
                           </DialogDescription>
                         </DialogHeader>
 
-                        <div className="space-y-4 py-4">
+                        <div className="space-y-3 py-4">
                           {selectedCompetition?.events && selectedCompetition.events.length > 0 ? (
                             selectedCompetition.events.map((event) => {
                               const currentResult = eventResults[event] || { time: '', position: '', points: '' };
@@ -308,20 +310,20 @@ export function CompetitionResults({
                               
                               return (
                                 <Card key={event} className={isPB ? "border-2 border-green-400 bg-green-50" : ""}>
-                                  <CardContent className="pt-4 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                      <h4 className="font-semibold text-lg">{event}</h4>
+                                  <CardContent className="pt-3 space-y-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <h4 className="font-semibold text-sm sm:text-base">{event}</h4>
                                       {isPB && (
-                                        <Badge className="bg-green-600 text-white">
+                                        <Badge className="bg-green-600 text-white text-xs">
                                           <Award className="w-3 h-3 mr-1" />
-                                          ¡Mejora Personal!
+                                          ¡Mejora!
                                         </Badge>
                                       )}
                                     </div>
                                     
-                                    <div className="grid grid-cols-3 gap-3">
-                                      <div className="space-y-2">
-                                        <Label htmlFor={`time-${event}`} className="flex items-center gap-1">
+                                    <div className="grid grid-cols-3 gap-2">
+                                      <div className="space-y-1">
+                                        <Label htmlFor={`time-${event}`} className="flex items-center gap-1 text-xs">
                                           <Clock className="w-3 h-3" />
                                           Tiempo
                                         </Label>
@@ -330,28 +332,31 @@ export function CompetitionResults({
                                           placeholder="MM:SS.SS"
                                           value={currentResult.time}
                                           onChange={(e) => handleEventChange(event, 'time', e.target.value)}
+                                          className="h-8 text-sm"
                                         />
                                       </div>
                                       
-                                      <div className="space-y-2">
-                                        <Label htmlFor={`position-${event}`}>Posición</Label>
+                                      <div className="space-y-1">
+                                        <Label htmlFor={`position-${event}`} className="text-xs">Posición</Label>
                                         <Input
                                           id={`position-${event}`}
                                           type="number"
-                                          placeholder="1, 2, 3..."
+                                          placeholder="1, 2..."
                                           value={currentResult.position}
                                           onChange={(e) => handleEventChange(event, 'position', e.target.value)}
+                                          className="h-8 text-sm"
                                         />
                                       </div>
                                       
-                                      <div className="space-y-2">
-                                        <Label htmlFor={`points-${event}`}>Puntos FINA</Label>
+                                      <div className="space-y-1">
+                                        <Label htmlFor={`points-${event}`} className="text-xs">Puntos</Label>
                                         <Input
                                           id={`points-${event}`}
                                           type="number"
                                           placeholder="Opcional"
                                           value={currentResult.points}
                                           onChange={(e) => handleEventChange(event, 'points', e.target.value)}
+                                          className="h-8 text-sm"
                                         />
                                       </div>
                                     </div>
@@ -360,15 +365,16 @@ export function CompetitionResults({
                               );
                             })
                           ) : (
-                            <div className="text-center py-8 text-gray-500">
-                              <Trophy className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                              <p>No hay pruebas definidas para esta competencia.</p>
+                            <div className="text-center py-6 text-gray-500">
+                              <Trophy className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                              <p className="text-sm">No hay pruebas definidas para esta competencia.</p>
                             </div>
                           )}
                         </div>
 
-                        <DialogFooter>
+                        <DialogFooter className="gap-2">
                           <Button
+                            size="sm"
                             variant="outline"
                             onClick={() => {
                               setDialogOpen(false);
@@ -377,9 +383,9 @@ export function CompetitionResults({
                           >
                             Cancelar
                           </Button>
-                          <Button onClick={handleSaveResults}>
-                            <Check className="w-4 h-4 mr-2" />
-                            Guardar Resultados
+                          <Button size="sm" onClick={handleSaveResults}>
+                            <Check className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Guardar</span>
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -388,30 +394,30 @@ export function CompetitionResults({
                 </CardHeader>
 
                 {hasResults && (
-                  <CardContent>
-                    <div className="space-y-2">
-                      <h4 className="font-semibold text-sm text-gray-700 mb-3">Mis Resultados:</h4>
+                  <CardContent className="pt-0">
+                    <div className="space-y-1.5">
+                      <h4 className="font-semibold text-xs sm:text-sm text-gray-700 mb-2">Mis Resultados:</h4>
                       {participation?.events?.filter(e => e.time).map((evt) => (
                         <div
                           key={evt.event}
-                          className="flex items-center justify-between bg-white rounded-lg p-3 border"
+                          className="flex items-center justify-between bg-white rounded-lg p-2 border text-xs sm:text-sm gap-2"
                         >
-                          <div className="flex items-center gap-3">
-                            <Award className="w-4 h-4 text-yellow-600" />
-                            <span className="font-medium">{evt.event}</span>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <Award className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-600 flex-shrink-0" />
+                            <span className="font-medium truncate">{evt.event}</span>
                           </div>
-                          <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <div className="flex items-center gap-1">
                               <Clock className="w-3 h-3 text-gray-500" />
                               <span className="font-semibold text-blue-600">{evt.time}</span>
                             </div>
                             {evt.position && (
-                              <Badge variant="outline">
-                                {evt.position}° lugar
+                              <Badge variant="outline" className="text-xs">
+                                {evt.position}°
                               </Badge>
                             )}
                             {evt.points && (
-                              <Badge variant="outline">
+                              <Badge variant="outline" className="text-xs hidden sm:inline-flex">
                                 {evt.points} pts
                               </Badge>
                             )}

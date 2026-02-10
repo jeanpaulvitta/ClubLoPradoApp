@@ -1,15 +1,61 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { testWorkoutsGroup2System, getWeekWorkouts, getBlockWorkouts, getAllCompetitions } from '../utils/testWorkoutsGroup2';
-import { FileText, Play, CheckCircle, XCircle, TrendingUp, Calendar, Trophy, Info, Eye, Upload } from 'lucide-react';
+import { FileText, Play, CheckCircle, XCircle, TrendingUp, Calendar, Trophy, Info, Eye, Upload, Database, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import * as api from '../services/api';
 
 export function DiagnosticPanel() {
   const [testResults, setTestResults] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [dbStats, setDbStats] = useState<any>(null);
+  const [loadingDb, setLoadingDb] = useState(false);
+
+  // Cargar estadísticas de la BD al montar
+  useEffect(() => {
+    loadDatabaseStats();
+  }, []);
+
+  const loadDatabaseStats = async () => {
+    setLoadingDb(true);
+    try {
+      const workouts = await api.fetchWorkouts();
+      
+      // Calcular estadísticas
+      const total = workouts.length;
+      const byBloque: Record<string, number> = {};
+      const byGroup: Record<string, number> = {};
+      const withBloque = workouts.filter(w => w.bloque || w.mesociclo).length;
+      const withoutBloque = total - withBloque;
+      
+      workouts.forEach(w => {
+        const bloque = w.bloque || w.mesociclo || 'Sin asignar';
+        byBloque[bloque] = (byBloque[bloque] || 0) + 1;
+        
+        const group = w.group ? String(w.group) : 'Sin asignar';
+        byGroup[group] = (byGroup[group] || 0) + 1;
+      });
+      
+      setDbStats({
+        total,
+        withBloque,
+        withoutBloque,
+        byBloque,
+        byGroup,
+        lastUpdate: new Date().toLocaleTimeString('es-CL')
+      });
+      
+      toast.success('Estadísticas de BD actualizadas', { duration: 2000 });
+    } catch (error) {
+      console.error('Error cargando stats de BD:', error);
+      toast.error('Error al cargar estadísticas de BD');
+    } finally {
+      setLoadingDb(false);
+    }
+  };
 
   const runTest = () => {
     setIsRunning(true);
@@ -273,6 +319,106 @@ export function DiagnosticPanel() {
               <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                 <p className="text-sm text-blue-800">
                   💡 <strong>Tip:</strong> Abre la consola del navegador (F12) para ver el informe completo con todos los detalles del test.
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Estadísticas de la Base de Datos
+          </CardTitle>
+          <CardDescription>
+            Revisa las estadísticas actuales de los entrenamientos en la base de datos
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-3">
+            <Button 
+              onClick={loadDatabaseStats} 
+              disabled={loadingDb}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              {loadingDb ? 'Actualizando...' : 'Actualizar Estadísticas'}
+            </Button>
+          </div>
+
+          {dbStats && (
+            <div className="mt-6 space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold text-red-600">
+                      {dbStats.total}
+                    </div>
+                    <p className="text-xs text-gray-600">Total Entrenamientos</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold text-red-600">
+                      {dbStats.withBloque}
+                    </div>
+                    <p className="text-xs text-gray-600">Con Bloque/Mesociclo</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold text-red-600">
+                      {dbStats.withoutBloque}
+                    </div>
+                    <p className="text-xs text-gray-600">Sin Bloque/Mesociclo</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold text-red-600">
+                      {Object.keys(dbStats.byGroup).length}
+                    </div>
+                    <p className="text-xs text-gray-600">Grupos Únicos</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Distribución por Bloque/Mesociclo</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {Object.entries(dbStats.byBloque).map(([bloque, count]) => (
+                    <div key={bloque} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{bloque}:</span>
+                      <span className="font-semibold">{count} entrenamientos</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Distribución por Grupo</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {Object.entries(dbStats.byGroup).map(([group, count]) => (
+                    <div key={group} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{group}:</span>
+                      <span className="font-semibold">{count} entrenamientos</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                <p className="text-sm text-blue-800">
+                  💡 <strong>Última Actualización:</strong> {dbStats.lastUpdate}
                 </p>
               </div>
             </div>

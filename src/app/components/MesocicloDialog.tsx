@@ -59,6 +59,16 @@ export function MesocicloDialog({ mesociclo, sessions, selectedGroup }: Mesocicl
     // Mostrar si la sesión es para "Ambos" o para el grupo específico
     return s.group === "Ambos" || s.group === groupNumber;
   });
+
+  // Debug: Log cuando se abre el dialog
+  if (open && mesocicloSessions.length > 0) {
+    console.log(`📊 ${mesociclo.name}:`, {
+      totalSessions: sessions.length,
+      filtered: mesocicloSessions.length,
+      group: selectedGroup,
+      sampleMesociclos: sessions.slice(0, 5).map(s => s.mesociclo)
+    });
+  }
   
   // Agrupar por semana
   const sessionsByWeek: { [key: number]: SessionType[] } = {};
@@ -106,6 +116,9 @@ export function MesocicloDialog({ mesociclo, sessions, selectedGroup }: Mesocicl
                   )}
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{mesociclo.weeks} semanas</Badge>
+                    <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300">
+                      {mesocicloSessions.length} entrenamientos
+                    </Badge>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                   </div>
                 </div>

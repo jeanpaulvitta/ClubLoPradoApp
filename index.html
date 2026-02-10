@@ -1,15 +1,50 @@
-
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>CLUB LO PRADO APP</title>
-    </head>
-
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
-  
+<!DOCTYPE html>
+<html lang="es-CL">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    
+    <!-- Meta tags esenciales para móviles -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="CNLP" />
+    
+    <!-- Meta tags SEO -->
+    <meta name="description" content="Sistema de gestión de entrenamientos, competencias y nadadores del Club Natación Lo Prado. Haz que todo sea posible." />
+    <meta name="keywords" content="natación, club natación, lo prado, entrenamientos, competencias, nadadores, chile" />
+    <meta name="author" content="Club Natación Lo Prado" />
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#EF4444" />
+    <meta name="msapplication-TileColor" content="#EF4444" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Club Natación Lo Prado" />
+    <meta property="og:description" content="Haz que todo sea posible - Sistema de gestión de entrenamientos y competencias" />
+    <meta property="og:image" content="/logo.svg" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Club Natación Lo Prado" />
+    <meta name="twitter:description" content="Haz que todo sea posible - Sistema de gestión de entrenamientos y competencias" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/logo.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/logo.svg" />
+    
+    <!-- Preload crítico -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    
+    <title>Club Natación Lo Prado - Haz que todo sea posible</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/app/App.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "name": "Club Natación Lo Prado",
+  "short_name": "CNLP",
+  "description": "Sistema de gestión de entrenamientos, competencias y nadadores del Club Natación Lo Prado",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#EF4444",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "productivity", "health"],
+  "lang": "es-CL",
+  "dir": "ltr",
+  "scope": "/",
+  "shortcuts": [
+    {
+      "name": "Entrenamientos",
+      "short_name": "Entrenamientos",
+      "description": "Ver entrenamientos del día",
+      "url": "/?tab=entrenamientos",
+      "icons": [{ "src": "/logo.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Calendario",
+      "short_name": "Calendario",
+      "description": "Ver calendario de entrenamientos",
+      "url": "/?tab=calendario",
+      "icons": [{ "src": "/logo.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Competencias",
+      "short_name": "Competencias",
+      "description": "Ver próximas competencias",
+      "url": "/?tab=competencias",
+      "icons": [{ "src": "/logo.svg", "sizes": "96x96" }]
+    }
+  ]
+}

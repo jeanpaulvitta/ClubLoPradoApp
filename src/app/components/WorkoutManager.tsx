@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "./ui/dialog";
@@ -17,9 +17,10 @@ interface WorkoutManagerProps {
   onAddWorkout: (workout: Omit<Workout, "id">) => void;
   onEditWorkout: (id: string, workout: Omit<Workout, "id">) => void;
   onDeleteWorkout: (id: string) => void;
+  defaultGroup?: 1 | 2; // Nuevo prop opcional para establecer el grupo por defecto
 }
 
-export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDeleteWorkout }: WorkoutManagerProps) {
+export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDeleteWorkout, defaultGroup }: WorkoutManagerProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "coach";
   
@@ -29,21 +30,38 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
   const [selectedDays, setSelectedDays] = useState<string[]>(["Lunes"]);
   const [multiScheduleMode, setMultiScheduleMode] = useState(false);
   const [selectedSchedules, setSelectedSchedules] = useState<("AM" | "PM")[]>(["AM"]);
-  const [groupFilter, setGroupFilter] = useState<"all" | 1 | 2>("all");
+  const [groupFilter, setGroupFilter] = useState<"all" | 1 | 2>(defaultGroup || "all");
   const [formData, setFormData] = useState<Omit<Workout, "id">>({
     week: 1,
     date: "",
     day: "Lunes",
     schedule: "AM",
-    mesociclo: "Base",
+    mesociclo: "Bloque 1",
     distance: 1500,
     duration: 60,
     warmup: "",
     mainSet: [""],
     cooldown: "",
     intensity: "Media",
-    group: "Ambos",
+    group: defaultGroup ? String(defaultGroup) : "Ambos",
   });
+
+  // Sincronizar el filtro de grupo cuando cambie defaultGroup
+  useEffect(() => {
+    if (defaultGroup) {
+      setGroupFilter(defaultGroup);
+    }
+  }, [defaultGroup]);
+
+  // Actualizar el grupo por defecto del formulario cuando cambie defaultGroup
+  useEffect(() => {
+    if (defaultGroup && !editingWorkout) {
+      setFormData(prev => ({
+        ...prev,
+        group: String(defaultGroup)
+      }));
+    }
+  }, [defaultGroup, editingWorkout]);
 
   const availableDays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
   const availableSchedules: ("AM" | "PM")[] = ["AM", "PM"];
@@ -113,14 +131,14 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
       date: "",
       day: "Lunes",
       schedule: "AM",
-      mesociclo: "Base",
+      mesociclo: "Bloque 1",
       distance: 1500,
       duration: 60,
       warmup: "",
       mainSet: [""],
       cooldown: "",
       intensity: "Media",
-      group: "Ambos",
+      group: defaultGroup ? String(defaultGroup) : "Ambos",
     });
     setEditingWorkout(null);
     setMultiDayMode(false);
@@ -262,10 +280,16 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Base">Base</SelectItem>
-                      <SelectItem value="Desarrollo">Desarrollo</SelectItem>
-                      <SelectItem value="Pre-competitivo">Pre-competitivo</SelectItem>
-                      <SelectItem value="Competitivo">Competitivo</SelectItem>
+                      <SelectItem value="Bloque 1">Bloque 1 - Velocidad (9 Feb - 22 Mar)</SelectItem>
+                      <SelectItem value="Bloque 2">Bloque 2 - Fondo (23 Mar - 19 Abr)</SelectItem>
+                      <SelectItem value="Bloque 3">Bloque 3 - Medio Fondo (20 Abr - 17 May)</SelectItem>
+                      <SelectItem value="Bloque 4">Bloque 4 - Competitivo (18 May - 5 Jul)</SelectItem>
+                      <SelectItem value="Bloque 5">Bloque 5 - Internacional (6 Jul - 16 Ago)</SelectItem>
+                      <SelectItem value="Bloque 6">Bloque 6 - Velocidad (17 Ago - 13 Sep)</SelectItem>
+                      <SelectItem value="Bloque 7">Bloque 7 - Fondo (14 Sep - 4 Oct)</SelectItem>
+                      <SelectItem value="Bloque 8">Bloque 8 - Medio Fondo (5 Oct - 8 Nov)</SelectItem>
+                      <SelectItem value="Bloque 9">Bloque 9 - Preparación (9 Nov - 9 Ene)</SelectItem>
+                      <SelectItem value="Bloque 10">Bloque 10 - Pico Competitivo (10 Ene - 7 Feb)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

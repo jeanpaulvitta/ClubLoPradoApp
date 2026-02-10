@@ -188,6 +188,59 @@ app.post("/make-server-4909a0bc/auth/signin", async (c) => {
       password,
     });
     
+    // AUTO-CREATE ADMIN: Si el error es "Invalid login credentials" y el email es admin@loprado.cl,
+    // crear el usuario automáticamente con la contraseña proporcionada
+    if (authError && authError.message.includes('Invalid login credentials') && email === 'admin@loprado.cl') {
+      console.log('👑 AUTO-INIT: Usuario admin no existe, creando automáticamente...');
+      
+      try {
+        // Crear usuario admin con la contraseña proporcionada
+        const { data: createData, error: createError } = await supabase.auth.admin.createUser({
+          email: 'admin@loprado.cl',
+          password: password, // Usar la contraseña que proporcionó el usuario
+          email_confirm: true,
+          user_metadata: {
+            name: 'Administrador',
+            role: 'admin',
+          }
+        });
+        
+        if (createError) {
+          console.error('❌ Error creando usuario admin:', createError);
+          return c.json({ error: 'Error al crear usuario administrador' }, 500);
+        }
+        
+        console.log('✅ Usuario admin creado exitosamente:', createData.user.id);
+        
+        // Intentar login nuevamente
+        const { data: retryAuthData, error: retryAuthError } = await supabaseAuth.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (retryAuthError) {
+          console.error('❌ Error en login después de crear admin:', retryAuthError);
+          return c.json({ error: retryAuthError.message }, 401);
+        }
+        
+        console.log('✅ Admin autenticado exitosamente');
+        
+        return c.json({
+          session: retryAuthData.session,
+          user: {
+            id: retryAuthData.user.id,
+            email: retryAuthData.user.email,
+            name: retryAuthData.user.user_metadata.name,
+            role: retryAuthData.user.user_metadata.role,
+            swimmerId: null,
+          }
+        });
+      } catch (autoCreateError) {
+        console.error('❌ Error en auto-creación de admin:', autoCreateError);
+        return c.json({ error: 'Credenciales inválidas' }, 401);
+      }
+    }
+    
     // If email not confirmed, confirm it and create session using admin API
     if (authError && authError.message.includes('Email not confirmed')) {
       console.log('📧 Email not confirmed, handling with admin API...');
@@ -1520,6 +1573,149 @@ app.delete("/make-server-4909a0bc/test-results/:id", async (c) => {
   } catch (error) {
     console.error("Error deleting test result:", error);
     return c.json({ error: "Failed to delete test result", details: String(error) }, 500);
+  }
+});
+
+// ==================== WORKOUT ROUTES ====================
+
+// Get all workouts
+app.get("/make-server-4909a0bc/workouts", async (c) => {
+  try {
+    const workouts = await kv.get("workouts:list");
+    return c.json({ workouts: workouts || [] });
+  } catch (error) {
+    console.error("Error fetching workouts:", error);
+    return c.json({ error: "Failed to fetch workouts", details: String(error) }, 500);
+  }
+});
+
+// Add a new workout
+app.post("/make-server-4909a0bc/workouts", async (c) => {
+  try {
+    const newWorkout = await c.req.json();
+    console.log("📝 Creating new workout:", newWorkout.title || newWorkout.type);
+    
+    const workouts = await kv.get("workouts:list") || [];
+    console.log("📋 Existing workouts before add:", workouts.length);
+    
+    // Generate unique ID
+    const id = `w${Date.now()}`;
+    const workoutWithId = { 
+      ...newWorkout, 
+      id,
+      createdAt: new Date().toISOString()
+    };
+    
+    console.log("🆕 New workout with ID:", { id, title: workoutWithId.title });
+    
+    // Add to list
+    const updatedWorkouts = [...workouts, workoutWithId];
+    await kv.set("workouts:list", updatedWorkouts);
+    
+    // Verify it was saved
+    const verification = await kv.get("workouts:list") || [];
+    console.log("✅ Workouts after save:", verification.length, "items");
+    
+    return c.json({ workout: workoutWithId }, 201);
+  } catch (error) {
+    console.error("Error adding workout:", error);
+    return c.json({ error: "Failed to add workout", details: String(error) }, 500);
+  }
+});
+
+// Update a workout
+app.put("/make-server-4909a0bc/workouts/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const updatedData = await c.req.json();
+    const workouts = await kv.get("workouts:list") || [];
+    
+    const index = workouts.findIndex((w: any) => w.id === id);
+    if (index === -1) {
+      return c.json({ error: "Workout not found" }, 404);
+    }
+    
+    workouts[index] = { ...updatedData, id, createdAt: workouts[index].createdAt, updatedAt: new Date().toISOString() };
+    await kv.set("workouts:list", workouts);
+    
+    console.log("✅ Workout updated:", id);
+    
+    return c.json({ workout: workouts[index] });
+  } catch (error) {
+    console.error("Error updating workout:", error);
+    return c.json({ error: "Failed to update workout", details: String(error) }, 500);
+  }
+});
+
+// Delete a workout (soft delete - mark as deleted)
+app.delete("/make-server-4909a0bc/workouts/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const workouts = await kv.get("workouts:list") || [];
+    
+    const index = workouts.findIndex((w: any) => w.id === id);
+    if (index === -1) {
+      return c.json({ error: "Workout not found" }, 404);
+    }
+    
+    // Soft delete - mark as deleted instead of removing
+    workouts[index] = { ...workouts[index], deleted: true, deletedAt: new Date().toISOString() };
+    await kv.set("workouts:list", workouts);
+    
+    console.log("✅ Workout soft deleted:", id);
+    
+    return c.json({ message: "Workout deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting workout:", error);
+    return c.json({ error: "Failed to delete workout", details: String(error) }, 500);
+  }
+});
+
+// Restore a deleted workout
+app.post("/make-server-4909a0bc/workouts/:id/restore", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const workouts = await kv.get("workouts:list") || [];
+    
+    const index = workouts.findIndex((w: any) => w.id === id);
+    if (index === -1) {
+      return c.json({ error: "Workout not found" }, 404);
+    }
+    
+    // Remove deleted flag
+    const { deleted, deletedAt, ...workoutData } = workouts[index];
+    workouts[index] = { ...workoutData, restoredAt: new Date().toISOString() };
+    await kv.set("workouts:list", workouts);
+    
+    console.log("✅ Workout restored:", id);
+    
+    return c.json({ workout: workouts[index] });
+  } catch (error) {
+    console.error("Error restoring workout:", error);
+    return c.json({ error: "Failed to restore workout", details: String(error) }, 500);
+  }
+});
+
+// Permanently delete a workout
+app.delete("/make-server-4909a0bc/workouts/:id/permanent", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const workouts = await kv.get("workouts:list") || [];
+    
+    const filteredWorkouts = workouts.filter((w: any) => w.id !== id);
+    
+    if (filteredWorkouts.length === workouts.length) {
+      return c.json({ error: "Workout not found" }, 404);
+    }
+    
+    await kv.set("workouts:list", filteredWorkouts);
+    
+    console.log("✅ Workout permanently deleted:", id);
+    
+    return c.json({ message: "Workout permanently deleted" });
+  } catch (error) {
+    console.error("Error permanently deleting workout:", error);
+    return c.json({ error: "Failed to permanently delete workout", details: String(error) }, 500);
   }
 });
 
