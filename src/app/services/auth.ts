@@ -215,7 +215,11 @@ export async function signup(
     
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Error al registrar usuario');
+      console.error('❌ Server error response:', error);
+      
+      // Extraer el mensaje de error más específico
+      const errorMessage = error.message || error.details?.message || error.error || 'Error al registrar usuario';
+      throw new Error(errorMessage);
     }
     
     const { user } = await response.json();
@@ -226,6 +230,7 @@ export async function signup(
     return { ...user, initialPassword: password };
   } catch (error) {
     console.error('❌ Signup error:', error);
+    console.error('❌ Error details:', error instanceof Error ? error.message : String(error));
     throw error;
   }
 }

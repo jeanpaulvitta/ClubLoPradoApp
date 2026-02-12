@@ -6,16 +6,28 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const app = new Hono();
 
+// Check for required environment variables
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
+  console.error('❌ CRITICAL ERROR: Missing required environment variables!');
+  console.error('   Required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY');
+  console.error('   Configure them in: Supabase Dashboard → Edge Functions → server → Environment Variables');
+  console.error('   See: /SOLUCION_MISSING_AUTHORIZATION_HEADER.md for instructions');
+}
+
 // Initialize Supabase client for auth and storage
 const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+  SUPABASE_URL ?? '',
+  SUPABASE_SERVICE_ROLE_KEY ?? '',
 );
 
 // Create a separate client for auth operations (uses ANON_KEY)
 const supabaseAuth = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+  SUPABASE_URL ?? '',
+  SUPABASE_ANON_KEY ?? '',
 );
 
 // Storage bucket name
@@ -118,7 +130,13 @@ app.post("/make-server-4909a0bc/auth/signup", async (c) => {
     
     if (error) {
       console.error('❌ Signup error:', error);
-      return c.json({ error: error.message }, 400);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
+      return c.json({ 
+        error: error.message || 'Error al registrar usuario',
+        details: error,
+        email: email,
+        role: role
+      }, 400);
     }
     
     console.log('✅ User created:', data.user.id);
@@ -166,8 +184,13 @@ app.post("/make-server-4909a0bc/auth/signup", async (c) => {
       }
     }, 201);
   } catch (error) {
-    console.error('❌ Signup error:', error);
-    return c.json({ error: String(error) }, 500);
+    console.error('❌ Signup error (catch):', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
+    return c.json({ 
+      error: 'Error al registrar usuario',
+      details: String(error),
+      message: error instanceof Error ? error.message : String(error)
+    }, 500);
   }
 });
 
@@ -498,10 +521,39 @@ app.post("/make-server-4909a0bc/auth/change-password", authMiddleware, async (c)
 
 // Health check endpoint
 app.get("/make-server-4909a0bc/health", (c) => {
+  const envCheck = {
+    SUPABASE_URL: !!SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: !!SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_ANON_KEY: !!SUPABASE_ANON_KEY,
+  };
+  
+  const allConfigured = Object.values(envCheck).every(v => v);
+  
+  // Log environment details for debugging
+  console.log('🔍 Health Check - Environment Status:', {
+    SUPABASE_URL_length: SUPABASE_URL ? SUPABASE_URL.length : 0,
+    SUPABASE_URL_preview: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'NOT SET',
+    SUPABASE_SERVICE_ROLE_KEY_length: SUPABASE_SERVICE_ROLE_KEY ? SUPABASE_SERVICE_ROLE_KEY.length : 0,
+    SUPABASE_ANON_KEY_length: SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.length : 0,
+    allConfigured,
+  });
+  
   return c.json({ 
-    status: "ok", 
+    status: allConfigured ? "ok" : "misconfigured", 
     timestamp: new Date().toISOString(),
-    version: "2.0.2" // Updated - removed init-admin endpoint
+    version: "2.0.4",
+    environment: envCheck,
+    message: allConfigured 
+      ? "✅ All environment variables configured correctly" 
+      : "⚠️ Missing environment variables. Configure in Supabase Dashboard → Edge Functions → Environment Variables",
+    debug: {
+      urlSet: !!SUPABASE_URL,
+      urlLength: SUPABASE_URL ? SUPABASE_URL.length : 0,
+      serviceKeySet: !!SUPABASE_SERVICE_ROLE_KEY,
+      serviceKeyLength: SUPABASE_SERVICE_ROLE_KEY ? SUPABASE_SERVICE_ROLE_KEY.length : 0,
+      anonKeySet: !!SUPABASE_ANON_KEY,
+      anonKeyLength: SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.length : 0,
+    }
   });
 });
 

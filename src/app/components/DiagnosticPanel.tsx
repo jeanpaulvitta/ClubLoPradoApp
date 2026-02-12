@@ -7,6 +7,7 @@ import { testWorkoutsGroup2System, getWeekWorkouts, getBlockWorkouts, getAllComp
 import { FileText, Play, CheckCircle, XCircle, TrendingUp, Calendar, Trophy, Info, Eye, Upload, Database, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import * as api from '../services/api';
+import { SupabaseHealthCheck } from './SupabaseHealthCheck';
 
 export function DiagnosticPanel() {
   const [testResults, setTestResults] = useState<any>(null);
@@ -425,6 +426,8 @@ export function DiagnosticPanel() {
           )}
         </CardContent>
       </Card>
+
+      <SupabaseHealthCheck />
     </div>
   );
 }

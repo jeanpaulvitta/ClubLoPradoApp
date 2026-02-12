@@ -1,0 +1,41 @@
+═══════════════════════════════════════════════════════════════
+  🚨 ERROR DETECTADO: "Missing authorization header"
+═══════════════════════════════════════════════════════════════
+
+PROBLEMA:
+  El servidor Edge Function NO está desplegado en Supabase.
+
+SOLUCIÓN RÁPIDA (5 minutos):
+  
+  1. INSTALAR CLI:
+     Mac:     brew install supabase/tap/supabase
+     Windows: https://github.com/supabase/cli/releases/latest
+  
+  2. DESPLEGAR (3 comandos):
+     supabase login
+     supabase link --project-ref vrclozhgaacehojbnpuo
+     supabase functions deploy make-server-4909a0bc
+  
+  3. CONFIGURAR VARIABLES:
+     Dashboard → Functions → make-server-4909a0bc → Secrets
+     Agregar:
+       - SUPABASE_URL
+       - SUPABASE_ANON_KEY
+       - SUPABASE_SERVICE_ROLE_KEY
+
+═══════════════════════════════════════════════════════════════
+
+ARCHIVOS DE AYUDA:
+
+  📄 README_DESPLIEGUE.md           ← Resumen rápido
+  📄 DESPLIEGUE_EN_3_PASOS.md       ← Instrucciones simples
+  📄 CHECKLIST_DESPLIEGUE.md        ← Lista paso a paso
+  📄 INSTRUCCIONES_DESPLIEGUE_URGENTE.md  ← Guía completa
+
+═══════════════════════════════════════════════════════════════
+
+VERIFICAR:
+  Abre tu app → Análisis → Diagnóstico → Ejecutar Tests
+  Deberías ver TODO en verde (✅)
+
+═══════════════════════════════════════════════════════════════

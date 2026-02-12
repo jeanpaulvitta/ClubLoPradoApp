@@ -136,6 +136,37 @@ function MainApp() {
     loadData();
   }, []);
 
+  // Log configuration info on mount
+  useEffect(() => {
+    console.log('📱 Club Natación Lo Prado - Sistema de Gestión');
+    console.log('🔧 Versión: 2.0.4');
+    console.log('');
+    console.log('⚠️ IMPORTANTE: Si ves errores de "Missing authorization header",');
+    console.log('   significa que el servidor NO ESTÁ DESPLEGADO en Supabase.');
+    console.log('');
+    console.log('🚨 SOLUCIÓN RÁPIDA (5 minutos):');
+    console.log('');
+    console.log('   1. Instalar CLI de Supabase:');
+    console.log('      Mac: brew install supabase/tap/supabase');
+    console.log('      Windows: https://github.com/supabase/cli/releases/latest/download/supabase_windows_amd64.msi');
+    console.log('');
+    console.log('   2. Abrir terminal en la carpeta del proyecto y ejecutar:');
+    console.log('      supabase login');
+    console.log('      supabase link --project-ref vrclozhgaacehojbnpuo');
+    console.log('      supabase functions deploy make-server-4909a0bc');
+    console.log('');
+    console.log('   3. Configurar variables en Supabase Dashboard:');
+    console.log('      https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/functions/make-server-4909a0bc');
+    console.log('      → Secrets → Agregar:');
+    console.log('         SUPABASE_URL');
+    console.log('         SUPABASE_ANON_KEY');
+    console.log('         SUPABASE_SERVICE_ROLE_KEY');
+    console.log('');
+    console.log('📄 Ver instrucciones detalladas: /DESPLIEGUE_EN_3_PASOS.md');
+    console.log('🔍 Usa la pestaña "Análisis" → "Diagnóstico" para verificar el estado');
+    console.log('');
+  }, []);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -467,7 +498,21 @@ function MainApp() {
       console.log("✅ Entrenamiento actualizado:", updated);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
-      alert(`Error al actualizar entrenamiento: ${errorMsg}`);
+      
+      // Detectar si es un error de configuración
+      if (errorMsg.includes('Internal server error') || errorMsg.includes('500')) {
+        console.error('🚨 ERROR DE CONFIGURACIÓN DETECTADO');
+        console.error('');
+        console.error('❌ El servidor NO está configurado correctamente.');
+        console.error('📋 Solución: Configura las variables de entorno en Supabase Edge Functions');
+        console.error('📄 Ver: /INSTRUCCIONES_CONFIGURACION_SUPABASE.md');
+        console.error('🔍 Usa la pestaña "Diagnóstico" (solo admins) para verificar');
+        console.error('');
+        alert(`⚠️ Error de Configuración del Servidor\n\nEl servidor backend no está configurado.\n\n📋 Solución:\n1. Ve a la pestaña "Diagnóstico" (admin)\n2. Sigue las instrucciones para configurar Supabase\n\nError técnico: ${errorMsg}`);
+      } else {
+        alert(`Error al actualizar entrenamiento: ${errorMsg}`);
+      }
+      
       console.error("❌ Error al actualizar entrenamiento:", err);
     }
   };

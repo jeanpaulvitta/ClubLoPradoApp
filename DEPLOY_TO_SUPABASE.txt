@@ -1,0 +1,85 @@
+================================================================================
+🚀 INSTRUCCIONES PARA DESPLEGAR EL SERVIDOR A SUPABASE EDGE FUNCTIONS
+================================================================================
+
+⚠️ PROBLEMA DETECTADO:
+El código actual en tu Edge Function es el ejemplo por defecto de Supabase.
+Necesitas reemplazarlo con el código correcto de la aplicación.
+
+================================================================================
+📋 PASOS A SEGUIR:
+================================================================================
+
+PASO 1: Ve a Supabase Dashboard
+https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/functions/make-server-4909a0bc
+
+PASO 2: Haz clic en "Edit function" o el botón de editar código
+
+PASO 3: ELIMINA TODO el código actual (el "Hello {name}!" example)
+
+PASO 4: Necesitas subir 2 archivos:
+
+  📄 Archivo 1: index.tsx
+     → Ubicación local: /supabase/functions/server/index.tsx
+     → Este es el archivo PRINCIPAL del servidor
+  
+  📄 Archivo 2: kv_store.tsx  
+     → Ubicación local: /supabase/functions/server/kv_store.tsx
+     → Este es el módulo de base de datos
+
+================================================================================
+🔧 OPCIÓN A: Usar Supabase CLI (RECOMENDADO)
+================================================================================
+
+Si tienes Supabase CLI instalado:
+
+1. Abre tu terminal
+2. Navega a la carpeta del proyecto
+3. Ejecuta:
+
+   supabase functions deploy make-server-4909a0bc
+
+4. Listo ✅
+
+================================================================================
+🔧 OPCIÓN B: Copiar y pegar en Dashboard
+================================================================================
+
+⚠️ IMPORTANTE: El Dashboard de Supabase solo acepta UN archivo.
+Por lo tanto, necesitas crear un archivo COMBINADO.
+
+Voy a generarlo para ti ahora...
+
+================================================================================
+📄 VER CONTENIDO COMPLETO DE LOS ARCHIVOS
+================================================================================
+
+Los archivos están en:
+  - /supabase/functions/server/index.tsx (2500+ líneas)
+  - /supabase/functions/server/kv_store.tsx (protegido, no modificable)
+
+Como el archivo es muy grande, la mejor opción es usar Supabase CLI.
+
+Si NO tienes Supabase CLI, descárgalo aquí:
+https://supabase.com/docs/guides/cli/getting-started
+
+================================================================================
+✅ DESPUÉS DEL DESPLIEGUE
+================================================================================
+
+1. Ve a Edge Functions → make-server-4909a0bc → Environment Variables
+2. Verifica que las 3 variables estén configuradas con los valores CORRECTOS:
+   
+   SUPABASE_URL = https://vrclozhgaacehojbnpuo.supabase.co
+   SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3M... (el JWT largo)
+   SUPABASE_SERVICE_ROLE_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... (otro JWT largo)
+
+3. Haz clic en "Deploy" o "Redeploy"
+
+4. Espera 30 segundos
+
+5. Ejecuta el "Diagnóstico de Supabase" en tu aplicación
+
+6. ¡TODO DEBERÍA ESTAR EN VERDE! ✅
+
+================================================================================

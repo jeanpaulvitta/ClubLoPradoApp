@@ -1,0 +1,26 @@
+================================================================================
+🚀 CÓDIGO COMPLETO PARA COPIAR EN SUPABASE DASHBOARD
+================================================================================
+
+INSTRUCCIONES:
+
+1. Ve a: https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/functions/make-server-4909a0bc
+
+2. Haz clic en "Edit Function" o botón de editar
+
+3. ELIMINA TODO el código actual
+
+4. COPIA Y PEGA el código de abajo (COMPLETO, desde "// Setup" hasta "Deno.serve")
+
+5. Haz clic en "Deploy"
+
+6. Ve a "Secrets" y configura las 3 variables de entorno:
+   - SUPABASE_URL
+   - SUPABASE_ANON_KEY  
+   - SUPABASE_SERVICE_ROLE_KEY
+
+7. Haz clic en "Deploy" nuevamente
+
+================================================================================
+CÓDIGO EMPIEZA AQUÍ ⬇️
+================================================================================

@@ -1,0 +1,35 @@
+================================================================================
+CÓDIGO DEL SERVIDOR COMPLETO - CLUB NATACIÓN LO PRADO
+================================================================================
+
+INSTRUCCIONES:
+1. Selecciona TODO este archivo (Ctrl+A)
+2. Copia (Ctrl+C)
+3. Ve al dashboard de Supabase
+4. Pega en el editor de la función
+5. Click en "Deploy"
+
+IMPORTANTE: Copia desde la línea que dice "// Setup type definitions"
+hasta el final del archivo (incluye el Deno.serve)
+
+================================================================================
+
+VE AL ARCHIVO: /supabase/functions/make-server-4909a0bc/index.tsx
+
+Ese archivo contiene el código completo del servidor (1,100+ líneas)
+con TODAS las funcionalidades:
+
+✅ Autenticación (signup, signin, session, change-password)
+✅ Nadadores (CRUD completo)
+✅ Asistencia (registros y consultas)
+✅ Competencias (CRUD completo)
+✅ Entrenamientos (CRUD y operaciones masivas)
+✅ Feriados (gestión del calendario)
+✅ Test Controls (crear y gestionar tests)
+✅ Test Results (resultados de nadadores)
+✅ Password Requests (sistema de aprobación)
+✅ Achievements (logros de nadadores)
+✅ Records (récords del equipo)
+✅ Mesociclos (gestión de períodos de entrenamiento)
+
+================================================================================

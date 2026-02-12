@@ -1,0 +1,144 @@
+================================================================================
+🚀 DESPLIEGUE COMPLETO - SOLUCIÓN PASO A PASO
+================================================================================
+
+¡ENTIENDO TU FRUSTRACIÓN! Esto debería funcionar igual que tu proyecto Universidad de Chile.
+
+EL PROBLEMA:
+============
+El código del servidor NO está desplegado en Supabase Edge Functions.
+Por eso ves errores de "Missing authorization header" - el servidor correcto ni siquiera existe.
+
+LA SOLUCIÓN (3 PASOS SIMPLES):
+===============================
+
+================================================================================
+PASO 1: VERIFICAR LA TABLA EN LA BASE DE DATOS (1 MINUTO)
+================================================================================
+
+1. Ve a: https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/editor
+
+2. En el panel izquierdo, busca si existe la tabla: kv_store_000a47d9
+
+3. Si NO EXISTE:
+   - Haz clic en "SQL Editor" (panel izquierdo)
+   - Copia y pega el contenido del archivo /CREATE_TABLE.sql
+   - Haz clic en "Run" (ejecutar)
+   - Espera a que diga "Success"
+
+4. Si YA EXISTE:
+   - ✅ Perfecto, continúa al Paso 2
+
+================================================================================
+PASO 2: COPIAR LAS CLAVES API REALES (1 MINUTO)
+================================================================================
+
+1. Ve a: https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/settings/api
+
+2. COPIA estas 3 claves (los valores LARGOS, NO los hashes):
+
+   📋 URL:
+   https://vrclozhgaacehojbnpuo.supabase.co
+
+   📋 anon public (empieza con eyJhbGci...):
+   [COPIAR TODO EL TEXTO LARGO]
+
+   📋 service_role (empieza con eyJhbGci...):
+   [COPIAR TODO EL TEXTO LARGO - ESTE ES SECRETO, NO LO COMPARTAS]
+
+================================================================================
+PASO 3: DESPLEGAR EL CÓDIGO DEL SERVIDOR (2 MINUTOS)
+================================================================================
+
+OPCIÓN A - CON SUPABASE CLI (MÁS FÁCIL):
+-----------------------------------------
+Si tienes Supabase CLI instalado:
+
+   supabase link --project-ref vrclozhgaacehojbnpuo
+   supabase functions deploy make-server-4909a0bc
+
+   ¡Listo! Salta al Paso 4.
+
+
+OPCIÓN B - MANUAL (SIN CLI):
+-----------------------------
+Ve a la siguiente URL y te prepararé el código completo para copiar y pegar:
+
+https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/functions/make-server-4909a0bc
+
+Desafortunadamente, Supabase Edge Functions requiere archivos separados (index.tsx y kv_store.tsx)
+que no se pueden combinar en uno solo cuando usas imports.
+
+POR LO TANTO, DEBES USAR SUPABASE CLI.
+
+Para instalar CLI:
+- Mac: brew install supabase/tap/supabase
+- Windows: scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+            scoop install supabase
+- Linux: Ver https://supabase.com/docs/guides/cli/getting-started
+
+================================================================================
+PASO 4: CONFIGURAR VARIABLES DE ENTORNO (1 MINUTO)
+================================================================================
+
+1. Ve a: https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/functions/make-server-4909a0bc
+
+2. Busca la pestaña "Secrets" o "Environment Variables"
+
+3. Configura estas 3 variables CON LOS VALORES REALES del Paso 2:
+
+   SUPABASE_URL = https://vrclozhgaacehojbnpuo.supabase.co
+   SUPABASE_ANON_KEY = eyJhbGci... (el JWT largo que copiaste)
+   SUPABASE_SERVICE_ROLE_KEY = eyJhbGci... (el otro JWT largo que copiaste)
+
+4. Guarda
+
+5. Haz clic en "Deploy" o "Redeploy"
+
+================================================================================
+PASO 5: VERIFICAR QUE TODO FUNCIONA (30 SEGUNDOS)
+================================================================================
+
+1. Abre tu aplicación del Club Natación Lo Prado
+
+2. Ve a la pestaña donde está el "Diagnóstico de Supabase"
+
+3. Haz clic en "Ejecutar Tests"
+
+4. Deberías ver:
+   ✅ Conexión API - OK
+   ✅ Edge Function Health - OK
+   ✅ Test de Registro (Signup) - OK
+
+5. ¡LISTO! 🎉
+
+================================================================================
+¿POR QUÉ TU OTRO PROYECTO FUNCIONA Y ESTE NO?
+================================================================================
+
+En tu proyecto Universidad de Chile:
+✅ El código ya estaba desplegado correctamente
+✅ Las variables de entorno estaban configuradas
+✅ Todo funcionaba desde el principio
+
+En este proyecto Lo Prado:
+❌ El código local existe PERO nunca se desplegó a Supabase
+❌ Las variables estaban mal (hashes en vez de valores reales)
+❌ Por eso falló todo
+
+Es como si tuvieras el código fuente perfecto en tu computadora,
+pero la aplicación en internet sigue usando el código de ejemplo.
+
+================================================================================
+¿NECESITAS AYUDA?
+================================================================================
+
+Si después de seguir estos pasos todavía hay errores:
+
+1. Ejecuta el diagnóstico
+2. Copia el mensaje de error EXACTO
+3. Dímelo y lo arreglamos
+
+Pero con estos pasos, TODO debería funcionar perfectamente como tu otro proyecto.
+
+================================================================================
