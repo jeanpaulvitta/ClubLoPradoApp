@@ -246,99 +246,68 @@ export async function logout(): Promise<void> {
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  // Función interna para intentar cambiar contraseña
-  async function attemptChangePassword(token: string, retryCount: number = 0): Promise<void> {
-    console.log(`🔐 Intento ${retryCount + 1} - Enviando solicitud de cambio de contraseña...`);
-    console.log('📡 Request URL:', `${API_URL}/auth/change-password`);
-    console.log('🔑 Token length:', token.length);
-    console.log('🔍 Token preview:', token.substring(0, 50) + '...');
-    
-    const response = await fetch(`${API_URL}/auth/change-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
-
-    console.log('📨 Response status:', response.status);
-    console.log('📨 Response statusText:', response.statusText);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Error al cambiar contraseña' }));
-      const errorMessage = errorData.error || errorData.message || 'Error al cambiar contraseña';
-      
-      console.error('❌ Error del servidor:', errorMessage);
-      console.error('❌ Error data:', JSON.stringify(errorData, null, 2));
-      
-      // Si es error de JWT y es el primer intento, refrescar y reintentar
-      if ((errorMessage.includes('Invalid JWT') || 
-           errorMessage.includes('invalid') || 
-           errorMessage.includes('expired')) && 
-          retryCount === 0) {
-        console.log('🔄 Error de JWT detectado, intentando con token refrescado...');
-        
-        // Forzar refresh de sesión
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError || !refreshData.session) {
-          console.error('❌ No se pudo refrescar sesión:', refreshError);
-          throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
-        }
-        
-        const freshToken = refreshData.session.access_token;
-        console.log('✅ Nuevo token obtenido (length:', freshToken.length, ')');
-        
-        // Actualizar sesión local
-        const localSession = getSession();
-        if (localSession) {
-          saveSession({
-            ...localSession,
-            accessToken: freshToken,
-          });
-        }
-        
-        // Reintentar con el nuevo token
-        return attemptChangePassword(freshToken, 1);
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    console.log('✅ Contraseña cambiada exitosamente');
-  }
-  
   try {
     console.log('🔑 Cambiando contraseña...');
-    console.log('📍 API URL:', API_URL);
+    console.log('🔄 Método: Cliente Supabase directo (sin backend)');
     
-    // PASO 1: Obtener token fresco usando la función helper
-    const accessToken = await getFreshAccessToken();
-    console.log('✅ Token obtenido (length:', accessToken.length, ')');
+    // PASO 1: Verificar que hay una sesión activa
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     
-    // PASO 2: Intentar cambiar contraseña (con retry automático si falla por JWT)
-    await attemptChangePassword(accessToken);
+    if (sessionError || !sessionData.session) {
+      console.error('❌ No hay sesión activa:', sessionError);
+      throw new Error('No hay sesión activa. Por favor, vuelve a iniciar sesión.');
+    }
     
-    // PASO 3: Refrescar sesión después del cambio de contraseña
-    console.log('🔄 Refrescando sesión después del cambio...');
-    const { data: finalRefresh, error: finalRefreshError } = await supabase.auth.refreshSession();
+    const userEmail = sessionData.session.user.email;
+    console.log('✅ Sesión activa para:', userEmail);
     
-    if (finalRefreshError) {
-      console.warn('⚠️ Error al refrescar sesión post-cambio:', finalRefreshError);
-      console.warn('⚠️ La contraseña se cambió pero la sesión podría quedar desactualizada');
-    } else if (finalRefresh?.session) {
+    // PASO 2: Verificar la contraseña actual intentando re-autenticar
+    console.log('🔍 Verificando contraseña actual...');
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: userEmail!,
+      password: currentPassword,
+    });
+    
+    if (verifyError) {
+      console.error('❌ Contraseña actual incorrecta:', verifyError.message);
+      throw new Error('La contraseña actual es incorrecta');
+    }
+    
+    console.log('✅ Contraseña actual verificada');
+    
+    // PASO 3: Cambiar a la nueva contraseña usando el cliente de Supabase
+    console.log('🔄 Actualizando contraseña...');
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+    
+    if (updateError) {
+      console.error('❌ Error al actualizar contraseña:', updateError.message);
+      throw new Error(updateError.message || 'Error al actualizar contraseña');
+    }
+    
+    console.log('✅ Contraseña actualizada exitosamente');
+    
+    // PASO 4: Refrescar la sesión para asegurar que esté actualizada
+    console.log('🔄 Refrescando sesión...');
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    
+    if (refreshError) {
+      console.warn('⚠️ Advertencia: No se pudo refrescar la sesión:', refreshError.message);
+      console.warn('⚠️ La contraseña se cambió, pero deberías cerrar sesión y volver a entrar');
+    } else if (refreshData?.session) {
+      // Actualizar sesión local
       const localSession = getSession();
       if (localSession) {
         saveSession({
           ...localSession,
-          accessToken: finalRefresh.session.access_token,
+          accessToken: refreshData.session.access_token,
         });
-        console.log('✅ Sesión actualizada después del cambio de contraseña');
+        console.log('✅ Sesión actualizada correctamente');
       }
     }
     
-    return;
+    console.log('✅ Cambio de contraseña completado exitosamente');
     
   } catch (error) {
     console.error('❌ Error al cambiar contraseña:', error);
@@ -347,7 +316,10 @@ export async function changePassword(currentPassword: string, newPassword: strin
     
     // Mejorar mensaje de error
     if (error instanceof Error) {
-      throw error;
+      if (error.message.includes('incorrecta')) {
+        throw error; // Ya tiene un mensaje claro
+      }
+      throw new Error(`Error al cambiar contraseña: ${error.message}`);
     }
     
     throw new Error('Error desconocido al cambiar contraseña');
