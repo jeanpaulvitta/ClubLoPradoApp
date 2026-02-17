@@ -1,273 +1,262 @@
-# 🎯 INSTRUCCIONES: Primer Login como Administrador
+# 🔐 Instrucciones para Primer Login
 
-## 🏊‍♂️ Club Natación Lo Prado - Sistema de Gestión
+## 📋 **Información Importante**
 
----
-
-## ✨ **¡BUENAS NOTICIAS!**
-
-El sistema ahora tiene **auto-inicialización inteligente**. No necesitas configurar nada antes de empezar.
+La aplicación del Club Natación Lo Prado ahora tiene un sistema de auto-creación del usuario administrador principal.
 
 ---
 
-## 🚀 **PASO A PASO: Tu Primer Login**
+## 🚀 **Primer Login - Usuario Administrador**
 
-### **1️⃣ Abre la Aplicación**
+### **Credenciales por Defecto:**
 
-Ve a la URL de tu aplicación desplegada (ej: `https://tu-app.vercel.app`)
-
----
-
-### **2️⃣ Verás la Pantalla de Login**
-
-Encontrarás dos pestañas:
-- **Iniciar Sesión** ← Usa esta
-- Solicitar Acceso
-
----
-
-### **3️⃣ Ingresa las Credenciales del Administrador**
-
-En el formulario de "Iniciar Sesión", ingresa:
-
-**📧 Correo Electrónico:**
 ```
-admin@loprado.cl
+Email: admin@loprado.cl
+Contraseña: (la que elijas en el primer intento de login)
 ```
 
-**🔑 Contraseña:**
+### **Flujo de Primer Login:**
+
+1. **Abre la aplicación** en tu navegador
+2. **Ingresa las credenciales:**
+   - Email: `admin@loprado.cl`
+   - Contraseña: Elige una contraseña segura (mínimo 6 caracteres)
+3. **Click en "Iniciar Sesión"**
+
+### **¿Qué sucede automáticamente?**
+
 ```
-La contraseña que TÚ elijas
+1. Sistema detecta que admin@loprado.cl no existe
+           ↓
+2. Llama al backend para crear el usuario automáticamente
+           ↓
+3. Backend crea usuario con:
+   - Email: admin@loprado.cl
+   - Contraseña: la que ingresaste
+   - Rol: admin
+   - Nombre: Administrador
+   - Email confirmado: ✅ Sí
+           ↓
+4. Sistema autentica automáticamente
+           ↓
+5. ✅ Login exitoso - Ya estás dentro!
 ```
 
-**⚠️ IMPORTANTE:** La contraseña que ingreses en este primer login será TU contraseña de administrador. Elige una segura y guárdala bien.
+---
 
-**Ejemplos de buenas contraseñas:**
-- `NatacionLoPrado2026!`
-- `ClubLoPrado@Segura123`
-- `Admin#LoPrado2026`
+## 🔧 **Logs que Verás (Consola del Navegador):**
+
+### **Primer Login Exitoso:**
+
+```console
+🔐 LOGIN - Autenticando: admin@loprado.cl
+🔗 API URL: https://[tu-proyecto].supabase.co/functions/v1/make-server-4909a0bc
+🔄 Intentando autenticación con Supabase...
+❌ Error de autenticación: Invalid login credentials
+👑 Usuario admin no existe, intentando crear automáticamente...
+✅ Usuario admin creado y autenticado
+✅ Login completado: admin@loprado.cl Rol: admin
+```
+
+### **Logins Siguientes:**
+
+```console
+🔐 LOGIN - Autenticando: admin@loprado.cl
+🔗 API URL: https://[tu-proyecto].supabase.co/functions/v1/make-server-4909a0bc
+🔄 Intentando autenticación con Supabase...
+✅ Autenticación exitosa: admin@loprado.cl
+✅ Login completado: admin@loprado.cl Rol: admin
+```
 
 ---
 
-### **4️⃣ Click en "Iniciar Sesión"**
+## ⚠️ **Solución de Problemas**
 
-El sistema automáticamente:
-1. ✅ Detecta que eres el administrador inicial
-2. ✅ Crea tu cuenta con la contraseña que elegiste
-3. ✅ Te autentica automáticamente
-4. ✅ Te da acceso completo al sistema
+### **Problema 1: "Invalid login credentials" después del primer login**
 
----
+**Causa:** Ya creaste el usuario pero la contraseña es incorrecta
 
-### **5️⃣ ¡Ya Estás Dentro!**
+**Solución:**
+```
+1. Intenta recordar la contraseña que usaste la primera vez
+2. Si no la recuerdas:
+   - Opción A: Usar "Olvidé mi contraseña" (si está configurado el email)
+   - Opción B: Contactar al desarrollador para reset manual
+   - Opción C: Eliminar el usuario desde Supabase Dashboard y volver a crear
+```
 
-Verás el panel principal con todas las funcionalidades:
-- 🏊 **Entrenamientos** - Gestiona entrenamientos diarios
-- 💪 **Prep. Física** - Preparación física complementaria
-- 📅 **Calendario** - Calendario integrado de actividades
-- 👥 **Nadadores** - Gestión de nadadores del club
-- 🏆 **Competencias** - Resultados y competencias
-- 📊 **Análisis** - Estadísticas y análisis avanzado
+### **Problema 2: "Invalid JWT" al cambiar contraseña**
 
----
+**Causa:** El token de sesión expiró
 
-## 🔐 **INFORMACIÓN IMPORTANTE DE SEGURIDAD**
+**Solución:**
+```
+1. Cerrar sesión
+2. Volver a iniciar sesión
+3. Intentar cambiar contraseña nuevamente
+```
 
-### **Tu Contraseña es Única**
+**Nota:** El sistema ahora maneja esto automáticamente refrescando el token
 
-- ✅ **NO hay contraseña por defecto** (más seguro)
-- ✅ **TÚ decides** qué contraseña usar
-- ✅ **Guárdala en un lugar seguro** (administrador de contraseñas recomendado)
-- ✅ **Puedes cambiarla después** desde tu perfil
+### **Problema 3: No se puede crear el admin automáticamente**
 
-### **Solo el Administrador Tiene Auto-Init**
+**Logs de error:**
+```
+❌ Error al crear admin: Error al crear usuario admin
+```
 
-- ✅ Solo `admin@loprado.cl` se crea automáticamente
-- ❌ Otros usuarios **NO** se crean automáticamente
-- 📝 Nadadores y coaches deben solicitarse a través del sistema
+**Solución Manual desde Supabase Dashboard:**
 
----
-
-## 🆘 **¿PROBLEMAS AL HACER LOGIN?**
-
-### **Error: "Credenciales inválidas"**
-
-**Posibles causas:**
-
-1. **Ya creaste el admin antes y olvidaste la contraseña**
-   - Solución: Usa la contraseña que estableciste la primera vez
-   - O contacta soporte para resetear
-
-2. **Escribiste mal el email**
-   - Verifica: `admin@loprado.cl` (sin espacios, todo en minúsculas)
-
-3. **Escribiste mal la contraseña**
-   - Si es tu primer login: cualquier contraseña funciona (será tu nueva contraseña)
-   - Si NO es tu primer login: debes usar la contraseña correcta
-
-### **La Página No Carga**
-
-1. Verifica tu conexión a internet
-2. Refresca la página (F5)
-3. Limpia caché del navegador
-4. Prueba en modo incógnito/privado
-
-### **Otros Errores**
-
-- Abre la consola del navegador (F12)
-- Toma captura de pantalla del error
-- Contacta soporte técnico
+1. **Ir a Supabase Dashboard**
+2. **Authentication → Users → Add user**
+3. **Ingresar:**
+   - Email: `admin@loprado.cl`
+   - Password: (elige una contraseña)
+   - Auto-confirm: ✅ Yes
+   - User Metadata (JSON):
+     ```json
+     {
+       "name": "Administrador",
+       "role": "admin"
+     }
+     ```
+4. **Create user**
+5. **Volver a la app e iniciar sesión**
 
 ---
 
-## 📝 **DESPUÉS DEL PRIMER LOGIN**
+## 🔐 **Cambiar Contraseña después del Primer Login**
 
-### **Cambia tu Contraseña (Opcional)**
+### **Pasos:**
 
-Si quieres cambiar tu contraseña después:
+1. **Login exitoso** como admin@loprado.cl
+2. **Click en tu avatar** (esquina superior derecha)
+3. **Click en "Cambiar Contraseña"**
+4. **Ingresar:**
+   - Contraseña actual: (la que usaste en el login)
+   - Nueva contraseña: (tu nueva contraseña segura)
+   - Confirmar nueva contraseña: (repetir)
+5. **Click "Cambiar Contraseña"**
+6. ✅ **Listo!**
 
-1. Click en tu nombre (esquina superior derecha)
-2. "Configuración de Cuenta"
-3. "Cambiar Contraseña"
-4. Ingresa contraseña actual y nueva
-5. ✅ Listo
+### **Logs Esperados:**
 
-### **Crea Cuentas para Nadadores**
-
-Hay dos formas:
-
-**Opción 1: Sistema de Solicitudes** (Recomendado)
-1. El nadador va a "Solicitar Acceso"
-2. Llena sus datos (nombre, email, rol)
-3. Envía la solicitud
-4. Tú como admin recibes la solicitud
-5. La apruebas y el sistema genera una contraseña
-6. Se la envías al nadador
-
-**Opción 2: Creación Directa**
-1. Ve a pestaña "Usuarios" o "Nadadores"
-2. Click "Agregar Nadador"
-3. Llena los datos
-4. El sistema genera una contraseña
-5. Se la envías al nadador
-
-### **Gestiona el Club**
-
-Explora todas las funcionalidades:
-- 📋 Crea entrenamientos para cada grupo
-- 📊 Registra asistencias
-- 🏆 Ingresa resultados de competencias
-- 📈 Visualiza progreso de nadadores
-- 🎯 Establece metas y objetivos
+```console
+🔑 Cambiando contraseña...
+🔄 Obteniendo sesión actual de Supabase...
+✅ Token obtenido de sesión actual
+⏰ Token expira en 3600 segundos
+🔐 Enviando solicitud de cambio de contraseña...
+🔐 Change password request received
+📋 Getting user data for: [user-id]
+✅ User found: admin@loprado.cl
+🔍 Verifying current password...
+✅ Current password verified
+🔄 Updating password...
+✅ Password changed successfully
+✅ Contraseña cambiada exitosamente
+🔄 Refrescando sesión después del cambio...
+✅ Sesión actualizada después del cambio de contraseña
+```
 
 ---
 
-## 💡 **CONSEJOS PRO**
+## 👥 **Crear Otros Usuarios (Entrenadores, Nadadores)**
 
-### **Seguridad**
+### **Desde el Panel de Administración:**
 
-1. **Usa una contraseña fuerte** (mínimo 10 caracteres, mezcla de mayúsculas, minúsculas, números y símbolos)
-2. **Guarda tu contraseña en un administrador de contraseñas** (LastPass, 1Password, Bitwarden)
-3. **No compartas tu contraseña de admin** con nadie
-4. **Cambia la contraseña cada 3-6 meses**
+1. **Login como admin**
+2. **Ir a la pestaña "Nadadores"**
+3. **Click en "Solicitudes de Acceso"**
+4. **Aprobar solicitudes pendientes** o **crear usuarios directamente**
 
-### **Uso del Sistema**
+### **Roles Disponibles:**
 
-1. **Explora sin miedo** - El sistema tiene confirmaciones para acciones importantes
-2. **Usa la papelera de reciclaje** - Puedes recuperar cosas eliminadas
-3. **Revisa el calendario** - Te ayuda a planificar mejor
-4. **Exporta datos regularmente** - Por seguridad, exporta backups
-
-### **Soporte**
-
-1. **Lee la documentación** - Hay guías para cada funcionalidad
-2. **Usa los tooltips** - Pasa el mouse sobre íconos de ayuda (?)
-3. **Consulta los logs** - La consola del navegador muestra información útil
+| Rol | Permisos |
+|-----|----------|
+| **admin** | Acceso completo - Gestión total del sistema |
+| **coach** | Entrenador - Ver y editar entrenamientos, nadadores, competencias |
+| **swimmer** | Nadador - Ver su progreso, entrenamientos, competencias |
 
 ---
 
-## 📞 **CONTACTO Y SOPORTE**
+## 📊 **Verificar Usuario Admin desde Supabase**
 
-Si necesitas ayuda adicional:
+### **Pasos:**
 
-1. **Documentación del Sistema:**
-   - `README.md` - Información general
-   - `FIX_ERROR_LOGIN.md` - Detalles técnicos de login
-   - `FIX_GUARDAR_ENTRENAMIENTOS.md` - Sobre entrenamientos
-
-2. **Logs y Debugging:**
-   - Abre consola del navegador (F12 → Console)
-   - Busca mensajes que empiecen con 🔐, ✅, ❌
-
-3. **Soporte Técnico:**
-   - Reporta issues con capturas de pantalla
-   - Incluye información de la consola
-   - Describe los pasos para reproducir el problema
+1. **Ir a Supabase Dashboard**
+2. **Authentication → Users**
+3. **Buscar:** `admin@loprado.cl`
+4. **Verificar:**
+   - ✅ Email: admin@loprado.cl
+   - ✅ Email confirmed: true
+   - ✅ User Metadata → role: "admin"
+   - ✅ User Metadata → name: "Administrador"
 
 ---
 
-## 🎓 **RECURSOS DE APRENDIZAJE**
+## 🔍 **Debugging - Verificar Configuración**
 
-### **Videos Tutoriales** (Próximamente)
-- Login y configuración inicial
-- Gestión de nadadores
-- Creación de entrenamientos
-- Registro de competencias
+### **Health Check del Backend:**
 
-### **Guías Escritas**
-- ✅ Esta guía: Primer login
-- ✅ Guía de entrenamientos
-- ✅ Guía de nadadores
-- ✅ Guía de competencias
+```
+GET https://[tu-proyecto].supabase.co/functions/v1/make-server-4909a0bc/health
+```
 
-### **FAQ - Preguntas Frecuentes**
+**Respuesta Esperada:**
 
-**P: ¿Puedo tener múltiples administradores?**
-R: Sí, después del primer login puedes crear otros usuarios con rol "admin" o "coach".
-
-**P: ¿Qué pasa si olvido mi contraseña?**
-R: Puedes resetearla desde Supabase Dashboard o contactando soporte.
-
-**P: ¿Los datos están seguros?**
-R: Sí, todo se guarda en Supabase con encriptación y respaldos automáticos.
-
-**P: ¿Puedo acceder desde mi teléfono?**
-R: Sí, la aplicación es responsive y funciona en móviles, tablets y computadores.
-
-**P: ¿Necesito internet?**
-R: Sí, la aplicación requiere conexión a internet para funcionar.
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-02-17T...",
+  "version": "2.0.4",
+  "environment": {
+    "SUPABASE_URL": true,
+    "SUPABASE_SERVICE_ROLE_KEY": true,
+    "SUPABASE_ANON_KEY": true
+  },
+  "message": "✅ All environment variables configured correctly"
+}
+```
 
 ---
 
-## 🏊‍♂️ **¡BIENVENIDO A CLUB NATACIÓN LO PRADO!**
+## 🎯 **Resumen Rápido**
 
-Estás listo para empezar a usar el sistema de gestión más completo para tu club de natación.
+### **Para Primer Login:**
 
-### **Recuerda:**
-- 🔐 Email: `admin@loprado.cl`
-- 🔑 Contraseña: **La que TÚ elijas en el primer login**
-- 🎯 Objetivo: **Gestionar eficientemente tu club**
-- 💪 Lema: **"Haz que todo sea posible"**
+```bash
+1. Abrir app
+2. Email: admin@loprado.cl
+3. Contraseña: (la que quieras)
+4. Click "Iniciar Sesión"
+5. ✅ Usuario creado automáticamente
+6. ✅ Ya estás dentro!
+```
+
+### **Para Logins Siguientes:**
+
+```bash
+1. Abrir app
+2. Email: admin@loprado.cl
+3. Contraseña: (la que elegiste)
+4. Click "Iniciar Sesión"
+5. ✅ Login exitoso
+```
 
 ---
 
-## ✅ **CHECKLIST DE PRIMER USO**
+## 📞 **Soporte**
 
-- [ ] He abierto la aplicación
-- [ ] He ingresado admin@loprado.cl como email
-- [ ] He elegido una contraseña segura
-- [ ] He guardado mi contraseña en un lugar seguro
-- [ ] He hecho login exitosamente
-- [ ] He explorado las diferentes pestañas
-- [ ] He leído esta documentación
-- [ ] Estoy listo para empezar a gestionar mi club
+Si tienes problemas:
+
+1. **Revisar logs de consola** del navegador (F12 → Console)
+2. **Revisar logs del backend** en Supabase Dashboard → Edge Functions → server → Logs
+3. **Verificar que las variables de entorno estén configuradas** (Health check)
+4. **Contactar al desarrollador** con capturas de pantalla de los logs
 
 ---
 
-**Club Natación Lo Prado**  
-**Sistema de Gestión v2.0.3**  
-**"Haz que todo sea posible"** 🏊‍♂️💪🔴
-
-**Última Actualización:** Febrero 2026  
-**Autor:** Sistema de Auto-Inicialización  
-**Soporte:** Documentación integrada
+**Fecha:** 17 de febrero de 2026  
+**Sistema:** Club Natación Lo Prado  
+**Versión:** 2.0.4

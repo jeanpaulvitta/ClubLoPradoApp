@@ -41,6 +41,7 @@ async function authMiddleware(c: any, next: any) {
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     console.error('❌ Auth middleware: No token provided');
+    console.error('   Headers:', JSON.stringify(Object.fromEntries(c.req.header())));
     return c.json({ error: 'Unauthorized - No token provided' }, 401);
   }
 
@@ -51,13 +52,27 @@ async function authMiddleware(c: any, next: any) {
     return c.json({ error: 'Unauthorized - Empty token' }, 401);
   }
   
+  console.log('🔑 Auth middleware: Validating token (length:', token.length, ')');
+  console.log('🔍 Token preview:', token.substring(0, 50) + '...');
+  
   try {
-    // Use supabaseAuth (with ANON_KEY) instead of supabase (SERVICE_ROLE_KEY)
-    // This is more appropriate for validating user tokens
-    const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
+    // Use supabase with SERVICE_ROLE_KEY for getUser
+    // This allows us to validate any JWT token
+    const { data: { user }, error } = await supabase.auth.getUser(token);
     
     if (error) {
       console.error('❌ Auth middleware - Token validation error:', error.message);
+      console.error('   Error details:', JSON.stringify(error, null, 2));
+      console.error('   Token (first 50 chars):', token.substring(0, 50));
+      
+      // Proveer mensajes de error más específicos
+      if (error.message.includes('expired')) {
+        return c.json({ error: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.' }, 401);
+      }
+      if (error.message.includes('invalid') || error.message.includes('malformed')) {
+        return c.json({ error: 'Token inválido. Por favor, vuelve a iniciar sesión.' }, 401);
+      }
+      
       return c.json({ error: `Unauthorized - ${error.message}` }, 401);
     }
     
@@ -66,13 +81,16 @@ async function authMiddleware(c: any, next: any) {
       return c.json({ error: 'Unauthorized - Invalid token' }, 401);
     }
     
+    console.log('✅ Auth middleware: User validated:', user.email, '(ID:', user.id, ')');
+    
     // Store user in context
     c.set('user', user);
     c.set('userId', user.id);
     
     await next();
   } catch (error) {
-    console.error('❌ Auth middleware error:', error);
+    console.error('❌ Auth middleware unexpected error:', error);
+    console.error('   Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return c.json({ error: 'Unauthorized - Auth error' }, 401);
   }
 }
@@ -693,6 +711,73 @@ app.post("/make-server-4909a0bc/util/set-admin-role", async (c) => {
     });
   } catch (error) {
     console.error('❌ Error in set-admin-role utility:', error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
+
+// Utility endpoint to create admin user if it doesn't exist
+app.post("/make-server-4909a0bc/util/create-admin", async (c) => {
+  try {
+    const { email, password } = await c.req.json();
+    
+    if (!email || !password) {
+      return c.json({ error: 'Email and password are required' }, 400);
+    }
+    
+    console.log(`🔧 UTILITY - Creating admin user: ${email}`);
+    
+    // Verificar si el usuario ya existe
+    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+    
+    if (listError) {
+      console.error('❌ Error listing users:', listError);
+      return c.json({ error: listError.message }, 500);
+    }
+    
+    const existingUser = users?.find(u => u.email === email);
+    
+    if (existingUser) {
+      console.log(`⚠️ User already exists: ${email}`);
+      return c.json({ 
+        success: false,
+        error: 'User already exists',
+        user: {
+          id: existingUser.id,
+          email: existingUser.email,
+          role: existingUser.user_metadata?.role || 'admin'
+        }
+      }, 400);
+    }
+    
+    // Crear el usuario admin
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        name: 'Administrador',
+        role: 'admin',
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Error creating admin user:', error);
+      return c.json({ error: error.message }, 500);
+    }
+    
+    console.log(`✅ Admin user created: ${email}`);
+    
+    return c.json({ 
+      success: true,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.user_metadata.name,
+        role: data.user.user_metadata.role,
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error in create-admin utility:', error);
     return c.json({ error: String(error) }, 500);
   }
 });

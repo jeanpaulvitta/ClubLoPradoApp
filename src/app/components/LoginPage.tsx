@@ -6,8 +6,6 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Waves, Lock, Mail, User, Shield, AlertCircle } from 'lucide-react';
-// Logo para Vercel deployment
-const logo = "/logo.svg";
 import { createPasswordRequest } from './PasswordRequestsManager';
 import { toast } from 'sonner';
 
@@ -64,12 +62,12 @@ export function LoginPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-white rounded-full p-4 shadow-2xl ring-4 ring-red-500/30">
-              <img
-                src={logo}
-                alt="Club Natación Lo Prado"
-                className="w-20 h-20 object-contain"
-              />
+            {/* Logo circular con gradiente rojo y animación */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-red-700 rounded-full blur-xl opacity-60 group-hover:opacity-80 transition-opacity animate-pulse"></div>
+              <div className="relative bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-full p-6 shadow-2xl ring-4 ring-red-500/40 hover:ring-red-400/60 transition-all duration-300 transform group-hover:scale-105">
+                <Waves className="w-16 h-16 text-white drop-shadow-lg" strokeWidth={2.5} />
+              </div>
             </div>
           </div>
           <h1 className="text-4xl font-bold text-white mb-2">
@@ -157,18 +155,7 @@ export function LoginPage() {
                     {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
                   </Button>
 
-                  {/* Nota informativa */}
-                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                      <div className="text-xs text-blue-800">
-                        <strong className="block mb-1">💡 ¿No tienes acceso?</strong>
-                        <p className="mt-1">
-                          Si eres nuevo, usa la pestaña <strong>"Solicitar Acceso"</strong> para que el administrador te cree una cuenta.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Nota informativa eliminada */}
                 </form>
               </TabsContent>
 

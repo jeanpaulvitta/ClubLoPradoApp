@@ -4,150 +4,138 @@ import type { User } from '../contexts/AuthContext';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;
 
+// ==================== HELPER: GET FRESH TOKEN ====================
+
+/**
+ * Obtiene un token de acceso fresco, refrescándolo automáticamente si es necesario
+ */
+async function getFreshAccessToken(): Promise<string> {
+  console.log('🔑 Obteniendo token de acceso fresco...');
+  
+  // Obtener sesión actual
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  
+  if (sessionError || !sessionData.session) {
+    console.error('❌ Error obteniendo sesión:', sessionError);
+    throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
+  }
+  
+  let accessToken = sessionData.session.access_token;
+  const expiresAt = sessionData.session.expires_at;
+  const now = Math.floor(Date.now() / 1000);
+  const timeUntilExpiry = expiresAt ? expiresAt - now : 0;
+  
+  console.log(`⏰ Token expira en ${timeUntilExpiry} segundos`);
+  
+  // Si expira en menos de 5 minutos o ya expiró, refrescar
+  if (timeUntilExpiry < 300) {
+    console.log('🔄 Token próximo a expirar o expirado, refrescando...');
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    
+    if (refreshError) {
+      console.error('❌ Error al refrescar token:', refreshError);
+      throw new Error('No se pudo refrescar la sesión. Por favor, vuelve a iniciar sesión.');
+    }
+    
+    if (refreshData.session) {
+      accessToken = refreshData.session.access_token;
+      console.log('✅ Token refrescado exitosamente');
+      
+      // Actualizar sesión local
+      const localSession = getSession();
+      if (localSession) {
+        saveSession({
+          ...localSession,
+          accessToken: accessToken,
+        });
+      }
+    }
+  }
+  
+  if (!accessToken || accessToken.trim() === '') {
+    throw new Error('No se pudo obtener un token válido. Por favor, vuelve a iniciar sesión.');
+  }
+  
+  return accessToken;
+}
+
 // ==================== AUTHENTICATION ====================
 
 export async function login(email: string, password: string): Promise<User> {
   try {
-    console.log('🔐 LOGIN - Autenticando con Supabase Auth:', email);
+    console.log('🔐 LOGIN - Autenticando:', email);
     console.log('🔗 API URL:', API_URL);
     
-    // Primero intentar con Supabase Auth directamente
-    console.log('🔄 Intentando autenticación directa con Supabase...');
+    // PASO 1: Intentar login con Supabase Auth
+    console.log('🔄 Intentando autenticación con Supabase...');
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
+    // PASO 2: Si hay error y es el admin, crear usuario automáticamente
     if (error) {
-      console.error('❌ Supabase Auth error:', error);
+      console.error('❌ Error de autenticación:', error.message);
       
-      // Si el error es de email no confirmado, intentar con el backend para confirmar
-      if (error.message.includes('Email not confirmed')) {
-        console.log('📧 Email no confirmado, confirmando automáticamente...');
+      // Auto-crear admin si es admin@loprado.cl y no existe
+      if (error.message.includes('Invalid login credentials') && email === 'admin@loprado.cl') {
+        console.log('👑 Usuario admin no existe, intentando crear automáticamente...');
         
         try {
-          // Llamar al utilitario para confirmar emails
-          const confirmResponse = await fetch(`${API_URL}/util/confirm-emails`, {
+          // Llamar al backend para crear admin (el backend maneja esto)
+          const createResponse = await fetch(`${API_URL}/auth/signin`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
+            body: JSON.stringify({ email, password }),
           });
           
-          if (confirmResponse.ok) {
-            console.log('✅ Email confirmado, reintentando login...');
-            
-            // Si es admin@loprado.cl, actualizar rol a admin
-            if (email === 'admin@loprado.cl') {
-              console.log('👑 Actualizando rol a administrador...');
-              try {
-                const roleResponse = await fetch(`${API_URL}/util/set-admin-role`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ email }),
-                });
-                
-                if (roleResponse.ok) {
-                  console.log('✅ Rol actualizado a administrador');
-                } else {
-                  console.warn('⚠️ No se pudo actualizar el rol');
-                }
-              } catch (roleError) {
-                console.warn('⚠️ Error al actualizar rol:', roleError);
-              }
-            }
-            
-            // Reintentar el login
-            const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
-              email,
-              password,
-            });
-            
-            if (retryError) {
-              console.error('❌ Error en reintento:', retryError);
-              throw new Error(retryError.message);
-            }
-            
-            if (!retryData.user || !retryData.session) {
-              throw new Error('Error de autenticación - no se recibió usuario o sesión');
-            }
-            
-            // Obtener swimmerId si es nadador
-            let swimmerId = null;
-            if (retryData.user.user_metadata.role === 'swimmer') {
-              try {
-                const swimmers = await fetchSwimmers();
-                const swimmer = swimmers.find(s => s.userId === retryData.user.id || s.email === email);
-                swimmerId = swimmer?.id || null;
-              } catch (err) {
-                console.warn('⚠️ No se pudo obtener perfil de nadador:', err);
-              }
-            }
-            
-            // Guardar sesión en localStorage
-            if (retryData.session) {
-              localStorage.setItem('supabase.auth.token', JSON.stringify(retryData.session));
-              
-              // Guardar también en el formato que usa nuestra app
-              saveSession({
-                id: retryData.user.id,
-                email: retryData.user.email!,
-                name: retryData.user.user_metadata.name || email,
-                role: retryData.user.user_metadata.role || 'admin',
-                swimmerId: swimmerId,
-                accessToken: retryData.session.access_token,
-              });
-            }
-            
-            const user: User = {
-              id: retryData.user.id,
-              email: retryData.user.email!,
-              name: retryData.user.user_metadata.name || email,
-              role: retryData.user.user_metadata.role || 'admin', // Default a admin para admin@loprado.cl
-              swimmerId,
-            };
-            
-            console.log('✅ Login exitoso (después de confirmar email):', user.email);
-            return user;
+          if (!createResponse.ok) {
+            const errorData = await createResponse.json();
+            throw new Error(errorData.error || 'Error al crear usuario admin');
           }
-        } catch (confirmError) {
-          console.error('❌ Error al confirmar email:', confirmError);
+          
+          const { session, user: createdUser } = await createResponse.json();
+          
+          console.log('✅ Usuario admin creado y autenticado');
+          
+          // Guardar sesión
+          if (session?.access_token) {
+            localStorage.setItem('supabase.auth.token', JSON.stringify(session));
+            
+            saveSession({
+              id: createdUser.id,
+              email: createdUser.email,
+              name: createdUser.name,
+              role: createdUser.role,
+              swimmerId: createdUser.swimmerId,
+              accessToken: session.access_token,
+            });
+          }
+          
+          return createdUser;
+        } catch (createError) {
+          console.error('❌ Error al crear admin:', createError);
+          throw new Error('Credenciales inválidas. Verifica tu correo y contraseña.');
         }
+      }
+      
+      // Para otros errores, lanzar mensaje claro
+      if (error.message.includes('Invalid login credentials')) {
+        throw new Error('Credenciales inválidas. Verifica tu correo y contraseña.');
       }
       
       throw new Error(error.message);
     }
     
+    // PASO 3: Login exitoso, procesar sesión
     if (!data.user || !data.session) {
       throw new Error('Error de autenticación - no se recibió usuario o sesión');
     }
     
-    // Si es admin@loprado.cl y no tiene rol admin, actualizar
-    if (email === 'admin@loprado.cl' && data.user.user_metadata.role !== 'admin') {
-      console.log('👑 Detectado admin@loprado.cl sin rol admin, actualizando...');
-      try {
-        const roleResponse = await fetch(`${API_URL}/util/set-admin-role`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email }),
-        });
-        
-        if (roleResponse.ok) {
-          console.log('✅ Rol actualizado a administrador');
-          // Actualizar el rol localmente
-          data.user.user_metadata.role = 'admin';
-        } else {
-          console.warn('⚠️ No se pudo actualizar el rol');
-        }
-      } catch (roleError) {
-        console.warn('⚠️ Error al actualizar rol:', roleError);
-      }
-    }
+    console.log('✅ Autenticación exitosa:', data.user.email);
     
     // Obtener swimmerId si es nadador
     let swimmerId = null;
@@ -162,35 +150,34 @@ export async function login(email: string, password: string): Promise<User> {
     }
     
     // Guardar sesión en localStorage
-    if (data.session) {
-      localStorage.setItem('supabase.auth.token', JSON.stringify(data.session));
-      
-      // Guardar también en el formato que usa nuestra app
-      saveSession({
-        id: data.user.id,
-        email: data.user.email!,
-        name: data.user.user_metadata.name || email,
-        role: data.user.user_metadata.role || (email === 'admin@loprado.cl' ? 'admin' : 'swimmer'),
-        swimmerId: swimmerId,
-        accessToken: data.session.access_token,
-      });
-    }
+    localStorage.setItem('supabase.auth.token', JSON.stringify(data.session));
+    
+    // Guardar en formato de nuestra app
+    const userRole = data.user.user_metadata.role || (email === 'admin@loprado.cl' ? 'admin' : 'swimmer');
+    
+    saveSession({
+      id: data.user.id,
+      email: data.user.email!,
+      name: data.user.user_metadata.name || email.split('@')[0],
+      role: userRole,
+      swimmerId: swimmerId,
+      accessToken: data.session.access_token,
+    });
     
     const user: User = {
       id: data.user.id,
       email: data.user.email!,
-      name: data.user.user_metadata.name || email,
-      role: data.user.user_metadata.role || (email === 'admin@loprado.cl' ? 'admin' : 'swimmer'),
+      name: data.user.user_metadata.name || email.split('@')[0],
+      role: userRole,
       swimmerId,
     };
     
-    console.log('✅ Login exitoso (directo con Supabase):', user.email);
+    console.log('✅ Login completado:', user.email, 'Rol:', user.role);
     return user;
     
   } catch (error) {
-    console.error('❌ Login error técnico:', error);
+    console.error('❌ Login error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido al iniciar sesión';
-    console.log('ℹ️ Intento de login sin éxito:', errorMessage);
     throw new Error(errorMessage);
   }
 }
@@ -259,77 +246,104 @@ export async function logout(): Promise<void> {
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  try {
-    console.log('🔑 Cambiando contraseña...');
+  // Función interna para intentar cambiar contraseña
+  async function attemptChangePassword(token: string, retryCount: number = 0): Promise<void> {
+    console.log(`🔐 Intento ${retryCount + 1} - Enviando solicitud de cambio de contraseña...`);
+    console.log('📡 Request URL:', `${API_URL}/auth/change-password`);
+    console.log('🔑 Token length:', token.length);
+    console.log('🔍 Token preview:', token.substring(0, 50) + '...');
     
-    // Intentar obtener una sesión válida refrescada
-    let accessToken: string | null = null;
-    
-    // Primero intentar refrescar la sesión con Supabase
-    console.log('🔄 Refrescando sesión de Supabase...');
-    const { data: { session: supabaseSession }, error: refreshError } = await supabase.auth.refreshSession();
-    
-    if (refreshError) {
-      console.error('⚠️ No se pudo refrescar sesión:', refreshError.message);
-      
-      // Si falla el refresh, intentar obtener la sesión actual
-      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !currentSession) {
-        console.error('❌ No hay sesión válida:', sessionError);
-        throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
-      }
-      
-      accessToken = currentSession.access_token;
-      console.log('✅ Token obtenido de sesión actual');
-    } else if (supabaseSession) {
-      accessToken = supabaseSession.access_token;
-      console.log('✅ Token obtenido de sesión refrescada');
-      
-      // Actualizar la sesión local con el token refrescado
-      const localSession = getSession();
-      if (localSession) {
-        saveSession({
-          ...localSession,
-          accessToken: accessToken,
-        });
-        console.log('✅ Sesión local actualizada con token refrescado');
-      }
-    }
-    
-    if (!accessToken || accessToken.trim() === '') {
-      throw new Error('No se pudo obtener un token válido. Por favor, vuelve a iniciar sesión.');
-    }
-
-    console.log('🔐 Enviando solicitud de cambio de contraseña...');
-    
-    // Usar el servidor backend para cambiar la contraseña
     const response = await fetch(`${API_URL}/auth/change-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ currentPassword, newPassword }),
     });
+
+    console.log('📨 Response status:', response.status);
+    console.log('📨 Response statusText:', response.statusText);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Error al cambiar contraseña' }));
       const errorMessage = errorData.error || errorData.message || 'Error al cambiar contraseña';
       
-      // Si el error es de token inválido, dar un mensaje más claro
-      if (errorMessage.includes('Invalid JWT') || errorMessage.includes('Unauthorized')) {
-        throw new Error('Tu sesión ha expirado. Por favor, cierra sesión y vuelve a iniciar sesión.');
+      console.error('❌ Error del servidor:', errorMessage);
+      console.error('❌ Error data:', JSON.stringify(errorData, null, 2));
+      
+      // Si es error de JWT y es el primer intento, refrescar y reintentar
+      if ((errorMessage.includes('Invalid JWT') || 
+           errorMessage.includes('invalid') || 
+           errorMessage.includes('expired')) && 
+          retryCount === 0) {
+        console.log('🔄 Error de JWT detectado, intentando con token refrescado...');
+        
+        // Forzar refresh de sesión
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData.session) {
+          console.error('❌ No se pudo refrescar sesión:', refreshError);
+          throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
+        }
+        
+        const freshToken = refreshData.session.access_token;
+        console.log('✅ Nuevo token obtenido (length:', freshToken.length, ')');
+        
+        // Actualizar sesión local
+        const localSession = getSession();
+        if (localSession) {
+          saveSession({
+            ...localSession,
+            accessToken: freshToken,
+          });
+        }
+        
+        // Reintentar con el nuevo token
+        return attemptChangePassword(freshToken, 1);
       }
       
       throw new Error(errorMessage);
     }
 
     console.log('✅ Contraseña cambiada exitosamente');
+  }
+  
+  try {
+    console.log('🔑 Cambiando contraseña...');
+    console.log('📍 API URL:', API_URL);
+    
+    // PASO 1: Obtener token fresco usando la función helper
+    const accessToken = await getFreshAccessToken();
+    console.log('✅ Token obtenido (length:', accessToken.length, ')');
+    
+    // PASO 2: Intentar cambiar contraseña (con retry automático si falla por JWT)
+    await attemptChangePassword(accessToken);
+    
+    // PASO 3: Refrescar sesión después del cambio de contraseña
+    console.log('🔄 Refrescando sesión después del cambio...');
+    const { data: finalRefresh, error: finalRefreshError } = await supabase.auth.refreshSession();
+    
+    if (finalRefreshError) {
+      console.warn('⚠️ Error al refrescar sesión post-cambio:', finalRefreshError);
+      console.warn('⚠️ La contraseña se cambió pero la sesión podría quedar desactualizada');
+    } else if (finalRefresh?.session) {
+      const localSession = getSession();
+      if (localSession) {
+        saveSession({
+          ...localSession,
+          accessToken: finalRefresh.session.access_token,
+        });
+        console.log('✅ Sesión actualizada después del cambio de contraseña');
+      }
+    }
+    
     return;
     
   } catch (error) {
     console.error('❌ Error al cambiar contraseña:', error);
+    console.error('❌ Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     
     // Mejorar mensaje de error
     if (error instanceof Error) {
