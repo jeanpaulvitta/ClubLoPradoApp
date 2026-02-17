@@ -22,6 +22,7 @@ import { WorkoutManager } from "@/app/components/WorkoutManager";
 import { HolidayManager } from "@/app/components/HolidayManager";
 import { TrashManager } from "@/app/components/TrashManager";
 import { MesocicloDialog } from "@/app/components/MesocicloDialog";
+import { DataMigrationPanel } from "@/app/components/DataMigrationPanel";
 
 import { TrainingVolumeBloqueCharts } from "@/app/components/TrainingVolumeBloqueCharts";
 import { TrainingStats } from "@/app/components/TrainingStats";
@@ -64,7 +65,8 @@ import {
   Activity,
   Upload,
   Info,
-  CheckCircle
+  CheckCircle,
+  Database
 } from "lucide-react";
 import type { 
   Swimmer, 
@@ -1133,7 +1135,7 @@ function MainApp() {
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* NAVEGACIÓN PRINCIPAL POR SECCIONES */}
         <Tabs value={activeSection} onValueChange={setActiveSection} className="w-full">
-          <TabsList className={`grid w-full ${user?.role === "admin" ? "grid-cols-5 sm:grid-cols-11" : "grid-cols-5 sm:grid-cols-9"} mb-4 sm:mb-8 h-auto gap-1`}>
+          <TabsList className={`grid w-full ${user?.role === "admin" ? "grid-cols-5 sm:grid-cols-12" : "grid-cols-5 sm:grid-cols-9"} mb-4 sm:mb-8 h-auto gap-1`}>
             <TabsTrigger value="entrenamientos" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
               <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden lg:inline">Entrenamientos</span>
@@ -1174,12 +1176,17 @@ function MainApp() {
               <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Asistencia</span>
             </TabsTrigger>
-            {/* Pestaña de Usuarios - Solo para Administradores */}
+            {/* Pestañas Admin - Solo para Administradores */}
             {user?.role === "admin" && (
               <>
                 <TabsTrigger value="usuarios" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
                   <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Usuarios</span>
+                </TabsTrigger>
+                <TabsTrigger value="migracion" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
+                  <Database className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden lg:inline">Migración</span>
+                  <span className="lg:hidden">Migrar</span>
                 </TabsTrigger>
               </>
             )}
@@ -1787,6 +1794,11 @@ function MainApp() {
           {/* SECCIÓN 7: USUARIOS */}
           <TabsContent value="usuarios" className="space-y-8">
             <UserManager swimmers={swimmers} />
+          </TabsContent>
+
+          {/* SECCIÓN 8: MIGRACIÓN DE DATOS (Solo Admin) */}
+          <TabsContent value="migracion" className="space-y-8">
+            <DataMigrationPanel />
           </TabsContent>
         </Tabs>
       </div>
