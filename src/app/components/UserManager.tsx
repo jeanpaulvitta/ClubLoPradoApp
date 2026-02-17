@@ -19,7 +19,6 @@ import {
   AlertCircle,
   Key,
   Inbox,
-  Bug,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -31,7 +30,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import type { Swimmer } from "../data/swimmers";
 import { PasswordRequestsManager } from "./PasswordRequestsManager";
-import { DebugPanel } from "./DebugPanel";
 
 interface UserData {
   id: string;
@@ -296,10 +294,6 @@ export function UserManager({ swimmers }: UserManagerProps) {
           <TabsTrigger value="requests" className="gap-2">
             <Inbox className="w-4 h-4" />
             Solicitudes de Acceso
-          </TabsTrigger>
-          <TabsTrigger value="debug" className="gap-2">
-            <Bug className="w-4 h-4" />
-            Diagnóstico
           </TabsTrigger>
         </TabsList>
 
@@ -810,11 +804,6 @@ export function UserManager({ swimmers }: UserManagerProps) {
         {/* Tab de Solicitudes de Acceso */}
         <TabsContent value="requests" className="space-y-6">
           <PasswordRequestsManager />
-        </TabsContent>
-
-        {/* Tab de Diagnóstico */}
-        <TabsContent value="debug" className="space-y-6">
-          <DebugPanel />
         </TabsContent>
       </Tabs>
     </div>

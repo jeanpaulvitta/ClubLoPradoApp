@@ -39,7 +39,6 @@ import { GroupFilterSelector } from "@/app/components/GroupFilterSelector";
 import { SeasonStructureInfo } from "@/app/components/SeasonStructureInfo";
 import { PhysicalPreparation } from "@/app/components/PhysicalPreparation";
 import { ImportGroup2WorkoutsDialog } from "@/app/components/ImportGroup2WorkoutsDialog";
-import { DiagnosticPanel } from "@/app/components/DiagnosticPanel";
 import { BulkWorkoutEditor } from "@/app/components/BulkWorkoutEditor";
 import { BloqueAssignmentChecker } from "@/app/components/BloqueAssignmentChecker";
 import { generateAllSwimmersPDF } from "@/app/utils/pdfGenerator";
@@ -63,7 +62,6 @@ import {
   ChevronUp,
   Info as InfoIcon,
   Activity,
-  Settings,
   Upload,
   Info,
   CheckCircle
@@ -163,7 +161,6 @@ function MainApp() {
     console.log('         SUPABASE_SERVICE_ROLE_KEY');
     console.log('');
     console.log('📄 Ver instrucciones detalladas: /DESPLIEGUE_EN_3_PASOS.md');
-    console.log('🔍 Usa la pestaña "Análisis" → "Diagnóstico" para verificar el estado');
     console.log('');
   }, []);
 
@@ -1184,11 +1181,6 @@ function MainApp() {
                   <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Usuarios</span>
                 </TabsTrigger>
-                <TabsTrigger value="diagnostico" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
-                  <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden lg:inline">Diagnóstico</span>
-                  <span className="lg:hidden">Diag.</span>
-                </TabsTrigger>
               </>
             )}
           </TabsList>
@@ -1795,11 +1787,6 @@ function MainApp() {
           {/* SECCIÓN 7: USUARIOS */}
           <TabsContent value="usuarios" className="space-y-8">
             <UserManager swimmers={swimmers} />
-          </TabsContent>
-
-          {/* SECCIÓN 8: DIAGNÓSTICO - Solo para Administradores */}
-          <TabsContent value="diagnostico" className="space-y-8">
-            <DiagnosticPanel />
           </TabsContent>
         </Tabs>
       </div>
