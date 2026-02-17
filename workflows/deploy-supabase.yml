@@ -1,0 +1,25 @@
+name: Deploy to Supabase
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'supabase/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      
+      - name: Deploy Edge Function
+        run: supabase functions deploy make-server-4909a0bc --project-ref vrclozhgaacehojbnpuo
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
