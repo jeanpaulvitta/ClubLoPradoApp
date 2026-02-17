@@ -40,15 +40,29 @@ async function authMiddleware(c: any, next: any) {
   const authHeader = c.req.header('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.error('❌ Auth middleware: No token provided');
     return c.json({ error: 'Unauthorized - No token provided' }, 401);
   }
 
   const token = authHeader.split(' ')[1];
   
+  if (!token || token.trim() === '') {
+    console.error('❌ Auth middleware: Empty token');
+    return c.json({ error: 'Unauthorized - Empty token' }, 401);
+  }
+  
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    // Use supabaseAuth (with ANON_KEY) instead of supabase (SERVICE_ROLE_KEY)
+    // This is more appropriate for validating user tokens
+    const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
     
-    if (error || !user) {
+    if (error) {
+      console.error('❌ Auth middleware - Token validation error:', error.message);
+      return c.json({ error: `Unauthorized - ${error.message}` }, 401);
+    }
+    
+    if (!user) {
+      console.error('❌ Auth middleware: No user found');
       return c.json({ error: 'Unauthorized - Invalid token' }, 401);
     }
     
@@ -58,7 +72,7 @@ async function authMiddleware(c: any, next: any) {
     
     await next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    console.error('❌ Auth middleware error:', error);
     return c.json({ error: 'Unauthorized - Auth error' }, 401);
   }
 }
@@ -479,8 +493,22 @@ app.post("/make-server-4909a0bc/auth/signout", authMiddleware, async (c) => {
 // Change password
 app.post("/make-server-4909a0bc/auth/change-password", authMiddleware, async (c) => {
   try {
+    console.log('🔐 Change password request received');
+    
     const { currentPassword, newPassword } = await c.req.json();
     const userId = c.get('userId');
+    
+    if (!currentPassword || !newPassword) {
+      console.error('❌ Missing passwords');
+      return c.json({ error: 'Se requiere contraseña actual y nueva contraseña' }, 400);
+    }
+    
+    if (newPassword.length < 6) {
+      console.error('❌ New password too short');
+      return c.json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' }, 400);
+    }
+    
+    console.log('📋 Getting user data for:', userId);
     
     // Obtener el usuario actual
     const { data: userData, error: getUserError } = await supabase.auth.admin.getUserById(userId);
@@ -490,16 +518,22 @@ app.post("/make-server-4909a0bc/auth/change-password", authMiddleware, async (c)
       return c.json({ error: 'Usuario no encontrado' }, 404);
     }
     
-    // Verificar la contraseña actual intentando hacer login
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    console.log('✅ User found:', userData.user.email);
+    console.log('🔍 Verifying current password...');
+    
+    // Verificar la contraseña actual intentando hacer login con supabaseAuth
+    const { error: signInError } = await supabaseAuth.auth.signInWithPassword({
       email: userData.user.email!,
       password: currentPassword,
     });
     
     if (signInError) {
-      console.error('❌ Current password verification failed:', signInError);
+      console.error('❌ Current password verification failed:', signInError.message);
       return c.json({ error: 'La contraseña actual es incorrecta' }, 401);
     }
+    
+    console.log('✅ Current password verified');
+    console.log('🔄 Updating password...');
     
     // Cambiar a la nueva contraseña
     const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
@@ -507,15 +541,15 @@ app.post("/make-server-4909a0bc/auth/change-password", authMiddleware, async (c)
     });
     
     if (updateError) {
-      console.error('❌ Change password error:', updateError);
-      return c.json({ error: updateError.message }, 400);
+      console.error('❌ Change password error:', updateError.message);
+      return c.json({ error: updateError.message || 'Error al actualizar contraseña' }, 400);
     }
     
-    console.log('✅ Password changed for user:', userId);
-    return c.json({ success: true });
+    console.log('✅ Password changed successfully for user:', userId);
+    return c.json({ success: true, message: 'Contraseña actualizada exitosamente' });
   } catch (error) {
-    console.error('❌ Change password error:', error);
-    return c.json({ error: String(error) }, 500);
+    console.error('❌ Change password unexpected error:', error);
+    return c.json({ error: 'Error interno del servidor al cambiar contraseña' }, 500);
   }
 });
 

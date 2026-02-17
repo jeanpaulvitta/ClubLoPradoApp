@@ -262,43 +262,47 @@ export async function changePassword(currentPassword: string, newPassword: strin
   try {
     console.log('🔑 Cambiando contraseña...');
     
-    // Primero intentar obtener el access token de la sesión local
+    // Intentar obtener una sesión válida refrescada
     let accessToken: string | null = null;
-    const session = getSession();
     
-    if (session?.accessToken) {
-      accessToken = session.accessToken;
-      console.log('✅ Token obtenido de sesión local');
-    }
+    // Primero intentar refrescar la sesión con Supabase
+    console.log('🔄 Refrescando sesión de Supabase...');
+    const { data: { session: supabaseSession }, error: refreshError } = await supabase.auth.refreshSession();
     
-    // Si no hay token local o está vacío, intentar obtenerlo de Supabase Auth
-    if (!accessToken || accessToken === '') {
-      console.log('🔄 Token local no disponible, obteniendo de Supabase Auth...');
+    if (refreshError) {
+      console.error('⚠️ No se pudo refrescar sesión:', refreshError.message);
       
-      const { data: { session: supabaseSession }, error } = await supabase.auth.getSession();
+      // Si falla el refresh, intentar obtener la sesión actual
+      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
       
-      if (error || !supabaseSession) {
-        console.error('❌ No se pudo obtener sesión de Supabase:', error);
-        throw new Error('No hay sesión activa. Por favor, vuelve a iniciar sesión.');
+      if (sessionError || !currentSession) {
+        console.error('❌ No hay sesión válida:', sessionError);
+        throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
       }
       
+      accessToken = currentSession.access_token;
+      console.log('✅ Token obtenido de sesión actual');
+    } else if (supabaseSession) {
       accessToken = supabaseSession.access_token;
-      console.log('✅ Token obtenido de Supabase Auth');
+      console.log('✅ Token obtenido de sesión refrescada');
       
-      // Actualizar la sesión local con el nuevo token
-      if (session) {
+      // Actualizar la sesión local con el token refrescado
+      const localSession = getSession();
+      if (localSession) {
         saveSession({
-          ...session,
+          ...localSession,
           accessToken: accessToken,
         });
-        console.log('✅ Sesión local actualizada con nuevo token');
+        console.log('✅ Sesión local actualizada con token refrescado');
       }
     }
     
-    if (!accessToken) {
-      throw new Error('No hay sesión activa. Por favor, vuelve a iniciar sesión.');
+    if (!accessToken || accessToken.trim() === '') {
+      throw new Error('No se pudo obtener un token válido. Por favor, vuelve a iniciar sesión.');
     }
 
+    console.log('🔐 Enviando solicitud de cambio de contraseña...');
+    
     // Usar el servidor backend para cambiar la contraseña
     const response = await fetch(`${API_URL}/auth/change-password`, {
       method: 'POST',
@@ -311,7 +315,14 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Error al cambiar contraseña' }));
-      throw new Error(errorData.message || errorData.error || 'Error al cambiar contraseña');
+      const errorMessage = errorData.error || errorData.message || 'Error al cambiar contraseña';
+      
+      // Si el error es de token inválido, dar un mensaje más claro
+      if (errorMessage.includes('Invalid JWT') || errorMessage.includes('Unauthorized')) {
+        throw new Error('Tu sesión ha expirado. Por favor, cierra sesión y vuelve a iniciar sesión.');
+      }
+      
+      throw new Error(errorMessage);
     }
 
     console.log('✅ Contraseña cambiada exitosamente');
@@ -322,7 +333,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
     
     // Mejorar mensaje de error
     if (error instanceof Error) {
-      throw new Error(error.message);
+      throw error;
     }
     
     throw new Error('Error desconocido al cambiar contraseña');

@@ -135,7 +135,16 @@ export function ChangePasswordDialog({ open, onOpenChange, user }: ChangePasswor
 
     } catch (err) {
       console.error('❌ Error al cambiar contraseña:', err);
-      setError(err instanceof Error ? err.message : "Ocurrió un error al cambiar la contraseña");
+      const errorMessage = err instanceof Error ? err.message : "Ocurrió un error al cambiar la contraseña";
+      
+      // Agregar sugerencias según el tipo de error
+      if (errorMessage.includes('sesión ha expirado') || errorMessage.includes('vuelve a iniciar sesión')) {
+        setError(`${errorMessage}\n\nSugerencia: Cierra esta ventana, haz logout y vuelve a iniciar sesión.`);
+      } else if (errorMessage.includes('contraseña actual es incorrecta')) {
+        setError('La contraseña actual es incorrecta. Por favor, verifica e intenta nuevamente.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
