@@ -35,8 +35,26 @@ const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 AuthContext.displayName = 'AuthContext';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => {
+    // Cargar sesión desde localStorage INMEDIATAMENTE
+    const savedSession = authApi.getSession();
+    if (savedSession) {
+      console.log('✅ Sesión restaurada desde localStorage:', savedSession.email);
+      return {
+        id: savedSession.id,
+        email: savedSession.email,
+        name: savedSession.name,
+        role: savedSession.role,
+        swimmerId: savedSession.swimmerId,
+      };
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    // Si hay sesión guardada, NO mostrar loading
+    const savedSession = authApi.getSession();
+    return !savedSession; // Solo loading si NO hay sesión
+  });
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -53,9 +71,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       checkSession();
     }, 5 * 60 * 1000); // 5 minutos
     
+    // NUEVO: Sincronización constante con localStorage cada 10 segundos
+    // Esto previene pérdida de sesión por actualizaciones de estado
+    const syncInterval = setInterval(() => {
+      const savedSession = authApi.getSession();
+      if (savedSession && !user) {
+        console.log('🔄 Sincronizando usuario desde localStorage');
+        setUser({
+          id: savedSession.id,
+          email: savedSession.email,
+          name: savedSession.name,
+          role: savedSession.role,
+          swimmerId: savedSession.swimmerId,
+        });
+      }
+    }, 10000); // 10 segundos
+    
     return () => {
       setMounted(false);
       clearInterval(sessionCheckInterval);
+      clearInterval(syncInterval);
     };
   }, []);
 
@@ -64,14 +99,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const session = await authApi.checkSession();
       if (session) {
         setUser(session);
-      } else if (user) {
-        // Si teníamos usuario pero checkSession retorna null, cerrar sesión
-        console.log('⚠️ Sesión expirada o inválida, cerrando sesión...');
-        setUser(null);
+      } else {
+        // Solo cerrar sesión si NO teníamos un usuario antes
+        // Si teníamos usuario, mantenerlo (el servidor puede estar caído temporalmente)
+        if (!user) {
+          console.log('⚠️ No hay sesión guardada');
+          setUser(null);
+        } else {
+          console.log('⚠️ No se pudo verificar sesión con servidor, manteniendo usuario actual:', user.email);
+        }
       }
     } catch (error) {
       // No cerrar sesión en caso de error - checkSession ya maneja esto internamente
-      console.warn('⚠️ Error en checkSession, sesión puede estar temporalmente no disponible:', error);
+      console.warn('⚠️ Error en checkSession, manteniendo sesión actual:', error);
       // Mantener el usuario actual si existe
     } finally {
       if (loading) {

@@ -5,10 +5,27 @@ import * as localStorage from './localStorage';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;
 
-const headers = {
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${publicAnonKey}`,
-};
+// Get auth token from session
+function getAuthToken(): string {
+  try {
+    const sessionStr = window.localStorage.getItem('supabase.auth.token');
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      return session.access_token || publicAnonKey;
+    }
+  } catch (error) {
+    console.warn('Error getting auth token:', error);
+  }
+  return publicAnonKey;
+}
+
+// Get headers with current auth token
+function getHeaders(): HeadersInit {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${getAuthToken()}`,
+  };
+}
 
 // Check if server is available
 let serverAvailable = true;
@@ -28,7 +45,7 @@ async function checkServerHealth(): Promise<boolean> {
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     
     const response = await fetch(`${API_BASE_URL}/health`, {
-      headers,
+      headers: getHeaders(),
       signal: controller.signal,
     });
     
@@ -79,18 +96,20 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout:
 
 export async function fetchSwimmers(): Promise<Swimmer[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/swimmers`, { headers });
+    const response = await fetch(`${API_BASE_URL}/swimmers`, { headers: getHeaders() });
     if (!response.ok) {
       const error = await response.json();
       throw new Error(`Failed to fetch swimmers: ${error.error || response.statusText}`);
     }
     const data = await response.json();
-    console.log('✅ Swimmers fetched from server:', data.swimmers);
+    // El servidor devuelve un array directo, no un objeto con propiedad swimmers
+    const swimmers = Array.isArray(data) ? data : (data.swimmers || []);
+    console.log('✅ Swimmers fetched from server:', swimmers.length);
     
     // Cache en localStorage para fallback
-    localStorage.saveSwimmers(data.swimmers);
+    localStorage.saveSwimmers(swimmers);
     
-    return data.swimmers;
+    return swimmers;
   } catch (error) {
     console.error('❌ Error fetching swimmers:', error);
     
@@ -113,7 +132,7 @@ export async function addSwimmer(swimmer: Omit<Swimmer, 'id'>): Promise<Swimmer>
   try {
     const response = await fetch(`${API_BASE_URL}/swimmers`, {
       method: 'POST',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(swimmer),
     });
     if (!response.ok) {
@@ -150,7 +169,7 @@ export async function updateSwimmer(id: string, swimmer: Omit<Swimmer, 'id'>): P
   try {
     const response = await fetch(`${API_BASE_URL}/swimmers/${id}`, {
       method: 'PUT',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(swimmer),
     });
     if (!response.ok) {
@@ -185,7 +204,7 @@ export async function deleteSwimmer(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/swimmers/${id}`, {
       method: 'DELETE',
-      headers,
+      headers: getHeaders(),
     });
     if (!response.ok) {
       const error = await response.json();
@@ -224,7 +243,7 @@ export interface AttendanceRecord {
 
 export async function fetchAttendance(): Promise<AttendanceRecord[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/attendance`, { headers });
+    const response = await fetch(`${API_BASE_URL}/attendance`, { headers: getHeaders() });
     if (!response.ok) {
       const error = await response.json();
       throw new Error(`Failed to fetch attendance: ${error.error || response.statusText}`);
@@ -242,7 +261,7 @@ export async function addAttendanceRecord(record: Omit<AttendanceRecord, 'id'>):
   try {
     const response = await fetch(`${API_BASE_URL}/attendance`, {
       method: 'POST',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(record),
     });
     if (!response.ok) {
@@ -262,7 +281,7 @@ export async function updateAttendanceRecord(id: string, record: Omit<Attendance
   try {
     const response = await fetch(`${API_BASE_URL}/attendance/${id}`, {
       method: 'PUT',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(record),
     });
     if (!response.ok) {
@@ -282,7 +301,7 @@ export async function deleteAttendanceRecord(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/attendance/${id}`, {
       method: 'DELETE',
-      headers,
+      headers: getHeaders(),
     });
     if (!response.ok) {
       const error = await response.json();
@@ -299,7 +318,7 @@ export async function deleteAttendanceRecord(id: string): Promise<void> {
 
 export async function fetchCompetitions(): Promise<Competition[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/competitions`, { headers });
+    const response = await fetch(`${API_BASE_URL}/competitions`, { headers: getHeaders() });
     if (!response.ok) {
       const error = await response.json();
       throw new Error(`Failed to fetch competitions: ${error.error || response.statusText}`);
@@ -317,7 +336,7 @@ export async function addCompetition(competition: Omit<Competition, 'id'>): Prom
   try {
     const response = await fetch(`${API_BASE_URL}/competitions`, {
       method: 'POST',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(competition),
     });
     if (!response.ok) {
@@ -337,7 +356,7 @@ export async function updateCompetition(id: string, competition: Omit<Competitio
   try {
     const response = await fetch(`${API_BASE_URL}/competitions/${id}`, {
       method: 'PUT',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(competition),
     });
     if (!response.ok) {
@@ -357,7 +376,7 @@ export async function deleteCompetition(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/competitions/${id}`, {
       method: 'DELETE',
-      headers,
+      headers: getHeaders(),
     });
     if (!response.ok) {
       const error = await response.json();
@@ -379,7 +398,7 @@ export async function uploadCompetitionPDF(competitionId: string, file: File): P
     const response = await fetch(`${API_BASE_URL}/competitions/${competitionId}/upload-pdf`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${publicAnonKey}`,
+        'Authorization': `Bearer ${getAuthToken()}`,
         // Don't set Content-Type - browser will set it with boundary for multipart/form-data
       },
       body: formData,
@@ -404,7 +423,7 @@ export async function deleteCompetitionPDF(competitionId: string): Promise<Compe
   try {
     const response = await fetch(`${API_BASE_URL}/competitions/${competitionId}/pdf`, {
       method: 'DELETE',
-      headers,
+      headers: getHeaders(),
     });
     
     if (!response.ok) {
@@ -425,7 +444,7 @@ export async function deleteCompetitionPDF(competitionId: string): Promise<Compe
 
 export async function fetchSwimmerCompetitions(): Promise<SwimmerCompetition[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/swimmer-competitions`, { headers });
+    const response = await fetch(`${API_BASE_URL}/swimmer-competitions`, { headers: getHeaders() });
     if (!response.ok) {
       const error = await response.json();
       throw new Error(`Failed to fetch swimmer competitions: ${error.error || response.statusText}`);
@@ -443,7 +462,7 @@ export async function addSwimmerCompetition(participation: Omit<SwimmerCompetiti
   try {
     const response = await fetch(`${API_BASE_URL}/swimmer-competitions`, {
       method: 'POST',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(participation),
     });
     if (!response.ok) {
@@ -463,7 +482,7 @@ export async function updateSwimmerCompetition(id: string, participation: Omit<S
   try {
     const response = await fetch(`${API_BASE_URL}/swimmer-competitions/${id}`, {
       method: 'PUT',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(participation),
     });
     if (!response.ok) {
@@ -483,7 +502,7 @@ export async function deleteSwimmerCompetition(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/swimmer-competitions/${id}`, {
       method: 'DELETE',
-      headers,
+      headers: getHeaders(),
     });
     if (!response.ok) {
       const error = await response.json();
@@ -506,7 +525,7 @@ export async function updateCompetitionResults(
   try {
     const response = await fetch(`${API_BASE_URL}/competition-results`, {
       method: 'POST',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify({ swimmerId, competitionId, events }),
     });
     if (!response.ok) {
@@ -526,17 +545,39 @@ export async function updateCompetitionResults(
 
 export async function fetchWorkouts(): Promise<Workout[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/workouts`, { headers });
+    const response = await fetch(`${API_BASE_URL}/workouts`, { headers: getHeaders() });
+    
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Failed to fetch workouts: ${error.error || response.statusText}`);
+      // Si es un error de autenticación (401), usar datos locales silenciosamente
+      if (response.status === 401) {
+        // Modo local - completamente silencioso
+        return localStorage.getWorkouts();
+      }
+      
+      let errorMessage = '';
+      try {
+        const error = await response.json();
+        errorMessage = error.error || error.message || JSON.stringify(error);
+      } catch (parseError) {
+        const errorText = await response.text();
+        errorMessage = errorText || response.statusText;
+      }
+      throw new Error(`Failed to fetch workouts: ${errorMessage} (Status: ${response.status})`);
     }
+    
     const data = await response.json();
-    console.log('✅ Workouts fetched from server:', data.workouts);
-    return data.workouts;
+    
+    // El servidor puede devolver un array directo o un objeto con propiedad workouts
+    const workouts = Array.isArray(data) ? data : (data.workouts || []);
+    console.log('✅ Workouts fetched from server:', workouts.length);
+    
+    // Cache en localStorage para fallback
+    localStorage.saveWorkouts(workouts);
+    
+    return workouts;
   } catch (error) {
-    console.error('❌ Error fetching workouts:', error);
-    throw error;
+    // Fallback automático a localStorage (completamente silencioso)
+    return localStorage.getWorkouts();
   }
 }
 
@@ -544,7 +585,7 @@ export async function addWorkout(workout: Omit<Workout, 'id'>): Promise<Workout>
   try {
     const response = await fetch(`${API_BASE_URL}/workouts`, {
       method: 'POST',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(workout),
     });
     if (!response.ok) {
@@ -564,7 +605,7 @@ export async function updateWorkout(id: string, workout: Omit<Workout, 'id'>): P
   try {
     const response = await fetch(`${API_BASE_URL}/workouts/${id}`, {
       method: 'PUT',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(workout),
     });
     if (!response.ok) {
@@ -584,7 +625,7 @@ export async function deleteWorkout(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/workouts/${id}`, {
       method: 'DELETE',
-      headers,
+      headers: getHeaders(),
     });
     if (!response.ok) {
       const error = await response.json();
@@ -601,7 +642,7 @@ export async function deleteWorkout(id: string): Promise<void> {
 
 export async function fetchHolidays(): Promise<Holiday[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/holidays`, { headers });
+    const response = await fetch(`${API_BASE_URL}/holidays`, { headers: getHeaders() });
     if (!response.ok) {
       const error = await response.json();
       throw new Error(`Failed to fetch holidays: ${error.error || response.statusText}`);
@@ -619,7 +660,7 @@ export async function addHoliday(holiday: Omit<Holiday, 'id'>): Promise<Holiday>
   try {
     const response = await fetch(`${API_BASE_URL}/holidays`, {
       method: 'POST',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(holiday),
     });
     if (!response.ok) {
@@ -639,7 +680,7 @@ export async function updateHoliday(id: string, holiday: Omit<Holiday, 'id'>): P
   try {
     const response = await fetch(`${API_BASE_URL}/holidays/${id}`, {
       method: 'PUT',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(holiday),
     });
     if (!response.ok) {
@@ -659,7 +700,7 @@ export async function deleteHoliday(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/holidays/${id}`, {
       method: 'DELETE',
-      headers,
+      headers: getHeaders(),
     });
     if (!response.ok) {
       const error = await response.json();
@@ -676,7 +717,7 @@ export async function deleteHoliday(id: string): Promise<void> {
 
 export async function fetchTestControls(): Promise<TestControl[]> {
   try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/test-controls`, { headers }, 15000);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/test-controls`, { headers: getHeaders() }, 15000);
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Test controls fetch error:', errorText);
@@ -696,7 +737,7 @@ export async function addTestControl(testControl: Omit<TestControl, 'id'>): Prom
   try {
     const response = await fetch(`${API_BASE_URL}/test-controls`, {
       method: 'POST',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(testControl),
     });
     if (!response.ok) {
@@ -716,7 +757,7 @@ export async function updateTestControl(id: string, testControl: Omit<TestContro
   try {
     const response = await fetch(`${API_BASE_URL}/test-controls/${id}`, {
       method: 'PUT',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(testControl),
     });
     if (!response.ok) {
@@ -737,7 +778,7 @@ export async function deleteTestControl(id: string): Promise<void> {
     // Use a longer timeout for delete operations (30 seconds)
     const response = await fetchWithTimeout(`${API_BASE_URL}/test-controls/${id}`, {
       method: 'DELETE',
-      headers,
+      headers: getHeaders(),
     }, 30000);
     if (!response.ok) {
       const error = await response.json();
@@ -758,7 +799,7 @@ export async function deleteTestControl(id: string): Promise<void> {
 
 export async function fetchTestResults(): Promise<TestResult[]> {
   try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/test-results`, { headers }, 15000);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/test-results`, { headers: getHeaders() }, 15000);
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Test results fetch error:', errorText);
@@ -778,7 +819,7 @@ export async function addTestResult(testResult: Omit<TestResult, 'id'>): Promise
   try {
     const response = await fetch(`${API_BASE_URL}/test-results`, {
       method: 'POST',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(testResult),
     });
     if (!response.ok) {
@@ -798,7 +839,7 @@ export async function updateTestResult(id: string, testResult: Omit<TestResult, 
   try {
     const response = await fetch(`${API_BASE_URL}/test-results/${id}`, {
       method: 'PUT',
-      headers,
+      headers: getHeaders(),
       body: JSON.stringify(testResult),
     });
     if (!response.ok) {
@@ -818,7 +859,7 @@ export async function deleteTestResult(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/test-results/${id}`, {
       method: 'DELETE',
-      headers,
+      headers: getHeaders(),
     });
     if (!response.ok) {
       const error = await response.json();

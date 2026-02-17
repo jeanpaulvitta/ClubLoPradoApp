@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { LoginPage } from './LoginPage';
 import { Card, CardContent } from './ui/card';
 import { Loader2 } from 'lucide-react';
+import { getSession } from '../services/auth';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -12,7 +13,23 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
 
+  // IMPORTANTE: Verificar localStorage directamente como fallback
+  // Esto previene que se cierre sesión si hay un problema temporal con el contexto
+  const savedSession = getSession();
+  const effectiveUser = user || savedSession;
+
+  // Debug: Ver qué está pasando
+  console.log('🔐 ProtectedRoute check:', {
+    loading,
+    hasUser: !!user,
+    hasSavedSession: !!savedSession,
+    effectiveUser: effectiveUser?.email || 'none',
+    userRole: effectiveUser?.role || 'none'
+  });
+
+  // Si está cargando, mostrar spinner
   if (loading) {
+    console.log('⏳ ProtectedRoute: Mostrando pantalla de carga');
     return (
       <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-red-950 flex items-center justify-center">
         <Card className="bg-gray-800 border-red-500/20">
@@ -25,11 +42,14 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     );
   }
 
-  if (!user) {
+  if (!effectiveUser) {
+    console.log('❌ ProtectedRoute: No hay usuario, mostrando LoginPage');
     return <LoginPage />;
   }
 
-  if (requiredRole && user.role !== requiredRole && user.role !== 'admin') {
+  console.log('✅ ProtectedRoute: Usuario autenticado, mostrando contenido');
+
+  if (requiredRole && effectiveUser.role !== requiredRole && effectiveUser.role !== 'admin') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-red-950 flex items-center justify-center p-4">
         <Card className="max-w-md bg-gray-800 border-red-500/20">

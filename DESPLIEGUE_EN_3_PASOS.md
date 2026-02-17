@@ -1,83 +1,114 @@
-# 🚀 DESPLIEGUE EN 3 PASOS (5 MINUTOS)
+# 🚀 DESPLIEGUE DEL SERVIDOR EN 3 PASOS
 
-## 📋 LO QUE VAS A HACER:
-
-1. Instalar CLI de Supabase (2 min)
-2. Ejecutar 3 comandos (2 min)
-3. Configurar 3 variables (1 min)
+## ⏱️ Tiempo total: 5 minutos
 
 ---
 
-## PASO 1: INSTALAR CLI
+## 📋 PASO 1: Instalar Supabase CLI
 
-### Mac:
+### En Mac:
 ```bash
 brew install supabase/tap/supabase
 ```
 
-### Windows:
-Descarga: https://github.com/supabase/cli/releases/latest/download/supabase_windows_amd64.msi
+### En Windows:
 
-Doble clic → Instalar → Abrir nueva terminal PowerShell
+**OPCIÓN A - Usando Scoop (Recomendado):**
+```bash
+scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+scoop install supabase
+```
 
-### Linux:
+**OPCIÓN B - Usando NPM:**
+```bash
+npm install -g supabase
+```
+
+**OPCIÓN C - Descarga manual:**
+1. Ve a: https://github.com/supabase/cli/releases
+2. Busca la última versión
+3. Descarga: `supabase_windows_amd64.zip`
+4. Descomprime y agrega la carpeta al PATH
+
+### En Linux:
 ```bash
 brew install supabase/tap/supabase
 ```
 
+**O usando NPM (cualquier sistema):**
+```bash
+npm install -g supabase
+```
+
 ---
 
-## PASO 2: EJECUTAR 3 COMANDOS
+## 📋 PASO 2: Abrir Terminal en la Carpeta del Proyecto
 
-Abre una terminal en la carpeta de tu proyecto y ejecuta:
+1. Abre Visual Studio Code (o tu editor)
+2. Abre esta carpeta del proyecto
+3. Abre la terminal integrada (Terminal → New Terminal)
+4. Verifica que estás en la carpeta correcta: debe contener la carpeta `supabase/`
 
+---
+
+## 📋 PASO 3: Ejecutar 3 Comandos
+
+### Comando 1: Login
 ```bash
-# 1. Login
 supabase login
+```
+- Se abrirá el navegador
+- Haz clic en "Allow Access"
+- Vuelve a la terminal
 
-# 2. Conectar proyecto
+### Comando 2: Link al Proyecto
+```bash
 supabase link --project-ref vrclozhgaacehojbnpuo
+```
+- Te pedirá la contraseña de la base de datos
+- Si no la sabes, presiona Enter (usará variables de entorno)
 
-# 3. Desplegar
+### Comando 3: Deploy
+```bash
 supabase functions deploy make-server-4909a0bc
 ```
-
-Espera hasta ver: `✅ Deployed Function make-server-4909a0bc`
-
----
-
-## PASO 3: CONFIGURAR VARIABLES
-
-1. Ve a: https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/settings/api
-
-2. Copia:
-   - Project URL
-   - anon public key
-   - service_role key
-
-3. Ve a: https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/functions/make-server-4909a0bc
-
-4. Click **"Secrets"**
-
-5. Agrega:
-   ```
-   SUPABASE_URL = [pega URL]
-   SUPABASE_ANON_KEY = [pega anon key]
-   SUPABASE_SERVICE_ROLE_KEY = [pega service_role key]
-   ```
-
-6. Guarda
+- Espera 30-60 segundos
+- Deberías ver: `✅ Deployed Function make-server-4909a0bc`
 
 ---
 
-## ✅ VERIFICAR
+## ✅ VERIFICAR QUE FUNCIONÓ
 
-Abre tu app → Análisis → Diagnóstico → Ejecutar
-
-Deberías ver TODO en verde (✅).
+1. Recarga la app (F5)
+2. Abre QuickFix (botón esquina inferior derecha)
+3. Clic en "Ejecutar Tests"
+4. Todos los tests deben pasar (✅ OK)
 
 ---
 
-## ❌ SI HAY ERRORES
+## 🆘 SI ALGO FALLA
 
-Dime en qué paso estás y qué error ves. Te ayudo. 🚀
+### Error: "command not found: supabase"
+- Reinicia la terminal
+- Verifica que instalaste correctamente (Paso 1)
+
+### Error: "Failed to link project"
+- Verifica que usaste el project-ref correcto: `vrclozhgaacehojbnpuo`
+- Intenta con: `supabase link --project-ref vrclozhgaacehojbnpuo --password TU_PASSWORD`
+
+### Error: "Permission denied"
+- Ejecuta `supabase login` nuevamente
+- Asegúrate de estar logueado en Supabase
+
+---
+
+## 📞 SOPORTE
+
+Si nada funciona:
+1. Copia TODO el mensaje de error
+2. Toma screenshot de la terminal
+3. Envíamelo para ayudarte
+
+---
+
+**¡Listo! Una vez desplegado, el sistema funcionará al 100%** ✨

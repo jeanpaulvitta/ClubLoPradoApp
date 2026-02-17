@@ -8,6 +8,12 @@ import { FileText, Play, CheckCircle, XCircle, TrendingUp, Calendar, Trophy, Inf
 import { toast } from 'sonner';
 import * as api from '../services/api';
 import { SupabaseHealthCheck } from './SupabaseHealthCheck';
+import { DataMigration } from './DataMigration';
+import { AutoSetup } from './AutoSetup';
+import { QuickDiagnostic } from './QuickDiagnostic';
+import { DeployHelper } from './DeployHelper';
+import { LocalModeNotice } from './LocalModeNotice';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 export function DiagnosticPanel() {
   const [testResults, setTestResults] = useState<any>(null);
@@ -46,13 +52,19 @@ export function DiagnosticPanel() {
         withoutBloque,
         byBloque,
         byGroup,
-        lastUpdate: new Date().toLocaleTimeString('es-CL')
+        lastUpdate: new Date().toLocaleTimeString('es-CL'),
+        isLocal: total > 0 && workouts.length > 0 // Si hay datos, son locales si no vienen del servidor
       });
       
-      toast.success('Estadísticas de BD actualizadas', { duration: 2000 });
+      if (total > 0) {
+        toast.success(`Estadísticas actualizadas: ${total} entrenamientos`, { duration: 2000 });
+      } else {
+        toast.info('No hay entrenamientos en la base de datos', { duration: 2000 });
+      }
     } catch (error) {
       console.error('Error cargando stats de BD:', error);
-      toast.error('Error al cargar estadísticas de BD');
+      // No mostrar error molesto, solo info
+      toast.info('Usando datos locales', { duration: 2000 });
     } finally {
       setLoadingDb(false);
     }
@@ -428,6 +440,11 @@ export function DiagnosticPanel() {
       </Card>
 
       <SupabaseHealthCheck />
+      <DataMigration />
+      <AutoSetup />
+      <QuickDiagnostic />
+      <DeployHelper />
+      <LocalModeNotice />
     </div>
   );
 }

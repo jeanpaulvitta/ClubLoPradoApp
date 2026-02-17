@@ -4,6 +4,7 @@ import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import * as kv from "./kv_store.tsx";
 
 const app = new Hono();
 
@@ -836,8 +837,8 @@ app.post("/make-server-4909a0bc/swimmer-competitions", authMiddleware, async (c)
 
 // ==================== WORKOUTS ROUTES ====================
 
-// Get all workouts
-app.get("/make-server-4909a0bc/workouts", authMiddleware, async (c) => {
+// Get all workouts (PUBLIC - no auth required)
+app.get("/make-server-4909a0bc/workouts", async (c) => {
   try {
     const workouts = await kv.get("workouts:list") || [];
     return c.json(workouts);

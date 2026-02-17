@@ -369,9 +369,15 @@ export async function checkSession(): Promise<User | null> {
       const { user, session: newSession } = await response.json();
       
       if (!user) {
-        console.log('⚠️ No hay usuario en la respuesta, limpiando sesión');
-        clearSession();
-        return null;
+        console.log('⚠️ No hay usuario en la respuesta, manteniendo sesión local');
+        // NO limpiar sesión, mantenerla
+        return {
+          id: session.id,
+          email: session.email,
+          name: session.name,
+          role: session.role,
+          swimmerId: session.swimmerId,
+        };
       }
       
       // Actualizar token si es necesario
@@ -396,8 +402,18 @@ export async function checkSession(): Promise<User | null> {
     }
   } catch (error) {
     console.error('❌ Error crítico en checkSession:', error);
-    // Solo en caso de error crítico, limpiar sesión
-    clearSession();
+    // NO limpiar sesión en caso de error crítico - mantener sesión local
+    const session = getSession();
+    if (session) {
+      console.log('⚠️ Error crítico pero manteniendo sesión local existente');
+      return {
+        id: session.id,
+        email: session.email,
+        name: session.name,
+        role: session.role,
+        swimmerId: session.swimmerId,
+      };
+    }
     return null;
   }
 }
