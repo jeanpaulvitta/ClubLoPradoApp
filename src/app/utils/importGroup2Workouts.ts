@@ -6,7 +6,7 @@
  */
 
 import allWorkoutsGroup2 from '../data/allWorkoutsGroup2';
-import * as api from '../services/apiWithFallback';
+import * as api from '../services/api';
 import type { Workout } from '../data/swimmers';
 
 /**

@@ -1,21 +1,38 @@
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import type { TestControl, TestResult } from '../data/testControl';
 import type { Swimmer, Competition, SwimmerCompetition, Workout, Holiday } from '../data/swimmers';
-import * as localStorage from './localStorage';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;
 
-// Get auth token from session
+// Get auth token from session (SOLO para autenticación)
 function getAuthToken(): string {
   try {
-    const sessionStr = window.localStorage.getItem('supabase.auth.token');
+    // Primero intentar con supabase_session (formato principal)
+    const sessionStr = window.localStorage.getItem('supabase_session');
     if (sessionStr) {
       const session = JSON.parse(sessionStr);
-      return session.access_token || publicAnonKey;
+      if (session.accessToken) {
+        console.log('🔑 Token encontrado en supabase_session');
+        return session.accessToken;
+      }
     }
+    
+    // Fallback: intentar con supabase.auth.token
+    const authTokenStr = window.localStorage.getItem('supabase.auth.token');
+    if (authTokenStr) {
+      const authSession = JSON.parse(authTokenStr);
+      if (authSession.access_token) {
+        console.log('🔑 Token encontrado en supabase.auth.token');
+        return authSession.access_token;
+      }
+    }
+    
+    console.warn('⚠️ No se encontró token de autenticación, usando publicAnonKey');
   } catch (error) {
     console.warn('Error getting auth token:', error);
   }
+  
+  // Si no hay token, usar la clave pública anónima
   return publicAnonKey;
 }
 
@@ -104,27 +121,12 @@ export async function fetchSwimmers(): Promise<Swimmer[]> {
     const data = await response.json();
     // El servidor devuelve un array directo, no un objeto con propiedad swimmers
     const swimmers = Array.isArray(data) ? data : (data.swimmers || []);
-    console.log('✅ Swimmers fetched from server:', swimmers.length);
-    
-    // Cache en localStorage para fallback
-    localStorage.saveSwimmers(swimmers);
+    console.log('✅ Swimmers fetched from Supabase:', swimmers.length);
     
     return swimmers;
   } catch (error) {
-    console.error('❌ Error fetching swimmers:', error);
-    
-    // Fallback automático a localStorage
-    console.log('🔄 Usando fallback de localStorage para swimmers...');
-    const cachedSwimmers = localStorage.getSwimmers();
-    
-    if (cachedSwimmers.length > 0) {
-      console.log(`✅ Recuperados ${cachedSwimmers.length} nadadores desde localStorage`);
-      return cachedSwimmers;
-    }
-    
-    // Si no hay cache, retornar array vacío en lugar de error
-    console.warn('⚠️ No hay nadadores en cache, retornando array vacío');
-    return [];
+    console.error('❌ Error fetching swimmers from Supabase:', error);
+    throw error;
   }
 }
 
@@ -140,28 +142,12 @@ export async function addSwimmer(swimmer: Omit<Swimmer, 'id'>): Promise<Swimmer>
       throw new Error(`Failed to add swimmer: ${error.error || response.statusText}`);
     }
     const data = await response.json();
-    console.log('✅ Swimmer added:', data.swimmer);
-    
-    // Actualizar cache en localStorage
-    const swimmers = localStorage.getSwimmers();
-    localStorage.saveSwimmers([...swimmers, data.swimmer]);
+    console.log('✅ Swimmer added to Supabase:', data.swimmer);
     
     return data.swimmer;
   } catch (error) {
-    console.error('❌ Error adding swimmer:', error);
-    
-    // Fallback automático a localStorage
-    console.log('🔄 Guardando nadador en localStorage (modo offline)...');
-    const newSwimmer: Swimmer = {
-      ...swimmer,
-      id: `swimmer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    };
-    
-    const swimmers = localStorage.getSwimmers();
-    localStorage.saveSwimmers([...swimmers, newSwimmer]);
-    
-    console.log('✅ Nadador guardado en localStorage:', newSwimmer);
-    return newSwimmer;
+    console.error('❌ Error adding swimmer to Supabase:', error);
+    throw error;
   }
 }
 
@@ -177,26 +163,12 @@ export async function updateSwimmer(id: string, swimmer: Omit<Swimmer, 'id'>): P
       throw new Error(`Failed to update swimmer: ${error.error || response.statusText}`);
     }
     const data = await response.json();
-    console.log('✅ Swimmer updated:', data.swimmer);
-    
-    // Actualizar cache en localStorage
-    const swimmers = localStorage.getSwimmers();
-    const updatedSwimmers = swimmers.map(s => s.id === id ? data.swimmer : s);
-    localStorage.saveSwimmers(updatedSwimmers);
+    console.log('✅ Swimmer updated in Supabase:', data.swimmer);
     
     return data.swimmer;
   } catch (error) {
-    console.error('❌ Error updating swimmer:', error);
-    
-    // Fallback automático a localStorage
-    console.log('🔄 Actualizando nadador en localStorage (modo offline)...');
-    const swimmers = localStorage.getSwimmers();
-    const updatedSwimmer: Swimmer = { ...swimmer, id };
-    const updatedSwimmers = swimmers.map(s => s.id === id ? updatedSwimmer : s);
-    localStorage.saveSwimmers(updatedSwimmers);
-    
-    console.log('✅ Nadador actualizado en localStorage:', updatedSwimmer);
-    return updatedSwimmer;
+    console.error('❌ Error updating swimmer in Supabase:', error);
+    throw error;
   }
 }
 
@@ -210,20 +182,10 @@ export async function deleteSwimmer(id: string): Promise<void> {
       const error = await response.json();
       throw new Error(`Failed to delete swimmer: ${error.error || response.statusText}`);
     }
-    console.log('✅ Swimmer deleted:', id);
-    
-    // Actualizar cache en localStorage
-    const swimmers = localStorage.getSwimmers();
-    localStorage.saveSwimmers(swimmers.filter(s => s.id !== id));
+    console.log('✅ Swimmer deleted from Supabase:', id);
   } catch (error) {
-    console.error('❌ Error deleting swimmer:', error);
-    
-    // Fallback automático a localStorage
-    console.log('🔄 Eliminando nadador en localStorage (modo offline)...');
-    const swimmers = localStorage.getSwimmers();
-    localStorage.saveSwimmers(swimmers.filter(s => s.id !== id));
-    
-    console.log('✅ Nadador eliminado de localStorage');
+    console.error('❌ Error deleting swimmer from Supabase:', error);
+    throw error;
   }
 }
 
@@ -548,12 +510,6 @@ export async function fetchWorkouts(): Promise<Workout[]> {
     const response = await fetch(`${API_BASE_URL}/workouts`, { headers: getHeaders() });
     
     if (!response.ok) {
-      // Si es un error de autenticación (401), usar datos locales silenciosamente
-      if (response.status === 401) {
-        // Modo local - completamente silencioso
-        return localStorage.getWorkouts();
-      }
-      
       let errorMessage = '';
       try {
         const error = await response.json();
@@ -569,15 +525,12 @@ export async function fetchWorkouts(): Promise<Workout[]> {
     
     // El servidor puede devolver un array directo o un objeto con propiedad workouts
     const workouts = Array.isArray(data) ? data : (data.workouts || []);
-    console.log('✅ Workouts fetched from server:', workouts.length);
-    
-    // Cache en localStorage para fallback
-    localStorage.saveWorkouts(workouts);
+    console.log('✅ Workouts fetched from Supabase:', workouts.length);
     
     return workouts;
   } catch (error) {
-    // Fallback automático a localStorage (completamente silencioso)
-    return localStorage.getWorkouts();
+    console.error('❌ Error fetching workouts from Supabase:', error);
+    throw error;
   }
 }
 

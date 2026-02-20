@@ -23,7 +23,7 @@ import {
   Trash2
 } from "lucide-react";
 import type { Swimmer } from "../data/swimmers";
-import * as api from "../services/apiWithFallback";
+import * as api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { SwimmerStatsDialog } from "./SwimmerStatsDialog";
 import { AttendanceAnalytics } from "./AttendanceAnalytics";

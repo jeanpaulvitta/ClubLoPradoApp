@@ -1,18 +1,32 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "./ui/dialog";
-import { Label } from "./ui/label";
+import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Badge } from "./ui/badge";
-import { Textarea } from "./ui/textarea";
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "./ui/alert-dialog";
-import { Plus, Edit2, Trash2, ClipboardList, CalendarDays, Timer, Trophy, FileText, BarChart3, Users, TrendingDown, FileDown, RefreshCw } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
+import { 
+  ClipboardList, 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  Trophy, 
+  CalendarDays, 
+  Timer, 
+  FileText, 
+  BarChart3, 
+  Users, 
+  TrendingDown,
+  FileDown,
+  RefreshCw
+} from "lucide-react";
 import type { Swimmer } from "../data/swimmers";
 import type { TestControl, TestResult, TestItem } from "../data/testControl";
-import * as api from "../services/apiWithFallback";
+import * as api from "../services/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { generateTestControlsPDF, generateSwimmerTestProgressPDF, generateAllSwimmersTestProgressPDF } from "../utils/pdfGenerator";
 

@@ -63,34 +63,109 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Limpiar datos antiguos de localStorage
     authApi.clearLegacyData();
     
-    // Verificar si hay una sesión guardada al cargar
-    checkSession();
-    
-    // Verificar sesión cada 5 minutos para mantenerla activa
-    const sessionCheckInterval = setInterval(() => {
-      checkSession();
-    }, 5 * 60 * 1000); // 5 minutos
-    
-    // NUEVO: Sincronización constante con localStorage cada 10 segundos
-    // Esto previene pérdida de sesión por actualizaciones de estado
-    const syncInterval = setInterval(() => {
-      const savedSession = authApi.getSession();
-      if (savedSession && !user) {
-        console.log('🔄 Sincronizando usuario desde localStorage');
-        setUser({
-          id: savedSession.id,
-          email: savedSession.email,
-          name: savedSession.name,
-          role: savedSession.role,
-          swimmerId: savedSession.swimmerId,
-        });
+    // Verificar si hay una sesión guardada al cargar (solo una vez)
+    const initialCheck = async () => {
+      try {
+        // Primero verificar con Supabase directamente
+        const { data: { session } } = await authApi.supabase.auth.getSession();
+        
+        if (session?.user) {
+          // Hay sesión en Supabase, sincronizar con nuestro estado
+          const savedSession = authApi.getSession();
+          if (savedSession) {
+            console.log('✅ Sesión de Supabase válida, usuario ya cargado');
+            // Usuario ya está cargado desde el estado inicial
+          } else {
+            // Hay sesión en Supabase pero no en nuestro localStorage
+            console.log('🔄 Restaurando sesión desde Supabase');
+            const userRole = session.user.user_metadata?.role || 'swimmer';
+            const userData: User = {
+              id: session.user.id,
+              email: session.user.email!,
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || '',
+              role: userRole,
+              swimmerId: session.user.user_metadata?.swimmerId,
+            };
+            
+            // Guardar en nuestro localStorage
+            authApi.saveSession({
+              ...userData,
+              accessToken: session.access_token,
+            });
+            
+            setUser(userData);
+          }
+        } else {
+          // No hay sesión en Supabase
+          const savedSession = authApi.getSession();
+          if (savedSession) {
+            // Hay sesión en localStorage pero no en Supabase - limpiar
+            console.log('⚠️ Sesión local sin sesión de Supabase - limpiando');
+            authApi.clearSession();
+            setUser(null);
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Error verificando sesión inicial:', error);
+        // En caso de error, mantener sesión local si existe
+      } finally {
+        setLoading(false);
       }
-    }, 10000); // 10 segundos
+    };
+    
+    initialCheck();
+    
+    // Escuchar cambios de autenticación de Supabase
+    const { data: { subscription } } = authApi.supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔔 Auth state change:', event);
+      
+      if (event === 'SIGNED_IN' && session) {
+        // Usuario inició sesión
+        const userRole = session.user.user_metadata?.role || 'swimmer';
+        const userData: User = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || '',
+          role: userRole,
+          swimmerId: session.user.user_metadata?.swimmerId,
+        };
+        
+        authApi.saveSession({
+          ...userData,
+          accessToken: session.access_token,
+        });
+        
+        setUser(userData);
+      } else if (event === 'SIGNED_OUT') {
+        // Usuario cerró sesión
+        authApi.clearSession();
+        setUser(null);
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        // Token refrescado - actualizar accessToken
+        const savedSession = authApi.getSession();
+        if (savedSession) {
+          authApi.saveSession({
+            ...savedSession,
+            accessToken: session.access_token,
+          });
+        }
+        console.log('✅ Token refrescado automáticamente');
+      } else if (event === 'USER_UPDATED' && session) {
+        // Usuario actualizado (ej: cambio de contraseña)
+        const savedSession = authApi.getSession();
+        if (savedSession) {
+          authApi.saveSession({
+            ...savedSession,
+            accessToken: session.access_token,
+          });
+        }
+        console.log('✅ Usuario actualizado');
+      }
+    });
     
     return () => {
       setMounted(false);
-      clearInterval(sessionCheckInterval);
-      clearInterval(syncInterval);
+      subscription.unsubscribe();
     };
   }, []);
 

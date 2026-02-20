@@ -4,6 +4,9 @@ import type { User } from '../contexts/AuthContext';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;
 
+// Exportar supabase client para uso en AuthContext
+export { supabase };
+
 // ==================== HELPER: GET FRESH TOKEN ====================
 
 /**
@@ -224,23 +227,42 @@ export async function signup(
 
 export async function logout(): Promise<void> {
   try {
-    const session = getSession();
+    console.log('🚪 Cerrando sesión...');
     
-    if (session?.accessToken) {
-      await fetch(`${API_URL}/auth/signout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.accessToken}`,
-        },
-      });
+    // PASO 1: Cerrar sesión en Supabase (esto limpia el localStorage automáticamente)
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.error('❌ Error al cerrar sesión en Supabase:', error);
+    } else {
+      console.log('✅ Sesión de Supabase cerrada');
     }
     
+    // PASO 2: Intentar notificar al backend (opcional, no bloquear si falla)
+    try {
+      const session = getSession();
+      if (session?.accessToken) {
+        await fetch(`${API_URL}/auth/signout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.accessToken}`,
+          },
+        });
+        console.log('✅ Backend notificado del logout');
+      }
+    } catch (backendError) {
+      console.warn('⚠️ No se pudo notificar al backend, pero sesión local cerrada');
+    }
+    
+    // PASO 3: Limpiar sesión personalizada de localStorage
     clearSession();
-    console.log('✅ Logout exitoso');
+    console.log('✅ Logout completado exitosamente');
+    
   } catch (error) {
     console.error('❌ Logout error:', error);
-    // Limpiar sesión local incluso si falla el logout en el servidor
+    // Asegurar que la sesión local se limpie incluso si algo falla
     clearSession();
+    await supabase.auth.signOut(); // Intentar de nuevo
     throw error;
   }
 }
