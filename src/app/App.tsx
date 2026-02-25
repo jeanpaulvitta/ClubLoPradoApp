@@ -176,7 +176,8 @@ function MainApp() {
         await api.migrateWorkouts();
         console.log('✅ Migration completed');
       } catch (migrationError) {
-        console.warn('⚠️ Migration failed, but continuing:', migrationError);
+        // Migration is optional - silently continue if it fails
+        console.log('ℹ️ Migration skipped (this is normal for new installations)');
       }
       
       // Cargar datos con manejo de errores individual

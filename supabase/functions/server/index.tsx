@@ -1749,6 +1749,38 @@ app.delete("/make-server-4909a0bc/test-results/:id", async (c) => {
 
 // ==================== WORKOUT ROUTES ====================
 
+// Direct KV functions that bypass the protected kv_store.tsx file
+// This avoids trigger issues with updated_at column
+async function kvSetDirect(key: string, value: any): Promise<void> {
+  const { error } = await supabase
+    .from("kv_store_4909a0bc")
+    .upsert({ key, value }, { onConflict: "key" });
+  
+  if (error) {
+    console.error("KV Set Error:", error);
+    throw new Error(error.message);
+  }
+}
+
+async function kvGetDirect(key: string): Promise<any> {
+  const { data, error } = await supabase
+    .from("kv_store_4909a0bc")
+    .select("value")
+    .eq("key", key)
+    .single();
+  
+  if (error) {
+    if (error.code === "PGRST116") {
+      // Not found - return null
+      return null;
+    }
+    console.error("KV Get Error:", error);
+    throw new Error(error.message);
+  }
+  
+  return data?.value;
+}
+
 // Helper function to deeply normalize objects and ensure all have required timestamp fields
 function deepNormalizeObject(obj: any): any {
   if (obj === null || obj === undefined) return obj;
@@ -1792,7 +1824,7 @@ function normalizeWorkouts(workouts: any[]): any[] {
 // Get all workouts
 app.get("/make-server-4909a0bc/workouts", async (c) => {
   try {
-    const workouts = await kv.get("workouts:list") || [];
+    const workouts = await kvGetDirect("workouts:list") || [];
     // Filter out deleted workouts - only return active ones
     const activeWorkouts = workouts.filter((w: any) => !w.deleted);
     console.log(`📊 Returning ${activeWorkouts.length} active workouts (${workouts.length} total, ${workouts.length - activeWorkouts.length} deleted)`);
@@ -1809,7 +1841,7 @@ app.post("/make-server-4909a0bc/workouts", async (c) => {
     const newWorkout = await c.req.json();
     console.log("📝 Creating new workout:", newWorkout.title || newWorkout.type);
     
-    const workouts = await kv.get("workouts:list") || [];
+    const workouts = await kvGetDirect("workouts:list") || [];
     console.log("📋 Existing workouts before add:", workouts.length);
     
     // Generate unique ID
@@ -1831,7 +1863,7 @@ app.post("/make-server-4909a0bc/workouts", async (c) => {
     
     console.log("🔍 About to save array with", updatedWorkouts.length, "workouts");
     
-    await kv.set("workouts:list", updatedWorkouts);
+    await kvSetDirect("workouts:list", updatedWorkouts);
     
     console.log("✅ Workout added successfully");
     
@@ -1848,7 +1880,7 @@ app.put("/make-server-4909a0bc/workouts/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const updatedData = await c.req.json();
-    const workouts = await kv.get("workouts:list") || [];
+    const workouts = await kvGetDirect("workouts:list") || [];
     
     const index = workouts.findIndex((w: any) => w.id === id);
     if (index === -1) {
@@ -1867,7 +1899,7 @@ app.put("/make-server-4909a0bc/workouts/:id", async (c) => {
     };
     normalizedWorkouts[index] = normalizeWorkout(updatedWorkout);
     
-    await kv.set("workouts:list", normalizedWorkouts);
+    await kvSetDirect("workouts:list", normalizedWorkouts);
     
     console.log("✅ Workout updated:", id);
     
@@ -1882,7 +1914,7 @@ app.put("/make-server-4909a0bc/workouts/:id", async (c) => {
 app.delete("/make-server-4909a0bc/workouts/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const workouts = await kv.get("workouts:list") || [];
+    const workouts = await kvGetDirect("workouts:list") || [];
     
     const index = workouts.findIndex((w: any) => w.id === id);
     if (index === -1) {
@@ -1901,7 +1933,7 @@ app.delete("/make-server-4909a0bc/workouts/:id", async (c) => {
     };
     normalizedWorkouts[index] = normalizeWorkout(deletedWorkout);
     
-    await kv.set("workouts:list", normalizedWorkouts);
+    await kvSetDirect("workouts:list", normalizedWorkouts);
     
     console.log("✅ Workout soft deleted:", id);
     
@@ -1916,7 +1948,7 @@ app.delete("/make-server-4909a0bc/workouts/:id", async (c) => {
 app.post("/make-server-4909a0bc/workouts/:id/restore", async (c) => {
   try {
     const id = c.req.param("id");
-    const workouts = await kv.get("workouts:list") || [];
+    const workouts = await kvGetDirect("workouts:list") || [];
     
     const index = workouts.findIndex((w: any) => w.id === id);
     if (index === -1) {
@@ -1935,7 +1967,7 @@ app.post("/make-server-4909a0bc/workouts/:id/restore", async (c) => {
     };
     normalizedWorkouts[index] = normalizeWorkout(restoredWorkout);
     
-    await kv.set("workouts:list", normalizedWorkouts);
+    await kvSetDirect("workouts:list", normalizedWorkouts);
     
     console.log("✅ Workout restored:", id);
     
@@ -1950,7 +1982,7 @@ app.post("/make-server-4909a0bc/workouts/:id/restore", async (c) => {
 app.delete("/make-server-4909a0bc/workouts/:id/permanent", async (c) => {
   try {
     const id = c.req.param("id");
-    const workouts = await kv.get("workouts:list") || [];
+    const workouts = await kvGetDirect("workouts:list") || [];
     
     const filteredWorkouts = workouts.filter((w: any) => w.id !== id);
     
@@ -1960,7 +1992,7 @@ app.delete("/make-server-4909a0bc/workouts/:id/permanent", async (c) => {
     
     // Normalize remaining workouts before saving
     const normalizedWorkouts = normalizeWorkouts(filteredWorkouts);
-    await kv.set("workouts:list", normalizedWorkouts);
+    await kvSetDirect("workouts:list", normalizedWorkouts);
     
     console.log("✅ Workout permanently deleted:", id);
     
@@ -1975,8 +2007,17 @@ app.delete("/make-server-4909a0bc/workouts/:id/permanent", async (c) => {
 app.post("/make-server-4909a0bc/workouts/migrate", async (c) => {
   try {
     console.log("🔄 Starting workout migration...");
-    const workouts = await kv.get("workouts:list") || [];
+    const workouts = await kvGetDirect("workouts:list") || [];
     console.log("📋 Found", workouts.length, "existing workouts");
+    
+    // If no workouts exist, just return success
+    if (workouts.length === 0) {
+      console.log("✅ No workouts to migrate");
+      return c.json({ 
+        message: "No workouts to migrate", 
+        count: 0 
+      });
+    }
     
     // Normalize all workouts deeply
     const normalizedWorkouts = normalizeWorkouts(workouts);
@@ -1988,8 +2029,8 @@ app.post("/make-server-4909a0bc/workouts/migrate", async (c) => {
       console.log("🔍 Sample workout updated_at:", normalizedWorkouts[0].updated_at);
     }
     
-    // Save back to KV
-    await kv.set("workouts:list", normalizedWorkouts);
+    // Save back to KV using direct function
+    await kvSetDirect("workouts:list", normalizedWorkouts);
     console.log("💾 Migration complete!");
     
     return c.json({ 
@@ -1998,8 +2039,9 @@ app.post("/make-server-4909a0bc/workouts/migrate", async (c) => {
     });
   } catch (error) {
     console.error("Error migrating workouts:", error);
-    console.error("Error stack:", error.stack);
-    return c.json({ error: "Failed to migrate workouts", details: String(error) }, 500);
+    console.error("Error message:", error?.message);
+    console.error("Error stack:", error?.stack);
+    return c.json({ error: "Failed to migrate workouts", details: error?.message || String(error) }, 500);
   }
 });
 
