@@ -793,7 +793,12 @@ app.get("/make-server-4909a0bc/debug/test-controls", async (c) => {
     });
   } catch (error) {
     console.error("Error in debug endpoint:", error);
-    return c.json({ error: String(error) }, 500);
+    return c.json({ 
+      error: String(error),
+      count: 0,
+      testControls: [],
+      ids: []
+    }, 500);
   }
 });
 
@@ -1749,46 +1754,6 @@ app.delete("/make-server-4909a0bc/test-results/:id", async (c) => {
 
 // ==================== WORKOUT ROUTES ====================
 
-// Helper function to deeply normalize objects and ensure all have required timestamp fields
-function deepNormalizeObject(obj: any): any {
-  if (obj === null || obj === undefined) return obj;
-  if (typeof obj !== 'object') return obj;
-  if (Array.isArray(obj)) return obj.map(deepNormalizeObject);
-  
-  const now = new Date().toISOString();
-  const result: any = {};
-  
-  // First copy and recursively process all properties
-  for (const key in obj) {
-    result[key] = deepNormalizeObject(obj[key]);
-  }
-  
-  // Ensure timestamps exist
-  if (!result.created_at && !result.createdAt) {
-    result.created_at = now;
-  } else if (result.createdAt && !result.created_at) {
-    result.created_at = result.createdAt;
-  }
-  
-  if (!result.updated_at && !result.updatedAt) {
-    result.updated_at = now;
-  } else if (result.updatedAt && !result.updated_at) {
-    result.updated_at = result.updatedAt;
-  }
-  
-  return result;
-}
-
-// Helper function to normalize a single workout
-function normalizeWorkout(workout: any): any {
-  return deepNormalizeObject(workout);
-}
-
-// Helper function to normalize array of workouts
-function normalizeWorkouts(workouts: any[]): any[] {
-  return workouts.map(normalizeWorkout);
-}
-
 // Get all workouts
 app.get("/make-server-4909a0bc/workouts", async (c) => {
   try {
@@ -1814,31 +1779,25 @@ app.post("/make-server-4909a0bc/workouts", async (c) => {
     
     // Generate unique ID
     const id = `w${Date.now()}`;
-    const now = new Date().toISOString();
     const workoutWithId = { 
       ...newWorkout, 
       id,
-      created_at: now,
-      updated_at: now
+      createdAt: new Date().toISOString()
     };
     
     console.log("🆕 New workout with ID:", { id, title: workoutWithId.title });
     
-    // Normalize ALL workouts (existing + new) to ensure they all have timestamps
-    const normalizedExisting = normalizeWorkouts(workouts);
-    const normalizedNew = normalizeWorkout(workoutWithId);
-    const updatedWorkouts = [...normalizedExisting, normalizedNew];
-    
-    console.log("🔍 About to save array with", updatedWorkouts.length, "workouts");
-    
+    // Add to list
+    const updatedWorkouts = [...workouts, workoutWithId];
     await kv.set("workouts:list", updatedWorkouts);
     
-    console.log("✅ Workout added successfully");
+    // Verify it was saved
+    const verification = await kv.get("workouts:list") || [];
+    console.log("✅ Workouts after save:", verification.length, "items");
     
-    return c.json({ workout: normalizedNew }, 201);
+    return c.json({ workout: workoutWithId }, 201);
   } catch (error) {
     console.error("Error adding workout:", error);
-    console.error("Error stack:", error.stack);
     return c.json({ error: "Failed to add workout", details: String(error) }, 500);
   }
 });
@@ -1855,23 +1814,12 @@ app.put("/make-server-4909a0bc/workouts/:id", async (c) => {
       return c.json({ error: "Workout not found" }, 404);
     }
     
-    // Normalize all workouts first
-    const normalizedWorkouts = normalizeWorkouts(workouts);
-    
-    // Update the specific workout and normalize it
-    const updatedWorkout = { 
-      ...updatedData, 
-      id, 
-      created_at: normalizedWorkouts[index].created_at,
-      updated_at: new Date().toISOString() 
-    };
-    normalizedWorkouts[index] = normalizeWorkout(updatedWorkout);
-    
-    await kv.set("workouts:list", normalizedWorkouts);
+    workouts[index] = { ...updatedData, id, createdAt: workouts[index].createdAt, updatedAt: new Date().toISOString() };
+    await kv.set("workouts:list", workouts);
     
     console.log("✅ Workout updated:", id);
     
-    return c.json({ workout: normalizedWorkouts[index] });
+    return c.json({ workout: workouts[index] });
   } catch (error) {
     console.error("Error updating workout:", error);
     return c.json({ error: "Failed to update workout", details: String(error) }, 500);
@@ -1889,19 +1837,9 @@ app.delete("/make-server-4909a0bc/workouts/:id", async (c) => {
       return c.json({ error: "Workout not found" }, 404);
     }
     
-    // Normalize all workouts first
-    const normalizedWorkouts = normalizeWorkouts(workouts);
-    
-    // Soft delete - mark as deleted and normalize
-    const deletedWorkout = { 
-      ...normalizedWorkouts[index], 
-      deleted: true, 
-      deleted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    normalizedWorkouts[index] = normalizeWorkout(deletedWorkout);
-    
-    await kv.set("workouts:list", normalizedWorkouts);
+    // Soft delete - mark as deleted instead of removing
+    workouts[index] = { ...workouts[index], deleted: true, deletedAt: new Date().toISOString() };
+    await kv.set("workouts:list", workouts);
     
     console.log("✅ Workout soft deleted:", id);
     
@@ -1923,23 +1861,14 @@ app.post("/make-server-4909a0bc/workouts/:id/restore", async (c) => {
       return c.json({ error: "Workout not found" }, 404);
     }
     
-    // Normalize all workouts first
-    const normalizedWorkouts = normalizeWorkouts(workouts);
-    
-    // Remove deleted flag and normalize
-    const { deleted, deleted_at, deletedAt, ...workoutData } = normalizedWorkouts[index];
-    const restoredWorkout = { 
-      ...workoutData, 
-      restored_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    normalizedWorkouts[index] = normalizeWorkout(restoredWorkout);
-    
-    await kv.set("workouts:list", normalizedWorkouts);
+    // Remove deleted flag
+    const { deleted, deletedAt, ...workoutData } = workouts[index];
+    workouts[index] = { ...workoutData, restoredAt: new Date().toISOString() };
+    await kv.set("workouts:list", workouts);
     
     console.log("✅ Workout restored:", id);
     
-    return c.json({ workout: normalizedWorkouts[index] });
+    return c.json({ workout: workouts[index] });
   } catch (error) {
     console.error("Error restoring workout:", error);
     return c.json({ error: "Failed to restore workout", details: String(error) }, 500);
@@ -1958,9 +1887,7 @@ app.delete("/make-server-4909a0bc/workouts/:id/permanent", async (c) => {
       return c.json({ error: "Workout not found" }, 404);
     }
     
-    // Normalize remaining workouts before saving
-    const normalizedWorkouts = normalizeWorkouts(filteredWorkouts);
-    await kv.set("workouts:list", normalizedWorkouts);
+    await kv.set("workouts:list", filteredWorkouts);
     
     console.log("✅ Workout permanently deleted:", id);
     
@@ -1968,38 +1895,6 @@ app.delete("/make-server-4909a0bc/workouts/:id/permanent", async (c) => {
   } catch (error) {
     console.error("Error permanently deleting workout:", error);
     return c.json({ error: "Failed to permanently delete workout", details: String(error) }, 500);
-  }
-});
-
-// TEMPORARY: Migrate all existing workouts to have required timestamp fields
-app.post("/make-server-4909a0bc/workouts/migrate", async (c) => {
-  try {
-    console.log("🔄 Starting workout migration...");
-    const workouts = await kv.get("workouts:list") || [];
-    console.log("📋 Found", workouts.length, "existing workouts");
-    
-    // Normalize all workouts deeply
-    const normalizedWorkouts = normalizeWorkouts(workouts);
-    console.log("✅ Normalized", normalizedWorkouts.length, "workouts");
-    
-    if (normalizedWorkouts.length > 0) {
-      console.log("🔍 Sample workout fields:", Object.keys(normalizedWorkouts[0]));
-      console.log("🔍 Sample workout created_at:", normalizedWorkouts[0].created_at);
-      console.log("🔍 Sample workout updated_at:", normalizedWorkouts[0].updated_at);
-    }
-    
-    // Save back to KV
-    await kv.set("workouts:list", normalizedWorkouts);
-    console.log("💾 Migration complete!");
-    
-    return c.json({ 
-      message: "Migration completed successfully", 
-      count: normalizedWorkouts.length 
-    });
-  } catch (error) {
-    console.error("Error migrating workouts:", error);
-    console.error("Error stack:", error.stack);
-    return c.json({ error: "Failed to migrate workouts", details: String(error) }, 500);
   }
 });
 

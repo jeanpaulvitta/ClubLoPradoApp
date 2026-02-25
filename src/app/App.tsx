@@ -170,6 +170,15 @@ function MainApp() {
       setLoading(true);
       setError(null);
       
+      // TEMPORARY: Run migration to ensure all workouts have required timestamp fields
+      try {
+        console.log('🔄 Running workout migration...');
+        await api.migrateWorkouts();
+        console.log('✅ Migration completed');
+      } catch (migrationError) {
+        console.warn('⚠️ Migration failed, but continuing:', migrationError);
+      }
+      
       // Cargar datos con manejo de errores individual
       const results = await Promise.allSettled([
         api.fetchSwimmers(),

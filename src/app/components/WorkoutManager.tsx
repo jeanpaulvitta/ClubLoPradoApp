@@ -43,7 +43,7 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
     mainSet: [""],
     cooldown: "",
     intensity: "Media",
-    group: defaultGroup ? String(defaultGroup) : "Ambos",
+    group: defaultGroup || "Ambos",
   });
 
   // Sincronizar el filtro de grupo cuando cambie defaultGroup
@@ -138,7 +138,7 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
       mainSet: [""],
       cooldown: "",
       intensity: "Media",
-      group: defaultGroup ? String(defaultGroup) : "Ambos",
+      group: defaultGroup || "Ambos",
     });
     setEditingWorkout(null);
     setMultiDayMode(false);
@@ -228,7 +228,10 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
                       min="1"
                       max="20"
                       value={formData.week}
-                      onChange={(e) => setFormData({ ...formData, week: parseInt(e.target.value) })}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? 1 : parseInt(e.target.value) || 1;
+                        setFormData({ ...formData, week: value });
+                      }}
                     />
                   </div>
                   <div className="space-y-2">
@@ -331,7 +334,10 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
                       min="1000"
                       step="100"
                       value={formData.distance}
-                      onChange={(e) => setFormData({ ...formData, distance: parseInt(e.target.value) })}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? 1500 : parseInt(e.target.value) || 1500;
+                        setFormData({ ...formData, distance: value });
+                      }}
                     />
                   </div>
                   <div className="space-y-2">
@@ -341,7 +347,10 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
                       min="30"
                       step="5"
                       value={formData.duration}
-                      onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? 60 : parseInt(e.target.value) || 60;
+                        setFormData({ ...formData, duration: value });
+                      }}
                     />
                   </div>
                   <div className="space-y-2">
