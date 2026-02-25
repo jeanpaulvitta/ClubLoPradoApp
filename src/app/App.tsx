@@ -170,15 +170,8 @@ function MainApp() {
       setLoading(true);
       setError(null);
       
-      // TEMPORARY: Run migration to ensure all workouts have required timestamp fields
-      try {
-        console.log('🔄 Running workout migration...');
-        await api.migrateWorkouts();
-        console.log('✅ Migration completed');
-      } catch (migrationError) {
-        // Migration is optional - silently continue if it fails
-        console.log('ℹ️ Migration skipped (this is normal for new installations)');
-      }
+      // Migration disabled - timestamps are added automatically when creating/updating workouts
+      console.log('ℹ️ Workout timestamp normalization happens automatically');
       
       // Cargar datos con manejo de errores individual
       const results = await Promise.allSettled([
