@@ -10,7 +10,6 @@ import { AuthProvider, useAuth } from "@/app/contexts/AuthContext";
 import { ProtectedRoute } from "@/app/components/ProtectedRoute";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { UserMenu } from "@/app/components/UserMenu";
-import { MigrationBanner } from "@/app/components/MigrationBanner";
 import { PWAInstaller } from "@/app/components/PWAInstaller";
 import { AddSwimmerDialog } from "@/app/components/AddSwimmerDialog";
 import { SwimmerListItem } from "@/app/components/SwimmerListItem";
@@ -22,7 +21,6 @@ import { WorkoutManager } from "@/app/components/WorkoutManager";
 import { HolidayManager } from "@/app/components/HolidayManager";
 import { TrashManager } from "@/app/components/TrashManager";
 import { MesocicloDialog } from "@/app/components/MesocicloDialog";
-import { DataMigrationPanel } from "@/app/components/DataMigrationPanel";
 
 import { TrainingVolumeBloqueCharts } from "@/app/components/TrainingVolumeBloqueCharts";
 import { TrainingStats } from "@/app/components/TrainingStats";
@@ -39,9 +37,6 @@ import { MinimumTimesReference } from "@/app/components/MinimumTimesReference";
 import { GroupFilterSelector } from "@/app/components/GroupFilterSelector";
 import { SeasonStructureInfo } from "@/app/components/SeasonStructureInfo";
 import { PhysicalPreparation } from "@/app/components/PhysicalPreparation";
-import { ImportGroup2WorkoutsDialog } from "@/app/components/ImportGroup2WorkoutsDialog";
-import { BulkWorkoutEditor } from "@/app/components/BulkWorkoutEditor";
-import { BloqueAssignmentChecker } from "@/app/components/BloqueAssignmentChecker";
 import { generateAllSwimmersPDF } from "@/app/utils/pdfGenerator";
 import { 
   Users, 
@@ -65,8 +60,7 @@ import {
   Activity,
   Upload,
   Info,
-  CheckCircle,
-  Database
+  CheckCircle
 } from "lucide-react";
 import type { 
   Swimmer, 
@@ -169,9 +163,6 @@ function MainApp() {
     try {
       setLoading(true);
       setError(null);
-      
-      // Migration disabled - timestamps are added automatically when creating/updating workouts
-      console.log('ℹ️ Workout timestamp normalization happens automatically');
       
       // Cargar datos con manejo de errores individual
       const results = await Promise.allSettled([
@@ -518,45 +509,6 @@ function MainApp() {
     }
   };
 
-  const handleBulkUpdateWorkouts = async (workoutIds: string[], updates: Partial<Workout>) => {
-    try {
-      console.log(`🔄 Iniciando actualización masiva de ${workoutIds.length} entrenamientos...`);
-      console.log('📝 Actualizaciones a aplicar:', updates);
-      
-      // Actualizar cada entrenamiento
-      const updatePromises = workoutIds.map(async (id) => {
-        const existingWorkout = workouts.find(w => w.id === id);
-        if (!existingWorkout) {
-          console.warn(`⚠️ Entrenamiento no encontrado: ${id}`);
-          return null;
-        }
-        
-        const updatedData = { 
-          ...existingWorkout, 
-          ...updates 
-        };
-        
-        console.log(`📤 Actualizando entrenamiento ${id}:`, updatedData);
-        return api.updateWorkout(id, updatedData);
-      });
-      
-      const updatedWorkouts = await Promise.all(updatePromises);
-      const validUpdates = updatedWorkouts.filter(w => w !== null);
-      
-      console.log(`✅ ${validUpdates.length} entrenamientos actualizados en el servidor`);
-      
-      // Recargar todos los datos desde el servidor para asegurar consistencia
-      console.log('🔄 Recargando datos desde el servidor...');
-      await loadData();
-      
-      console.log(`✅ Actualización masiva completada y datos recargados`);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Error desconocido";
-      alert(`Error en actualización masiva: ${errorMsg}`);
-      console.error("❌ Error en actualización masiva:", err);
-    }
-  };
-
   const handleDeleteWorkout = async (id: string) => {
     try {
       await api.deleteWorkout(id);
@@ -566,75 +518,6 @@ function MainApp() {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
       alert(`Error al eliminar entrenamiento: ${errorMsg}`);
       console.error("❌ Error al eliminar entrenamiento:", err);
-    }
-  };
-
-  // Auto-corrección de bloques basada en semanas
-  const handleAutoFixBloques = async () => {
-    const bloqueDefinitions = [
-      { name: "Bloque 1", weekStart: 1, weekEnd: 6 },
-      { name: "Bloque 2", weekStart: 7, weekEnd: 10 },
-      { name: "Bloque 3", weekStart: 11, weekEnd: 14 },
-      { name: "Bloque 4", weekStart: 15, weekEnd: 20 },
-      { name: "Bloque 5", weekStart: 21, weekEnd: 26 },
-      { name: "Bloque 6", weekStart: 27, weekEnd: 30 },
-      { name: "Bloque 7", weekStart: 31, weekEnd: 34 },
-      { name: "Bloque 8", weekStart: 35, weekEnd: 39 },
-      { name: "Bloque 9", weekStart: 40, weekEnd: 48 },
-      { name: "Bloque 10", weekStart: 49, weekEnd: 52 },
-    ];
-
-    const getExpectedBloque = (week: number): string | null => {
-      const bloque = bloqueDefinitions.find(
-        b => week >= b.weekStart && week <= b.weekEnd
-      );
-      return bloque ? bloque.name : null;
-    };
-
-    const activeWorkouts = workouts.filter(w => !w.deleted);
-    const updatesByBloque: { [key: string]: string[] } = {};
-    let totalUpdates = 0;
-
-    activeWorkouts.forEach(workout => {
-      if (!workout.id) return;
-      
-      const expectedBloque = getExpectedBloque(workout.week);
-      const currentBloque = workout.bloque || workout.mesociclo;
-      
-      if (expectedBloque && currentBloque !== expectedBloque) {
-        if (!updatesByBloque[expectedBloque]) {
-          updatesByBloque[expectedBloque] = [];
-        }
-        updatesByBloque[expectedBloque].push(workout.id);
-        totalUpdates++;
-      }
-    });
-
-    if (totalUpdates === 0) {
-      alert("✅ Todos los bloques están correctamente asignados");
-      return;
-    }
-
-    const confirmed = confirm(
-      `Se corregirán ${totalUpdates} entrenamientos.\n\n` +
-      `¿Deseas continuar con la corrección automática?`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      console.log(`🔧 Iniciando corrección automática de ${totalUpdates} entrenamientos...`);
-      
-      for (const [bloque, ids] of Object.entries(updatesByBloque)) {
-        console.log(`📝 Asignando ${bloque} a ${ids.length} entrenamientos...`);
-        await handleBulkUpdateWorkouts(ids, { bloque, mesociclo: bloque });
-      }
-
-      alert(`✅ Se corrigieron ${totalUpdates} entrenamientos exitosamente`);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Error desconocido";
-      alert(`Error en corrección automática: ${errorMsg}`);
-      console.error("❌ Error en corrección automática:", err);
     }
   };
 
@@ -689,66 +572,30 @@ function MainApp() {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
       alert(`Error al agregar test control: ${errorMsg}`);
       console.error("❌ Error al agregar test control:", err);
-      
-      // En caso de error, recargar para sincronizar
-      try {
-        const fresh = await api.fetchTestControls();
-        setTestControls(fresh);
-      } catch (reloadErr) {
-        console.error("❌ Error recargando después de fallo:", reloadErr);
-      }
     }
   };
 
-  const handleEditTestControl = async (testControl: TestControl) => {
+  const handleEditTestControl = async (id: string, testControl: TestControl) => {
     try {
-      console.log('✅ App: Test control updated from child component:', testControl.id);
-      
-      // Solo actualizar el estado con el test control ya actualizado
-      setTestControls(testControls.map(tc => tc.id === testControl.id ? testControl : tc));
-      
+      const updatedTestControl = await api.updateTestControl(id, testControl);
+      setTestControls(testControls.map(tc => tc.id === id ? updatedTestControl : tc));
+      console.log("✅ Test control actualizado:", updatedTestControl);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
       alert(`Error al actualizar test control: ${errorMsg}`);
       console.error("❌ Error al actualizar test control:", err);
-      
-      // En caso de error, recargar para sincronizar
-      try {
-        const fresh = await api.fetchTestControls();
-        setTestControls(fresh);
-      } catch (reloadErr) {
-        console.error('❌ Error recargando:', reloadErr);
-      }
     }
   };
 
   const handleDeleteTestControl = async (id: string) => {
     try {
-      // Eliminar directamente del servidor
       await api.deleteTestControl(id);
-      
-      // Actualizar el estado local inmediatamente
-      setTestControls(prev => prev.filter(tc => tc.id !== id));
-      
+      setTestControls(testControls.filter(tc => tc.id !== id));
+      console.log("✅ Test control eliminado:", id);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
-      
-      // Si hay un error 404, significa que ya fue eliminado - actualizar estado silenciosamente sin log
-      if (errorMsg.toLowerCase().includes('404') || errorMsg.toLowerCase().includes('not found')) {
-        setTestControls(prev => prev.filter(tc => tc.id !== id));
-        return; // Salir sin mostrar alerta ni ningún mensaje
-      }
-      
-      // Para otros errores, mostrar log de error, alerta e intentar sincronizar
-      console.error('❌ Error al eliminar test control:', errorMsg);
-      alert(`❌ Error al eliminar test control: ${errorMsg}`);
-      
-      try {
-        const fresh = await api.fetchTestControls();
-        setTestControls(fresh);
-      } catch (reloadErr) {
-        console.error('❌ Error recargando:', reloadErr);
-      }
+      alert(`Error al eliminar test control: ${errorMsg}`);
+      console.error("❌ Error al eliminar test control:", err);
     }
   };
 
@@ -785,26 +632,6 @@ function MainApp() {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
       alert(`Error al eliminar resultado de test: ${errorMsg}`);
       console.error("❌ Error al eliminar resultado de test:", err);
-    }
-  };
-
-  // Función de sincronización para test controls y results
-  const handleSyncTestData = async () => {
-    try {
-      console.log("🔄 Sincronizando datos de test controls...");
-      const [freshTestControls, freshTestResults] = await Promise.all([
-        api.fetchTestControls(),
-        api.fetchTestResults()
-      ]);
-      setTestControls(freshTestControls);
-      setTestResults(freshTestResults);
-      console.log("✅ Datos sincronizados:", {
-        testControls: freshTestControls.length,
-        testResults: freshTestResults.length
-      });
-    } catch (err) {
-      console.error("❌ Error sincronizando datos:", err);
-      throw err;
     }
   };
 
@@ -967,16 +794,15 @@ function MainApp() {
   const totalWorkouts = workouts.length;
   const avgDistance = totalWorkouts > 0 ? Math.round(totalDistance / totalWorkouts) : 0;
 
-  // Estructura de temporada 2026-2027 - 10 BLOQUES
-  // Inicio: 9 de febrero 2026
-  const bloqueTemporada = [
+  // Definir estadísticas de mesociclos
+  const mesocicloStats = [
     {
       name: "Bloque 1",
-      weeks: 6,
-      dateRange: "9 Feb - 22 Mar 2026",
-      description: "Salidas, reacción, subacuático inicial, frecuencia de brazada alta, patada explosiva, posición hidrodinámica",
-      competition: "Copas Chile 1 - Velocidad (50m)",
-      competitionDate: "21-22 Mar 2026",
+      weeks: 4,
+      dateRange: "9 Feb - 5 Mar 2026",
+      description: "Fuerza, resistencia, técnica básica, virajes cortos y económicos",
+      competition: "Copas Chile 1 - Velocidad",
+      competitionDate: "12-13 Sep 2026",
       icon: Target,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
@@ -1042,60 +868,12 @@ function MainApp() {
       bgColor: "bg-blue-50",
       borderColor: "border-blue-200",
     },
-    {
-      name: "Bloque 7",
-      weeks: 4,
-      dateRange: "14 Sep - 4 Oct 2026",
-      description: "Sostener ritmos altos, eficiencia técnica, control de virajes y respiración",
-      competition: "Copas Chile 2 - Fondo",
-      competitionDate: "2-4 Oct 2026",
-      icon: CalendarDays,
-      color: "text-green-600",
-      bgColor: "bg-green-50",
-      borderColor: "border-green-200",
-    },
-    {
-      name: "Bloque 8",
-      weeks: 5,
-      dateRange: "5 Oct - 8 Nov 2026",
-      description: "Economía de nado, control técnico en acumulación de pruebas",
-      competition: "Copas Chile 3 - Medio Fondo",
-      competitionDate: "6-8 Nov 2026",
-      icon: Trophy,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
-      borderColor: "border-purple-200",
-    },
-    {
-      name: "Bloque 9",
-      weeks: 9,
-      dateRange: "9 Nov 2026 - 9 Ene 2027",
-      description: "Reforzamiento técnico general, ajustes individuales. Preparación Nacionales Verano 2027",
-      competition: "Preparación Campeonatos",
-      competitionDate: "Nov-Dic 2026",
-      icon: Target,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
-      borderColor: "border-orange-200",
-    },
-    {
-      name: "Bloque 10",
-      weeks: 4,
-      dateRange: "10 Ene - 7 Feb 2027",
-      description: "Pico competitivo, ejecución técnica óptima, control emocional",
-      competition: "Festival Menores (9-10 Ene) | Nacional Desarrollo (14-17 Ene) | Nacional Infantil (21-24 Ene)",
-      competitionDate: "9 Ene - 7 Feb 2027",
-      icon: Trophy,
-      color: "text-red-600",
-      bgColor: "bg-red-50",
-      borderColor: "border-red-200",
-    },
   ];
 
-  // Usar la estructura de bloques (sin división por grupos)
-  const mesocicloStats = bloqueTemporada;
-  const totalWeeksInSeason = mesocicloStats.reduce((sum, m) => sum + m.weeks, 0);
+  // Calcular total de semanas en la temporada
+  const totalWeeksInSeason = mesocicloStats.reduce((sum, bloque) => sum + bloque.weeks, 0);
 
+  // Renderizado principal
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50">
       {/* Header */}
@@ -1134,6 +912,7 @@ function MainApp() {
         </div>
       </header>
 
+      {/* Main Content */}
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* NAVEGACIÓN PRINCIPAL POR SECCIONES */}
         <Tabs value={activeSection} onValueChange={setActiveSection} className="w-full">
@@ -1184,11 +963,6 @@ function MainApp() {
                 <TabsTrigger value="usuarios" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
                   <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Usuarios</span>
-                </TabsTrigger>
-                <TabsTrigger value="migracion" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
-                  <Database className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden lg:inline">Migración</span>
-                  <span className="lg:hidden">Migrar</span>
                 </TabsTrigger>
               </>
             )}
@@ -1266,13 +1040,8 @@ function MainApp() {
                       ⚠️ No hay entrenamientos en la base de datos
                     </p>
                     <p className="text-sm text-yellow-800 mb-3">
-                      Para comenzar, necesitas importar los entrenamientos del Grupo 2 o agregar entrenamientos manualmente.
+                      Para comenzar, necesitas agregar entrenamientos manualmente.
                     </p>
-                    {user?.role === "admin" && (
-                      <p className="text-xs text-yellow-700 bg-yellow-100 p-2 rounded border border-yellow-300">
-                        💡 Desplázate hacia abajo para usar el botón "Importar Grupo 2" o agregar entrenamientos manualmente.
-                      </p>
-                    )}
                   </div>
                 </AlertDescription>
               </Alert>
@@ -1332,21 +1101,6 @@ function MainApp() {
             {/* Gestión de Entrenamientos (solo para admins/coaches) */}
             {(user?.role === "admin" || user?.role === "coach") && (
               <div className="space-y-4">
-                {/* Botones de gestión (solo admin) */}
-                {user?.role === "admin" && (
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <BloqueAssignmentChecker
-                      workouts={workouts}
-                      onAutoFix={handleAutoFixBloques}
-                    />
-                    <BulkWorkoutEditor 
-                      workouts={workouts}
-                      onBulkUpdate={handleBulkUpdateWorkouts}
-                    />
-                    <ImportGroup2WorkoutsDialog onImportComplete={loadData} />
-                  </div>
-                )}
-
                 {/* Indicador de Grupo Activo */}
                 <Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
                   <CardContent className="pt-4">
@@ -1417,425 +1171,11 @@ function MainApp() {
                   <h2 className="text-2xl font-bold mb-4">Análisis de Volumen de Entrenamiento por Bloques</h2>
                   <TrainingVolumeBloqueCharts sessions={allSessions} />
                 </div>
-
-                <div>
-                  <h2 className="text-2xl font-bold mb-4">Estadísticas de Entrenamiento</h2>
-                  <TrainingStats sessions={allSessions} />
-                </div>
               </div>
             )}
-          </TabsContent>
-
-          {/* SECCIÓN 1.5: PREPARACIÓN FÍSICA */}
-          <TabsContent value="preparacion-fisica" className="space-y-8">
-            <PhysicalPreparation />
-          </TabsContent>
-
-          {/* SECCIÓN 2: CALENDARIO INTEGRADO */}
-          <TabsContent value="calendario" className="space-y-8">
-            <IntegratedCalendar
-              sessions={allSessionsWithDates.map((s, idx) => ({
-                id: `session_${s.week}_${idx}`,
-                week: s.week,
-                date: s.dateISO,
-                mesociclo: s.mesociclo,
-                distance: s.distance,
-                type: s.type,
-                description: s.description
-              }))}
-              competitions={competitions}
-              swimmers={swimmers}
-              swimmerCompetitions={swimmerCompetitions}
-              attendanceRecords={attendanceRecords}
-              currentUser={currentSwimmer}
-              holidays={holidays}
-            />
-          </TabsContent>
-
-          {/* SECCIÓN 2: NADADORES */}
-          <TabsContent value="nadadores" className="space-y-4 sm:space-y-8">
-            <div className="flex items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Users className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-                <h2 className="text-xl sm:text-3xl font-bold">Nadadores</h2>
-              </div>
-              {(user?.role === "admin" || user?.role === "coach") && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      // Preparar datos para el PDF
-                      const attendanceRecordsBySwimmer = new Map();
-                      const teamRecordsBySwimmer = new Map();
-                      
-                      swimmers.forEach((swimmer) => {
-                        // Por ahora, registros vacíos - se pueden llenar con datos reales
-                        attendanceRecordsBySwimmer.set(swimmer.id, []);
-                        
-                        // Contar récords del equipo
-                        const personalBestsArray = Array.isArray(swimmer.personalBests) 
-                          ? swimmer.personalBests 
-                          : [];
-                        const recordsCount = personalBestsArray.filter(pb => 
-                          isTeamRecord(swimmer, pb, swimmers)
-                        ).length || 0;
-                        teamRecordsBySwimmer.set(swimmer.id, recordsCount);
-                      });
-                      
-                      generateAllSwimmersPDF(swimmers, attendanceRecordsBySwimmer, teamRecordsBySwimmer);
-                    }}
-                    disabled={swimmers.length === 0}
-                  >
-                    <FileDown className="w-4 h-4 mr-2" />
-                    
-                  </Button>
-                  <AddSwimmerDialog onAddSwimmer={handleAddSwimmer} />
-                </div>
-              )}
-            </div>
-
-            {/* Estadísticas Generales */}
-            <SwimmersStats swimmers={swimmers} />
-
-            {/* Tabs por horario */}
-            <div className="mt-8">
-              <Tabs defaultValue="all">
-                <TabsList className="w-full justify-start">
-                  <TabsTrigger value="all">Todos los Nadadores</TabsTrigger>
-                  <TabsTrigger value="minimum-times">
-                    <Target className="w-4 h-4 mr-2" />
-                    Marcas Mínimas
-                  </TabsTrigger>
-                  <TabsTrigger value="minimum-times-reference">
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    Tabla de Referencia
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="all" className="mt-6">
-                  {/* Filtros */}
-                  <Card className="mb-6">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-4 mb-4">
-                        <Filter className="w-5 h-5 text-blue-600" />
-                        <h3 className="font-semibold">Filtros</h3>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Filtro por Género */}
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Género</label>
-                          <Select value={filterGender} onValueChange={setFilterGender}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Todos los géneros" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">Todos</SelectItem>
-                              <SelectItem value="Masculino">Masculino</SelectItem>
-                              <SelectItem value="Femenino">Femenino</SelectItem>
-                              <SelectItem value="Otro">Otro</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Filtro por Categoría */}
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Categoría</label>
-                          <Select value={filterCategory} onValueChange={setFilterCategory}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Todas las categorías" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">Todas</SelectItem>
-                              {uniqueCategories.map((category) => (
-                                <SelectItem key={category} value={category}>
-                                  {category}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Filtro por Grupo de Entrenamiento */}
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                            <Users className="w-4 h-4 text-red-600" />
-                            Grupo de Entrenamiento
-                          </label>
-                          <Select value={String(filterGroup)} onValueChange={(value) => setFilterGroup(value === "all" ? "all" : parseInt(value) as 1 | 2)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Todos los grupos" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">🏊 Todos los Grupos</SelectItem>
-                              <SelectItem value="1">👶 Grupo 1 (Menores hasta Inf A)</SelectItem>
-                              <SelectItem value="2">🏅 Grupo 2 (Inf B hasta Mayores)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Botón para limpiar filtros */}
-                        <div className="space-y-2 flex items-end">
-                          <Button 
-                            variant="outline" 
-                            onClick={() => {
-                              setFilterGender("all");
-                              setFilterCategory("all");
-                              setFilterGroup("all");
-                            }}
-                            className="w-full"
-                          >
-                            Limpiar Filtros
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {/* Contador de resultados */}
-                      <div className="mt-4 text-sm text-gray-600">
-                        Mostrando <span className="font-semibold text-blue-600">{filteredSwimmers.length}</span> de {swimmers.length} nadadores
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Lista de nadadores */}
-                  {filteredSwimmers.length === 0 ? (
-                    <Card className="bg-gradient-to-br from-blue-50 to-purple-50">
-                      <CardContent className="pt-12 pb-12 text-center">
-                        <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                          {swimmers.length === 0 
-                            ? "No hay nadadores registrados"
-                            : "No hay nadadores que coincidan con los filtros"}
-                        </h3>
-                        <p className="text-gray-600 mb-6">
-                          {swimmers.length === 0
-                            ? "Comienza agregando nadadores al equipo usando el botón \"Agregar Nadador\" arriba."
-                            : "Intenta ajustar los filtros para ver más resultados."}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredSwimmers.map((swimmer) => (
-                        <SwimmerListItem
-                          key={swimmer.id}
-                          swimmer={swimmer}
-                          allSwimmers={swimmers}
-                          onClick={() => {
-                            setSelectedSwimmer(swimmer);
-                            setSwimmerDialogOpen(true);
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Pestaña: Marcas Mínimas por Nadador */}
-                <TabsContent value="minimum-times" className="mt-6 space-y-6">
-                  {user?.role === "swimmer" && currentSwimmer ? (
-                    // Vista para nadadores: solo ver sus propias marcas
-                    <SwimmerMinimumTimesView swimmer={currentSwimmer} />
-                  ) : (
-                    // Vista para admin/coach: selector de nadador
-                    <div className="space-y-6">
-                      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-                        <CardContent className="pt-6">
-                          <div className="flex items-center gap-3 mb-4">
-                            <Target className="w-6 h-6 text-blue-600" />
-                            <h3 className="text-lg font-semibold text-gray-800">
-                              Consulta de Marcas Mínimas por Nadador
-                            </h3>
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            Selecciona un nadador para ver las marcas mínimas de su categoría y su progreso personal.
-                          </p>
-                        </CardContent>
-                      </Card>
-
-                      {/* Selector de nadador */}
-                      <Card>
-                        <CardContent className="pt-6">
-                          <div className="mb-4">
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">
-                              Seleccionar Nadador
-                            </label>
-                            <Select 
-                              value={selectedSwimmer?.id || ""} 
-                              onValueChange={(value) => {
-                                const swimmer = swimmers.find(s => s.id === value);
-                                setSelectedSwimmer(swimmer || null);
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Elige un nadador..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {swimmers
-                                  .filter(s => s.gender && s.gender !== "Otro")
-                                  .sort((a, b) => a.name.localeCompare(b.name))
-                                  .map((swimmer) => (
-                                    <SelectItem key={swimmer.id} value={swimmer.id}>
-                                      {swimmer.name} - {calculateCategoryFromBirthDate(swimmer.dateOfBirth)} ({swimmer.gender})
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Mostrar marcas del nadador seleccionado */}
-                      {selectedSwimmer && (
-                        <SwimmerMinimumTimesView swimmer={selectedSwimmer} />
-                      )}
-
-                      {!selectedSwimmer && (
-                        <Card className="bg-gradient-to-br from-gray-50 to-blue-50">
-                          <CardContent className="pt-12 pb-12 text-center">
-                            <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                              Selecciona un nadador
-                            </h3>
-                            <p className="text-gray-600">
-                              Elige un nadador del menú desplegable para ver sus marcas mínimas y progreso.
-                            </p>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Pestaña: Tabla de Referencia de Marcas Mínimas */}
-                <TabsContent value="minimum-times-reference" className="mt-6">
-                  <MinimumTimesReference />
-                </TabsContent>
-              </Tabs>
-            </div>
-          </TabsContent>
-
-          {/* SECCIÓN 3: COMPETENCIAS */}
-          <TabsContent value="competencias" className="space-y-8">
-            {/* Verificador de Marcas Mínimas */}
-            <div>
-              <MinimumTimesChecker swimmers={swimmers} />
-            </div>
-
-            {/* Gestión de Competencias - visible para todos */}
-            <div>
-              <CompetitionManager
-                competitions={competitions}
-                onAddCompetition={handleAddCompetition}
-                onEditCompetition={handleEditCompetition}
-                onDeleteCompetition={handleDeleteCompetition}
-                weeks={totalWeeksInSeason}
-              />
-            </div>
-
-            {/* Mis Resultados - solo para nadadores con perfil vinculado */}
-            {currentSwimmer && (
-              <div className="border-t-4 border-blue-200 pt-8">
-                <CompetitionResults
-                  swimmer={currentSwimmer}
-                  competitions={competitions}
-                  swimmerCompetitions={swimmerCompetitions}
-                  onUpdateResults={handleUpdateCompetitionResults}
-                />
-              </div>
-            )}
-          </TabsContent>
-
-          {/* SECCIÓN 3.5: TEST CONTROL */}
-          <TabsContent value="test-control" className="space-y-8">
-            <TestControlManager
-              testControls={testControls}
-              testResults={testResults}
-              swimmers={swimmers}
-              onTestControlAdded={handleAddTestControl}
-              onTestControlUpdated={handleEditTestControl}
-              onTestControlDeleted={handleDeleteTestControl}
-              onTestResultAdded={handleAddTestResult}
-              onTestResultUpdated={handleEditTestResult}
-              onTestResultDeleted={handleDeleteTestResult}
-              onSyncData={handleSyncTestData}
-              userRole={user?.role}
-            />
-          </TabsContent>
-
-          {/* SECCIÓN 4: RÉCORDS */}
-          <TabsContent value="records" className="space-y-8">
-            <TeamRecordsBoard swimmers={swimmers} />
-          </TabsContent>
-
-          {/* SECCIÓN 5: LOGROS */}
-          <TabsContent value="logros" className="space-y-8">
-            <AchievementsBoard
-              swimmers={swimmers}
-              attendanceRecords={attendanceRecords}
-              competitions={competitions}
-              selectedSwimmerId={currentSwimmer?.id}
-            />
-          </TabsContent>
-
-          {/* SECCIÓN 6: ASISTENCIA */}
-          <TabsContent value="asistencia" className="space-y-8">
-            <AttendanceManager 
-              swimmers={swimmers} 
-              sessions={allSessions.map((s, idx) => ({
-                id: `session_${s.week}_${idx}`,
-                week: s.week,
-                date: s.date,
-                mesociclo: s.mesociclo,
-                distance: s.distance,
-                type: s.type
-              }))}
-            />
-          </TabsContent>
-
-          {/* SECCIÓN 7: USUARIOS */}
-          <TabsContent value="usuarios" className="space-y-8">
-            <UserManager swimmers={swimmers} />
-          </TabsContent>
-
-          {/* SECCIÓN 8: MIGRACIÓN DE DATOS (Solo Admin) */}
-          <TabsContent value="migracion" className="space-y-8">
-            <DataMigrationPanel />
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Footer */}
-      <footer className="bg-black text-white mt-12 py-6">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-gray-300">
-            Club Natación Lo Prado
-          </p>
-          <p className="text-sm text-red-400 mt-2">
-            Haz que todo sea posible | Temporada 2026-2027
-          </p>
-          <p className="text-xs text-gray-400 mt-2">
-            3 entrenamientos semanales | Lunes, Miércoles, Viernes + Sábados de Desafíos
-          </p>
-        </div>
-      </footer>
-
-      {/* Diálogo de detalles del nadador */}
-      <SwimmerDetailsDialog
-        swimmer={selectedSwimmer}
-        open={swimmerDialogOpen}
-        onOpenChange={setSwimmerDialogOpen}
-        attendanceRecords={selectedSwimmer ? convertAttendanceRecords(selectedSwimmer.id) : []}
-        onDelete={handleDeleteSwimmer}
-        onEdit={handleEditSwimmer}
-        onSavePersonalBests={handleSavePersonalBests}
-        swimmerCompetitions={swimmerCompetitions}
-        competitions={competitions}
-        allSwimmers={swimmers}
-        onToggleCompetitionParticipation={handleToggleCompetitionParticipation}
-        onUpdateCompetitionResults={handleUpdateCompetitionResults}
-        onUpdateGoals={handleUpdateGoals}
-      />
     </div>
   );
 }
@@ -1844,12 +1184,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <MigrationBanner />
         <ProtectedRoute>
           <MainApp />
         </ProtectedRoute>
-        <PWAInstaller />
-        <Toaster />
       </AuthProvider>
     </ErrorBoundary>
   );

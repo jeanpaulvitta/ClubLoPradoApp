@@ -122,9 +122,6 @@ async function initializeStorage() {
   }
 }
 
-// Initialize storage on startup
-initializeStorage();
-
 // Enable logger
 app.use('*', logger(console.log));
 
@@ -1749,59 +1746,110 @@ app.delete("/make-server-4909a0bc/test-results/:id", async (c) => {
 
 // ==================== WORKOUT ROUTES ====================
 
-// Direct KV functions that bypass the protected kv_store.tsx file
-// Add updated_at to satisfy the trigger, even though it's not a real column
-async function kvSetDirect(key: string, value: any): Promise<void> {
+// Storage-based functions to avoid KV table trigger issues
+// Workouts are stored in Supabase Storage bucket instead of KV table
+const WORKOUTS_BUCKET = "make-4909a0bc-workouts";
+const WORKOUTS_FILE = "workouts.json";
+
+// Initialize storage bucket on startup
+async function initWorkoutsBucket() {
   try {
-    const now = new Date().toISOString();
-    // Try insert first with updated_at to satisfy trigger
-    const { error: insertError } = await supabase
-      .from("kv_store_4909a0bc")
-      .insert({ key, value, updated_at: now })
-      .select()
-      .single();
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === WORKOUTS_BUCKET);
     
-    if (insertError) {
-      // If insert fails due to duplicate key, update instead
-      if (insertError.code === "23505") {
-        const { error: updateError } = await supabase
-          .from("kv_store_4909a0bc")
-          .update({ value, updated_at: now })
-          .eq("key", key);
-        
-        if (updateError) {
-          console.error("KV Update Error:", updateError);
-          throw new Error(updateError.message);
-        }
+    if (!bucketExists) {
+      const { error } = await supabase.storage.createBucket(WORKOUTS_BUCKET, {
+        public: false,
+        fileSizeLimit: 10485760 // 10MB
+      });
+      if (error && error.message !== "The resource already exists") {
+        console.error("Error creating workouts bucket:", error);
       } else {
-        console.error("KV Insert Error:", insertError);
-        throw new Error(insertError.message);
+        console.log("✅ Workouts storage bucket ready");
       }
+    } else {
+      console.log("✅ Workouts storage bucket already exists");
+    }
+    
+    // Initialize with empty array if file doesn't exist
+    const { data: files } = await supabase.storage
+      .from(WORKOUTS_BUCKET)
+      .list();
+    
+    const fileExists = files?.some(f => f.name === WORKOUTS_FILE);
+    if (!fileExists) {
+      console.log("📝 Creating initial workouts.json file...");
+      const emptyWorkouts = JSON.stringify([], null, 2);
+      await supabase.storage
+        .from(WORKOUTS_BUCKET)
+        .upload(WORKOUTS_FILE, new Blob([emptyWorkouts], { type: 'application/json' }), {
+          contentType: 'application/json'
+        });
+      console.log("✅ Initial workouts.json created");
     }
   } catch (error) {
-    console.error("KV Set Error:", error);
+    console.error("Error initializing workouts bucket:", error);
+  }
+}
+
+// Get workouts from storage
+async function getWorkoutsFromStorage(): Promise<any[]> {
+  try {
+    const { data, error } = await supabase.storage
+      .from(WORKOUTS_BUCKET)
+      .download(WORKOUTS_FILE);
+    
+    if (error) {
+      console.error("Download error details:", error);
+      // Return empty array if file doesn't exist or any error
+      return [];
+    }
+    
+    if (!data) {
+      console.log("No data returned from download");
+      return [];
+    }
+    
+    const text = await data.text();
+    if (!text || text.trim() === '') {
+      return [];
+    }
+    
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Error getting workouts from storage:", error);
+    return [];
+  }
+}
+
+// Save workouts to storage
+async function saveWorkoutsToStorage(workouts: any[]): Promise<void> {
+  try {
+    const jsonString = JSON.stringify(workouts, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    
+    console.log(`💾 Saving ${workouts.length} workouts to storage...`);
+    
+    const { error } = await supabase.storage
+      .from(WORKOUTS_BUCKET)
+      .upload(WORKOUTS_FILE, blob, {
+        upsert: true,
+        contentType: 'application/json'
+      });
+    
+    if (error) {
+      console.error("Storage upload error:", error);
+      throw error;
+    }
+    
+    console.log("✅ Workouts saved successfully");
+  } catch (error) {
+    console.error("Error saving workouts to storage:", error);
     throw error;
   }
 }
 
-async function kvGetDirect(key: string): Promise<any> {
-  const { data, error } = await supabase
-    .from("kv_store_4909a0bc")
-    .select("value")
-    .eq("key", key)
-    .single();
-  
-  if (error) {
-    if (error.code === "PGRST116") {
-      // Not found - return null
-      return null;
-    }
-    console.error("KV Get Error:", error);
-    throw new Error(error.message);
-  }
-  
-  return data?.value;
-}
+
 
 // Helper function to deeply normalize objects and ensure all have required timestamp fields
 function deepNormalizeObject(obj: any): any {
@@ -1846,7 +1894,7 @@ function normalizeWorkouts(workouts: any[]): any[] {
 // Get all workouts
 app.get("/make-server-4909a0bc/workouts", async (c) => {
   try {
-    const workouts = await kvGetDirect("workouts:list") || [];
+    const workouts = await getWorkoutsFromStorage();
     // Filter out deleted workouts - only return active ones
     const activeWorkouts = workouts.filter((w: any) => !w.deleted);
     console.log(`📊 Returning ${activeWorkouts.length} active workouts (${workouts.length} total, ${workouts.length - activeWorkouts.length} deleted)`);
@@ -1863,7 +1911,7 @@ app.post("/make-server-4909a0bc/workouts", async (c) => {
     const newWorkout = await c.req.json();
     console.log("📝 Creating new workout:", newWorkout.title || newWorkout.type);
     
-    const workouts = await kvGetDirect("workouts:list") || [];
+    const workouts = await getWorkoutsFromStorage();
     console.log("📋 Existing workouts before add:", workouts.length);
     
     // Generate unique ID
@@ -1885,7 +1933,7 @@ app.post("/make-server-4909a0bc/workouts", async (c) => {
     
     console.log("🔍 About to save array with", updatedWorkouts.length, "workouts");
     
-    await kvSetDirect("workouts:list", updatedWorkouts);
+    await saveWorkoutsToStorage(updatedWorkouts);
     
     console.log("✅ Workout added successfully");
     
@@ -1902,7 +1950,7 @@ app.put("/make-server-4909a0bc/workouts/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const updatedData = await c.req.json();
-    const workouts = await kvGetDirect("workouts:list") || [];
+    const workouts = await getWorkoutsFromStorage();
     
     const index = workouts.findIndex((w: any) => w.id === id);
     if (index === -1) {
@@ -1921,7 +1969,7 @@ app.put("/make-server-4909a0bc/workouts/:id", async (c) => {
     };
     normalizedWorkouts[index] = normalizeWorkout(updatedWorkout);
     
-    await kvSetDirect("workouts:list", normalizedWorkouts);
+    await saveWorkoutsToStorage(normalizedWorkouts);
     
     console.log("✅ Workout updated:", id);
     
@@ -1936,7 +1984,7 @@ app.put("/make-server-4909a0bc/workouts/:id", async (c) => {
 app.delete("/make-server-4909a0bc/workouts/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const workouts = await kvGetDirect("workouts:list") || [];
+    const workouts = await getWorkoutsFromStorage();
     
     const index = workouts.findIndex((w: any) => w.id === id);
     if (index === -1) {
@@ -1955,7 +2003,7 @@ app.delete("/make-server-4909a0bc/workouts/:id", async (c) => {
     };
     normalizedWorkouts[index] = normalizeWorkout(deletedWorkout);
     
-    await kvSetDirect("workouts:list", normalizedWorkouts);
+    await saveWorkoutsToStorage(normalizedWorkouts);
     
     console.log("✅ Workout soft deleted:", id);
     
@@ -1970,7 +2018,7 @@ app.delete("/make-server-4909a0bc/workouts/:id", async (c) => {
 app.post("/make-server-4909a0bc/workouts/:id/restore", async (c) => {
   try {
     const id = c.req.param("id");
-    const workouts = await kvGetDirect("workouts:list") || [];
+    const workouts = await getWorkoutsFromStorage();
     
     const index = workouts.findIndex((w: any) => w.id === id);
     if (index === -1) {
@@ -1989,7 +2037,7 @@ app.post("/make-server-4909a0bc/workouts/:id/restore", async (c) => {
     };
     normalizedWorkouts[index] = normalizeWorkout(restoredWorkout);
     
-    await kvSetDirect("workouts:list", normalizedWorkouts);
+    await saveWorkoutsToStorage(normalizedWorkouts);
     
     console.log("✅ Workout restored:", id);
     
@@ -2004,7 +2052,7 @@ app.post("/make-server-4909a0bc/workouts/:id/restore", async (c) => {
 app.delete("/make-server-4909a0bc/workouts/:id/permanent", async (c) => {
   try {
     const id = c.req.param("id");
-    const workouts = await kvGetDirect("workouts:list") || [];
+    const workouts = await getWorkoutsFromStorage();
     
     const filteredWorkouts = workouts.filter((w: any) => w.id !== id);
     
@@ -2014,7 +2062,7 @@ app.delete("/make-server-4909a0bc/workouts/:id/permanent", async (c) => {
     
     // Normalize remaining workouts before saving
     const normalizedWorkouts = normalizeWorkouts(filteredWorkouts);
-    await kvSetDirect("workouts:list", normalizedWorkouts);
+    await saveWorkoutsToStorage(normalizedWorkouts);
     
     console.log("✅ Workout permanently deleted:", id);
     
@@ -2025,14 +2073,10 @@ app.delete("/make-server-4909a0bc/workouts/:id/permanent", async (c) => {
   }
 });
 
-// Migration endpoint disabled - timestamps are added automatically when creating/updating workouts
-// The trigger issue with updated_at field makes batch migrations problematic
-// Individual workout operations handle normalization correctly
-app.post("/make-server-4909a0bc/workouts/migrate", async (c) => {
-  return c.json({ 
-    message: "Migration not needed - timestamps added automatically", 
-    count: 0 
-  });
-});
+// Initialize storage buckets on startup
+console.log('🚀 Starting server initialization...');
+await initializeStorage();
+await initWorkoutsBucket();
+console.log('✅ Server initialization complete');
 
 Deno.serve(app.fetch);

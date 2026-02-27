@@ -6,7 +6,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Checkbox } from "./ui/checkbox";
-import { Plus, Edit, Trash2, Dumbbell, Calendar, Users, Filter } from "lucide-react";
+import { Plus, Edit, Trash2, Dumbbell, Calendar, Users, Filter, Calculator } from "lucide-react";
 import type { Workout } from "../data/workouts";
 import { useAuth } from "../contexts/AuthContext";
 import { getGroupName } from "../utils/swimmerUtils";
@@ -43,7 +43,7 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
     mainSet: [""],
     cooldown: "",
     intensity: "Media",
-    group: defaultGroup || "Ambos",
+    group: defaultGroup || 1,
   });
 
   // Sincronizar el filtro de grupo cuando cambie defaultGroup
@@ -65,6 +65,72 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
 
   const availableDays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
   const availableSchedules: ("AM" | "PM")[] = ["AM", "PM"];
+
+  // Función para calcular la distancia total del entrenamiento
+  const calculateTotalDistance = () => {
+    let total = 0;
+    
+    // Calcular metros del calentamiento
+    const warmupMeters = extractMeters(formData.warmup);
+    total += warmupMeters;
+    
+    // Calcular metros de las series principales
+    formData.mainSet.forEach(set => {
+      const setMeters = extractMeters(set);
+      total += setMeters;
+    });
+    
+    // Calcular metros del enfriamiento
+    const cooldownMeters = extractMeters(formData.cooldown);
+    total += cooldownMeters;
+    
+    return total;
+  };
+
+  // Función auxiliar para extraer metros de una cadena de texto
+  const extractMeters = (text: string): number => {
+    if (!text) return 0;
+    
+    let totalMeters = 0;
+    
+    // Primero buscar series (ej: "4 x 100m")
+    const seriesMatch = text.match(/(\d+)\s*[x×]\s*(\d+)\s*m/gi);
+    if (seriesMatch) {
+      seriesMatch.forEach(match => {
+        const parts = match.match(/(\d+)\s*[x×]\s*(\d+)/i);
+        if (parts) {
+          const repetitions = parseInt(parts[1]);
+          const distance = parseInt(parts[2]);
+          totalMeters += repetitions * distance;
+          console.log(`📊 Serie detectada: ${repetitions} x ${distance}m = ${repetitions * distance}m`);
+        }
+      });
+      return totalMeters;
+    }
+    
+    // Si no hay series, buscar metros simples (ej: "400m" o "400 m")
+    const simpleMatch = text.match(/(\d+)\s*m/gi);
+    if (simpleMatch) {
+      simpleMatch.forEach(match => {
+        const meters = parseInt(match.replace(/\D/g, ''));
+        totalMeters += meters;
+        console.log(`📊 Distancia simple detectada: ${meters}m`);
+      });
+    }
+    
+    console.log(`📊 Total extraído de "${text}": ${totalMeters}m`);
+    return totalMeters;
+  };
+
+  // Actualizar distancia automáticamente cuando cambian los sets
+  useEffect(() => {
+    if (!editingWorkout) {
+      const calculatedDistance = calculateTotalDistance();
+      if (calculatedDistance > 0) {
+        setFormData(prev => ({ ...prev, distance: calculatedDistance }));
+      }
+    }
+  }, [formData.warmup, JSON.stringify(formData.mainSet), formData.cooldown, editingWorkout]);
 
   // Filtrar entrenamientos según el grupo seleccionado
   const filteredWorkouts = workouts.filter(workout => {
@@ -138,7 +204,7 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
       mainSet: [""],
       cooldown: "",
       intensity: "Media",
-      group: defaultGroup || "Ambos",
+      group: defaultGroup || 1,
     });
     setEditingWorkout(null);
     setMultiDayMode(false);
@@ -235,12 +301,19 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Fecha</Label>
+                    <Label className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                      Fecha del Entrenamiento
+                    </Label>
                     <Input
-                      placeholder="Ej: 2 de marzo"
+                      type="date"
                       value={formData.date}
                       onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      className="w-full"
                     />
+                    <p className="text-xs text-gray-500">
+                      Selecciona la fecha exacta del entrenamiento
+                    </p>
                   </div>
                 </div>
 
@@ -304,17 +377,16 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
                     Grupo de Entrenamiento
                   </Label>
                   <Select 
-                    value={String(formData.group || "Ambos")} 
+                    value={String(formData.group)} 
                     onValueChange={(value) => setFormData({ 
                       ...formData, 
-                      group: value === "Ambos" ? "Ambos" : parseInt(value) as 1 | 2 
+                      group: parseInt(value) as 1 | 2 
                     })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar grupo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Ambos">🏊 Ambos Grupos</SelectItem>
                       <SelectItem value="1">👶 Grupo 1: Menores hasta Inf A</SelectItem>
                       <SelectItem value="2">🏅 Grupo 2: Inf B hasta Mayores</SelectItem>
                     </SelectContent>
@@ -322,13 +394,15 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
                   <p className="text-xs text-gray-500">
                     {formData.group === 1 && "Inf E, Inf D, Inf C, Inf A"}
                     {formData.group === 2 && "Inf B1, Inf B2, Juv A1, Juv A2, Juv B1, Juv B2, Juv B3, Mayores"}
-                    {(!formData.group || formData.group === "Ambos") && "Este entrenamiento aplica para todos los nadadores"}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>Distancia (m)</Label>
+                    <Label className="flex items-center gap-2">
+                      <Calculator className="w-4 h-4 text-green-600" />
+                      Distancia Total (m)
+                    </Label>
                     <Input
                       type="number"
                       min="1000"
@@ -338,7 +412,14 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
                         const value = e.target.value === '' ? 1500 : parseInt(e.target.value) || 1500;
                         setFormData({ ...formData, distance: value });
                       }}
+                      className="bg-green-50 border-green-300"
                     />
+                    {!editingWorkout && (
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <Calculator className="w-3 h-3" />
+                        Calculado automáticamente
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Duración (min)</Label>
@@ -368,6 +449,22 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
                     </Select>
                   </div>
                 </div>
+
+                {/* Información del cálculo de distancia */}
+                {!editingWorkout && calculateTotalDistance() > 0 && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calculator className="w-4 h-4 text-green-600" />
+                      <p className="text-sm font-semibold text-green-800">Cálculo Automático de Distancia</p>
+                    </div>
+                    <div className="text-xs text-green-700 space-y-1">
+                      <p>• Calentamiento: {extractMeters(formData.warmup)}m</p>
+                      <p>• Series principales: {formData.mainSet.reduce((sum, set) => sum + extractMeters(set), 0)}m</p>
+                      <p>• Enfriamiento: {extractMeters(formData.cooldown)}m</p>
+                      <p className="font-semibold pt-1 border-t border-green-300">Total: {calculateTotalDistance()}m</p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Calentamiento</Label>
