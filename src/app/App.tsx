@@ -1174,8 +1174,262 @@ function MainApp() {
               </div>
             )}
           </TabsContent>
+
+          {/* SECCIÓN 2: PREPARACIÓN FÍSICA */}
+          <TabsContent value="preparacion-fisica" className="space-y-8">
+            <PhysicalPreparation
+              testControls={testControls}
+              testResults={testResults}
+              swimmers={swimmers}
+              onAddTestControl={handleAddTestControl}
+              onEditTestControl={handleEditTestControl}
+              onDeleteTestControl={handleDeleteTestControl}
+              onAddTestResult={handleAddTestResult}
+              onEditTestResult={handleEditTestResult}
+              onDeleteTestResult={handleDeleteTestResult}
+            />
+          </TabsContent>
+
+          {/* SECCIÓN 3: CALENDARIO */}
+          <TabsContent value="calendario" className="space-y-8">
+            <div>
+              <h2 className="text-2xl font-bold mb-4">Calendario Integrado</h2>
+              <IntegratedCalendar
+                workouts={workouts}
+                competitions={competitions}
+                holidays={holidays}
+                testControls={testControls}
+              />
+            </div>
+          </TabsContent>
+
+          {/* SECCIÓN 4: NADADORES */}
+          <TabsContent value="nadadores" className="space-y-8">
+            <div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold">Nadadores del Club</h2>
+                  <p className="text-gray-600">{filteredSwimmers.length} nadadores registrados</p>
+                </div>
+                {(user?.role === "admin" || user?.role === "coach") && (
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <AddSwimmerDialog onAddSwimmer={handleAddSwimmer} />
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          await generateAllSwimmersPDF(swimmers);
+                        } catch (error) {
+                          console.error('Error generating PDF:', error);
+                          alert('Error al generar el PDF');
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      <span className="hidden sm:inline">Exportar PDF</span>
+                      <span className="sm:hidden">PDF</span>
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Filtros */}
+              <Card className="mb-6">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium mb-2 block">Género</label>
+                      <Select value={filterGender} onValueChange={setFilterGender}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="M">Masculino</SelectItem>
+                          <SelectItem value="F">Femenino</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-sm font-medium mb-2 block">Categoría</label>
+                      <Select value={filterCategory} onValueChange={setFilterCategory}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas</SelectItem>
+                          {uniqueCategories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-sm font-medium mb-2 block">Grupo</label>
+                      <GroupFilterSelector
+                        value={filterGroup}
+                        onChange={setFilterGroup}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Estadísticas */}
+              <SwimmersStats swimmers={filteredSwimmers} />
+
+              {/* Lista de nadadores */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+                {filteredSwimmers.map((swimmer) => (
+                  <SwimmerListItem
+                    key={swimmer.id}
+                    swimmer={swimmer}
+                    onClick={() => {
+                      setSelectedSwimmer(swimmer);
+                      setSwimmerDialogOpen(true);
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Dialog de detalles del nadador */}
+              {selectedSwimmer && (
+                <SwimmerDetailsDialog
+                  swimmer={selectedSwimmer}
+                  open={swimmerDialogOpen}
+                  onOpenChange={setSwimmerDialogOpen}
+                  onEdit={handleEditSwimmer}
+                  onDelete={handleDeleteSwimmer}
+                  onSavePersonalBests={handleSavePersonalBests}
+                  onUpdateGoals={handleUpdateGoals}
+                  competitions={competitions}
+                  swimmerCompetitions={swimmerCompetitions}
+                  canEdit={user?.role === "admin" || user?.role === "coach"}
+                  attendanceRecords={attendanceRecords}
+                />
+              )}
+            </div>
+
+            {/* Vista de Tiempos Mínimos */}
+            {currentSwimmer && (
+              <div className="mt-8">
+                <h2 className="text-2xl font-bold mb-4">Mis Tiempos vs Mínimos</h2>
+                <SwimmerMinimumTimesView swimmer={currentSwimmer} />
+              </div>
+            )}
+
+            {/* Tabla de Referencia de Tiempos Mínimos */}
+            {(user?.role === "admin" || user?.role === "coach") && (
+              <div className="mt-8">
+                <MinimumTimesReference />
+              </div>
+            )}
+
+            {/* Verificador de Tiempos Mínimos (Solo Admin/Coach) */}
+            {(user?.role === "admin" || user?.role === "coach") && (
+              <div className="mt-8">
+                <MinimumTimesChecker swimmers={swimmers} />
+              </div>
+            )}
+          </TabsContent>
+
+          {/* SECCIÓN 5: COMPETENCIAS */}
+          <TabsContent value="competencias" className="space-y-8">
+            {/* Gestión de Competencias (Solo Admin/Coach) */}
+            {(user?.role === "admin" || user?.role === "coach") && (
+              <div>
+                <h2 className="text-2xl font-bold mb-4">Gestión de Competencias</h2>
+                <CompetitionManager
+                  competitions={competitions}
+                  swimmers={swimmers}
+                  swimmerCompetitions={swimmerCompetitions}
+                  onAddCompetition={handleAddCompetition}
+                  onEditCompetition={handleEditCompetition}
+                  onDeleteCompetition={handleDeleteCompetition}
+                  onToggleParticipation={handleToggleCompetitionParticipation}
+                />
+              </div>
+            )}
+
+            {/* Resultados de Competencias (Para todos) */}
+            <div>
+              <h2 className="text-2xl font-bold mb-4">
+                {user?.role === "swimmer" ? "Mis Competencias" : "Resultados de Competencias"}
+              </h2>
+              <CompetitionResults
+                competitions={competitions}
+                swimmers={swimmers}
+                swimmerCompetitions={swimmerCompetitions}
+                onUpdateResults={handleUpdateCompetitionResults}
+                currentSwimmerId={currentSwimmer?.id}
+              />
+            </div>
+          </TabsContent>
+
+          {/* SECCIÓN 6: TEST CONTROL */}
+          <TabsContent value="test-control" className="space-y-8">
+            <TestControlManager
+              testControls={testControls}
+              testResults={testResults}
+              swimmers={swimmers}
+              onAddTestControl={handleAddTestControl}
+              onEditTestControl={handleEditTestControl}
+              onDeleteTestControl={handleDeleteTestControl}
+              onAddTestResult={handleAddTestResult}
+              onEditTestResult={handleEditTestResult}
+              onDeleteTestResult={handleDeleteTestResult}
+            />
+          </TabsContent>
+
+          {/* SECCIÓN 7: RÉCORDS DEL EQUIPO */}
+          <TabsContent value="records" className="space-y-8">
+            <div>
+              <h2 className="text-2xl font-bold mb-4">Récords del Equipo</h2>
+              <TeamRecordsBoard swimmers={swimmers} />
+            </div>
+          </TabsContent>
+
+          {/* SECCIÓN 8: LOGROS Y MEDALLAS */}
+          <TabsContent value="logros" className="space-y-8">
+            <div>
+              <h2 className="text-2xl font-bold mb-4">Logros y Medallas</h2>
+              <AchievementsBoard
+                swimmers={swimmers}
+                swimmerCompetitions={swimmerCompetitions}
+                competitions={competitions}
+                attendanceRecords={attendanceRecords}
+              />
+            </div>
+          </TabsContent>
+
+          {/* SECCIÓN 9: ASISTENCIA */}
+          <TabsContent value="asistencia" className="space-y-8">
+            <div>
+              <h2 className="text-2xl font-bold mb-4">Control de Asistencia</h2>
+              <AttendanceManager swimmers={swimmers} workouts={workouts} />
+            </div>
+          </TabsContent>
+
+          {/* SECCIÓN 10: GESTIÓN DE USUARIOS (Solo Admin) */}
+          {user?.role === "admin" && (
+            <TabsContent value="usuarios" className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-bold mb-4">Gestión de Usuarios</h2>
+                <UserManager swimmers={swimmers} onSwimmerUpdate={loadData} />
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
+
+        {/* PWA Installer */}
+        <PWAInstaller />
       </div>
+
+      {/* Toaster for notifications */}
+      <Toaster />
     </div>
   );
 }

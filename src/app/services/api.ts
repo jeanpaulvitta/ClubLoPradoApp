@@ -304,41 +304,71 @@ export async function fetchCompetitions(): Promise<Competition[]> {
 
 export async function addCompetition(competition: Omit<Competition, 'id'>): Promise<Competition> {
   try {
+    console.log('🔄 Sending competition to server:', competition);
     const response = await fetch(`${API_BASE_URL}/competitions`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey en lugar de token de usuario
       body: JSON.stringify(competition),
     });
+    
+    console.log('📡 Server response status:', response.status, response.statusText);
+    
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Failed to add competition: ${error.error || response.statusText}`);
+      let errorMessage = 'Unknown error';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.details || errorData.message || JSON.stringify(errorData);
+      } catch (parseError) {
+        errorMessage = await response.text() || response.statusText;
+      }
+      console.error('❌ Server returned error:', errorMessage);
+      throw new Error(`Failed to add competition (${response.status}): ${errorMessage}`);
     }
+    
     const data = await response.json();
-    console.log('✅ Competition added:', data.competition);
+    console.log('✅ Competition added successfully:', data.competition);
     return data.competition;
   } catch (error) {
     console.error('❌ Error adding competition:', error);
-    throw error;
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Failed to add competition: ${String(error)}`);
   }
 }
 
 export async function updateCompetition(id: string, competition: Omit<Competition, 'id'>): Promise<Competition> {
   try {
+    console.log('🔄 Updating competition:', id, competition);
     const response = await fetch(`${API_BASE_URL}/competitions/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(competition),
     });
+    
+    console.log('📡 Server response status:', response.status, response.statusText);
+    
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Failed to update competition: ${error.error || response.statusText}`);
+      let errorMessage = 'Unknown error';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.details || errorData.message || JSON.stringify(errorData);
+      } catch (parseError) {
+        errorMessage = await response.text() || response.statusText;
+      }
+      console.error('❌ Server returned error:', errorMessage);
+      throw new Error(`Failed to update competition (${response.status}): ${errorMessage}`);
     }
+    
     const data = await response.json();
-    console.log('✅ Competition updated:', data.competition);
+    console.log('✅ Competition updated successfully:', data.competition);
     return data.competition;
   } catch (error) {
     console.error('❌ Error updating competition:', error);
-    throw error;
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Failed to update competition: ${String(error)}`);
   }
 }
 
@@ -346,7 +376,7 @@ export async function deleteCompetition(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/competitions/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
     });
     if (!response.ok) {
       const error = await response.json();
