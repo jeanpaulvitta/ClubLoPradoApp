@@ -63,6 +63,16 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
     }
   }, [defaultGroup, editingWorkout]);
 
+  // Calcular automáticamente el día de la semana cuando cambia la fecha
+  useEffect(() => {
+    if (formData.date) {
+      const date = new Date(formData.date + 'T00:00:00'); // Añadir hora para evitar problemas de zona horaria
+      const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+      const dayName = dayNames[date.getDay()];
+      setFormData(prev => ({ ...prev, day: dayName }));
+    }
+  }, [formData.date]);
+
   const availableDays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
   const availableSchedules: ("AM" | "PM")[] = ["AM", "PM"];
 
@@ -311,42 +321,20 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
                       onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                       className="w-full"
                     />
-                    <p className="text-xs text-gray-500">
-                      Selecciona la fecha exacta del entrenamiento
-                    </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Día</Label>
-                    <Select value={formData.day} onValueChange={(value) => setFormData({ ...formData, day: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Lunes">Lunes</SelectItem>
-                        <SelectItem value="Martes">Martes</SelectItem>
-                        <SelectItem value="Miércoles">Miércoles</SelectItem>
-                        <SelectItem value="Jueves">Jueves</SelectItem>
-                        <SelectItem value="Viernes">Viernes</SelectItem>
-                        <SelectItem value="Sábado">Sábado</SelectItem>
-                        <SelectItem value="Domingo">Domingo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Horario</Label>
-                    <Select value={formData.schedule} onValueChange={(value) => setFormData({ ...formData, schedule: value as "AM" | "PM" })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="AM">🌅 Mañana (AM)</SelectItem>
-                        <SelectItem value="PM">🌆 Tarde (PM)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label>Horario</Label>
+                  <Select value={formData.schedule} onValueChange={(value) => setFormData({ ...formData, schedule: value as "AM" | "PM" })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AM">🌅 Mañana (AM)</SelectItem>
+                      <SelectItem value="PM">🌆 Tarde (PM)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -630,22 +618,9 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
       </CardHeader>
 
       <CardContent>
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <div className="text-sm text-gray-600">
-            Total de entrenamientos: <span className="font-semibold text-blue-600">{workouts.length}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <Select value={String(groupFilter)} onValueChange={(value) => setGroupFilter(value === "all" ? "all" : parseInt(value) as 1 | 2)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por grupo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los grupos</SelectItem>
-                <SelectItem value="1">Grupo 1</SelectItem>
-                <SelectItem value="2">Grupo 2</SelectItem>
-              </SelectContent>
-            </Select>
+            Total de entrenamientos: <span className="font-semibold text-red-600">{filteredWorkouts.length}</span>
           </div>
         </div>
         <div className="max-h-96 overflow-y-auto space-y-2">
