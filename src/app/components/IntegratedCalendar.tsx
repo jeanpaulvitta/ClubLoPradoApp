@@ -78,11 +78,11 @@ const MONTHS = [
 const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 export function IntegratedCalendar({
-  sessions,
-  competitions,
-  swimmers,
-  swimmerCompetitions,
-  attendanceRecords,
+  sessions = [],
+  competitions = [],
+  swimmers = [],
+  swimmerCompetitions = [],
+  attendanceRecords = [],
   currentUser,
   holidays = [],
 }: IntegratedCalendarProps) {

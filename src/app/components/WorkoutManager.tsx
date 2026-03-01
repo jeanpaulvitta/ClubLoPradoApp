@@ -339,23 +339,22 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
 
                 <div className="space-y-2">
                   <Label>Mesociclo</Label>
-                  <Select value={formData.mesociclo} onValueChange={(value) => setFormData({ ...formData, mesociclo: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Bloque 1">Bloque 1 - Velocidad (9 Feb - 22 Mar)</SelectItem>
-                      <SelectItem value="Bloque 2">Bloque 2 - Fondo (23 Mar - 19 Abr)</SelectItem>
-                      <SelectItem value="Bloque 3">Bloque 3 - Medio Fondo (20 Abr - 17 May)</SelectItem>
-                      <SelectItem value="Bloque 4">Bloque 4 - Competitivo (18 May - 5 Jul)</SelectItem>
-                      <SelectItem value="Bloque 5">Bloque 5 - Internacional (6 Jul - 16 Ago)</SelectItem>
-                      <SelectItem value="Bloque 6">Bloque 6 - Velocidad (17 Ago - 13 Sep)</SelectItem>
-                      <SelectItem value="Bloque 7">Bloque 7 - Fondo (14 Sep - 4 Oct)</SelectItem>
-                      <SelectItem value="Bloque 8">Bloque 8 - Medio Fondo (5 Oct - 8 Nov)</SelectItem>
-                      <SelectItem value="Bloque 9">Bloque 9 - Preparación (9 Nov - 9 Ene)</SelectItem>
-                      <SelectItem value="Bloque 10">Bloque 10 - Pico Competitivo (10 Ene - 7 Feb)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <select 
+                    value={formData.mesociclo} 
+                    onChange={(e) => setFormData({ ...formData, mesociclo: e.target.value })}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="Bloque 1">Bloque 1 - Velocidad (9 Feb - 22 Mar)</option>
+                    <option value="Bloque 2">Bloque 2 - Fondo (23 Mar - 19 Abr)</option>
+                    <option value="Bloque 3">Bloque 3 - Medio Fondo (20 Abr - 17 May)</option>
+                    <option value="Bloque 4">Bloque 4 - Competitivo (18 May - 5 Jul)</option>
+                    <option value="Bloque 5">Bloque 5 - Internacional (6 Jul - 16 Ago)</option>
+                    <option value="Bloque 6">Bloque 6 - Velocidad (17 Ago - 13 Sep)</option>
+                    <option value="Bloque 7">Bloque 7 - Fondo (14 Sep - 4 Oct)</option>
+                    <option value="Bloque 8">Bloque 8 - Medio Fondo (5 Oct - 8 Nov)</option>
+                    <option value="Bloque 9">Bloque 9 - Preparación (9 Nov - 9 Ene)</option>
+                    <option value="Bloque 10">Bloque 10 - Pico Competitivo (10 Ene - 7 Feb)</option>
+                  </select>
                 </div>
 
                 {/* Selector de Grupo de Entrenamiento */}

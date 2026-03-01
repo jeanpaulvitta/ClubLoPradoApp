@@ -51,7 +51,7 @@ interface AttendanceManagerProps {
   }>;
 }
 
-export function AttendanceManager({ swimmers, sessions }: AttendanceManagerProps) {
+export function AttendanceManager({ swimmers = [], sessions = [] }: AttendanceManagerProps) {
   const { user } = useAuth();
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);

@@ -215,15 +215,26 @@ export async function fetchAttendance(): Promise<AttendanceRecord[]> {
   try {
     const response = await fetch(`${API_BASE_URL}/attendance`, { headers: getHeaders() });
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Failed to fetch attendance: ${error.error || response.statusText}`);
+      const errorText = await response.text();
+      console.error('❌ Attendance fetch error response:', errorText);
+      
+      // Si es un error de servidor 500, intentar parsear JSON
+      try {
+        const error = JSON.parse(errorText);
+        throw new Error(`Failed to fetch attendance: ${error.error || error.details || response.statusText}`);
+      } catch {
+        throw new Error(`Failed to fetch attendance: ${response.statusText} (${response.status})`);
+      }
     }
     const data = await response.json();
-    console.log('✅ Attendance fetched from server:', data.attendance);
-    return data.attendance;
+    const attendanceList = data.attendance || [];
+    console.log('✅ Attendance fetched from server:', attendanceList.length, 'records');
+    return attendanceList;
   } catch (error) {
     console.error('❌ Error fetching attendance:', error);
-    throw error;
+    // En lugar de lanzar el error, retornar array vacío para no bloquear la aplicación
+    console.warn('⚠️ Returning empty attendance array due to error');
+    return [];
   }
 }
 
