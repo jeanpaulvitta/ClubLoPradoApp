@@ -1225,40 +1225,6 @@ function MainApp() {
               </CardContent>
             </Card>
 
-            {/* Alerta de Estado de Entrenamientos */}
-            {workouts.length > 0 && (() => {
-              const group1Workouts = workouts.filter(w => !w.deleted && String(w.group) === "1");
-              const group2Workouts = workouts.filter(w => !w.deleted && String(w.group) === "2");
-              const currentGroupWorkouts = selectedSeasonGroup === "group1" ? group1Workouts : group2Workouts;
-              
-              return (
-                <Alert className="bg-gradient-to-r from-green-50 to-blue-50 border-green-300">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <AlertDescription>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div className="w-full">
-                        <p className="font-semibold text-green-900 mb-1">
-                          ✅ Sistema de Entrenamientos Activo
-                        </p>
-                        <p className="text-sm text-green-800">
-                          📊 Total en BD: {workouts.filter(w => !w.deleted).length} entrenamientos
-                          {" • "}
-                          <span className="font-semibold text-red-600">
-                            {currentGroupWorkouts.length} para {selectedSeasonGroup === "group1" ? "Grupo 1" : "Grupo 2"}
-                          </span>
-                        </p>
-                        <p className="text-xs text-green-700 mt-1">
-                          👶 Grupo 1: {group1Workouts.length} entrenamientos
-                          {" • "}
-                          🏅 Grupo 2: {group2Workouts.length} entrenamientos
-                        </p>
-                      </div>
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              );
-            })()}
-
             {workouts.length === 0 && (
               <Alert className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300">
                 <Info className="h-5 w-5 text-yellow-600" />
