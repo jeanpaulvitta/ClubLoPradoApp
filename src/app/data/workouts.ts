@@ -17,7 +17,7 @@ export interface Workout {
   challengeName?: string;
   deleted?: boolean;
   deletedAt?: string;
-  group?: 1 | 2 | "Ambos"; // Grupo de entrenamiento: 1 (Menores hasta Inf A), 2 (Inf B hasta Mayores), o Ambos
+  group?: 1 | 2; // Grupo de entrenamiento: 1 (Menores hasta Inf A), 2 (Inf B hasta Mayores)
 }
 
 // 60 Entrenamientos regulares (Lunes, Miércoles, Viernes) - 3 por semana x 20 semanas
@@ -71,7 +71,7 @@ export const workouts: Workout[] = [
     ],
     cooldown: "200m estilo libre suave",
     intensity: "Media",
-    group: "Ambos"
+    group: 1
   },
 
   // Semana 2

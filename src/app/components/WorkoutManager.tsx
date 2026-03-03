@@ -18,13 +18,23 @@ interface WorkoutManagerProps {
   onEditWorkout: (id: string, workout: Omit<Workout, "id">) => void;
   onDeleteWorkout: (id: string) => void;
   defaultGroup?: 1 | 2; // Nuevo prop opcional para establecer el grupo por defecto
+  preselectedMesociclo?: string; // Nuevo prop para pre-seleccionar mesociclo desde los bloques
+  autoOpenDialog?: boolean; // Nuevo prop para abrir automáticamente el diálogo
 }
 
-export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDeleteWorkout, defaultGroup }: WorkoutManagerProps) {
+export function WorkoutManager({ 
+  workouts, 
+  onAddWorkout, 
+  onEditWorkout, 
+  onDeleteWorkout, 
+  defaultGroup,
+  preselectedMesociclo,
+  autoOpenDialog = false
+}: WorkoutManagerProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "coach";
   
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(autoOpenDialog);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
   const [multiDayMode, setMultiDayMode] = useState(false);
   const [selectedDays, setSelectedDays] = useState<string[]>(["Lunes"]);
@@ -36,7 +46,7 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
     date: "",
     day: "Lunes",
     schedule: "AM",
-    mesociclo: "Bloque 1",
+    mesociclo: preselectedMesociclo || "Bloque 1",
     distance: 1500,
     duration: 60,
     warmup: "",
@@ -58,7 +68,7 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
     if (defaultGroup && !editingWorkout) {
       setFormData(prev => ({
         ...prev,
-        group: String(defaultGroup)
+        group: defaultGroup
       }));
     }
   }, [defaultGroup, editingWorkout]);
@@ -142,19 +152,25 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
     }
   }, [formData.warmup, JSON.stringify(formData.mainSet), formData.cooldown, editingWorkout]);
 
-  // Filtrar entrenamientos según el grupo seleccionado
-  const filteredWorkouts = workouts.filter(workout => {
-    if (!workout.deleted) {
-      if (groupFilter === "all") return true;
-      if (workout.group === "Ambos") return true;
-      return workout.group === groupFilter;
+  // Filtrar entrenamientos
+  const filteredWorkouts = workouts.filter((workout) => {
+    // Ignorar entrenamientos eliminados
+    if (workout.deleted) {
+      return false;
     }
-    return false;
+    
+    // Mostrar todos si el filtro es "all"
+    if (groupFilter === "all") {
+      return true;
+    }
+    
+    // Comparar convirtiendo ambos a string para evitar problemas de tipo
+    return String(workout.group) === String(groupFilter);
   });
 
   // Agrupar entrenamientos por mesociclo y grupo
   const workoutsByMesocicloAndGroup = filteredWorkouts.reduce((acc, workout) => {
-    const key = `${workout.mesociclo}-${workout.group || "Ambos"}`;
+    const key = `${workout.mesociclo}-${workout.group || 1}`;
     if (!acc[key]) {
       acc[key] = [];
     }
@@ -207,7 +223,7 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
       date: "",
       day: "Lunes",
       schedule: "AM",
-      mesociclo: "Bloque 1",
+      mesociclo: preselectedMesociclo || "Bloque 1",
       distance: 1500,
       duration: 60,
       warmup: "",
@@ -296,32 +312,20 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
               </DialogHeader>
 
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Semana</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="20"
-                      value={formData.week}
-                      onChange={(e) => {
-                        const value = e.target.value === '' ? 1 : parseInt(e.target.value) || 1;
-                        setFormData({ ...formData, week: value });
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-blue-600" />
-                      Fecha del Entrenamiento
-                    </Label>
-                    <Input
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                      className="w-full"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    Fecha del Entrenamiento
+                  </Label>
+                  <Input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-gray-500">
+                    📅 El día de la semana se calcula automáticamente
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -339,6 +343,13 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
 
                 <div className="space-y-2">
                   <Label>Mesociclo</Label>
+                  {preselectedMesociclo && (
+                    <div className="p-2 bg-red-50 border border-red-200 rounded-md mb-2">
+                      <p className="text-xs font-semibold text-red-600">
+                        🎯 Creando entrenamiento para: {preselectedMesociclo}
+                      </p>
+                    </div>
+                  )}
                   <select 
                     value={formData.mesociclo} 
                     onChange={(e) => setFormData({ ...formData, mesociclo: e.target.value })}
@@ -617,74 +628,110 @@ export function WorkoutManager({ workouts, onAddWorkout, onEditWorkout, onDelete
       </CardHeader>
 
       <CardContent>
-        <div className="mb-4">
+        <div className="mb-4 space-y-3">
           <div className="text-sm text-gray-600">
             Total de entrenamientos: <span className="font-semibold text-red-600">{filteredWorkouts.length}</span>
           </div>
-        </div>
-        <div className="max-h-96 overflow-y-auto space-y-2">
-          {Object.entries(workoutsByMesocicloAndGroup).map(([key, workouts]) => (
-            <div key={key} className="mb-4">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-blue-500 text-white">
-                  {key.split('-')[0]}
-                </Badge>
-                <Badge className="bg-gray-500 text-white">
-                  {key.split('-')[1] === "Ambos" ? "Ambos grupos" : `Grupo ${key.split('-')[1]}`}
-                </Badge>
-              </div>
-              <div className="space-y-2">
-                {workouts.map((workout) => (
-                  <div
-                    key={workout.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <div className="font-semibold flex items-center gap-2 flex-wrap">
-                        <span>Semana {workout.week} - {workout.day} ({workout.date})</span>
-                        {workout.schedule && (
-                          <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
-                            {workout.schedule === "AM" ? "🌅 AM" : "🌆 PM"}
-                          </span>
-                        )}
-                        {workout.group && (
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            workout.group === 1 ? "bg-purple-100 text-purple-700" :
-                            workout.group === 2 ? "bg-green-100 text-green-700" :
-                            "bg-gray-100 text-gray-700"
-                          }`}>
-                            {workout.group === 1 ? "👶 Grupo 1" : 
-                             workout.group === 2 ? "🏅 Grupo 2" : 
-                             "🏊 Ambos"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {workout.mesociclo} • {workout.distance}m • {workout.intensity}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(workout)}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => workout.id && handleDelete(workout.id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+          
+          {/* Vista rápida de entrenamientos por bloque */}
+          {filteredWorkouts.length > 0 && (
+            <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+              <p className="text-xs font-semibold text-gray-700 mb-2">📊 Distribución por Bloque:</p>
+              <div className="flex flex-wrap gap-2">
+                {Array.from(new Set(filteredWorkouts.map(w => w.mesociclo))).sort((a, b) => {
+                  // Extraer número del bloque para ordenar correctamente
+                  const numA = parseInt(a.match(/\d+/)?.[0] || '0');
+                  const numB = parseInt(b.match(/\d+/)?.[0] || '0');
+                  return numA - numB;
+                }).map(mesociclo => {
+                  const count = filteredWorkouts.filter(w => w.mesociclo === mesociclo).length;
+                  return (
+                    <Badge key={mesociclo} variant="outline" className="text-xs bg-white">
+                      {mesociclo}: <span className="font-bold ml-1">{count}</span>
+                    </Badge>
+                  );
+                })}
               </div>
             </div>
-          ))}
+          )}
         </div>
+        
+        {filteredWorkouts.length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+            <Dumbbell className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+            <p className="text-gray-600 font-semibold mb-2">No hay entrenamientos disponibles</p>
+            <p className="text-sm text-gray-500 mb-4">
+              {workouts.length === 0 
+                ? "Aún no se han creado entrenamientos. Haz clic en 'Agregar' para crear el primero."
+                : `No hay entrenamientos para ${defaultGroup === 1 ? 'Grupo 1' : 'Grupo 2'}. Cambia de grupo o crea nuevos entrenamientos.`
+              }
+            </p>
+            <p className="text-xs text-gray-400">
+              💡 Los entrenamientos se organizan automáticamente por bloque y grupo
+            </p>
+          </div>
+        ) : (
+          <div className="max-h-96 overflow-y-auto space-y-2">
+            {Object.entries(workoutsByMesocicloAndGroup).map(([key, workouts]) => (
+              <div key={key} className="mb-4">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-blue-500 text-white">
+                    {key.split('-')[0]}
+                  </Badge>
+                  <Badge className="bg-gray-500 text-white">
+                    Grupo {key.split('-')[1]}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {workouts.map((workout) => (
+                    <div
+                      key={workout.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="font-semibold flex items-center gap-2 flex-wrap">
+                          <span>{workout.day} · {workout.date}</span>
+                          {workout.schedule && (
+                            <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
+                              {workout.schedule === "AM" ? "🌅 AM" : "🌆 PM"}
+                            </span>
+                          )}
+                          {workout.group && (
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              workout.group === 1 ? "bg-purple-100 text-purple-700" :
+                              "bg-green-100 text-green-700"
+                            }`}>
+                              {workout.group === 1 ? "👶 Grupo 1" : "🏅 Grupo 2"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {workout.mesociclo} • {workout.distance}m • {workout.intensity}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(workout)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => workout.id && handleDelete(workout.id)}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

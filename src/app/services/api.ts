@@ -575,6 +575,9 @@ export async function fetchWorkouts(): Promise<Workout[]> {
     // El servidor puede devolver un array directo o un objeto con propiedad workouts
     const workouts = Array.isArray(data) ? data : (data.workouts || []);
     console.log('✅ Workouts fetched from Supabase:', workouts.length);
+    if (workouts.length > 0) {
+      console.log('🔍 Sample workout groups from server:', workouts.slice(0, 3).map((w: any) => ({ id: w.id, group: w.group, groupType: typeof w.group, mesociclo: w.mesociclo })));
+    }
     
     return workouts;
   } catch (error) {

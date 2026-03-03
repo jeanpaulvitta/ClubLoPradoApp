@@ -1,8 +1,11 @@
 // Main application component with authentication
 import React, { useState, useEffect, useMemo } from "react";
+import jsPDF from "jspdf";
 import { Toaster } from "@/app/components/ui/sonner";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent } from "@/app/components/ui/card";
+import { Badge } from "@/app/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/app/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { Alert, AlertDescription } from "@/app/components/ui/alert";
@@ -20,7 +23,6 @@ import { CompetitionResults } from "@/app/components/CompetitionResults";
 import { WorkoutManager } from "@/app/components/WorkoutManager";
 import { HolidayManager } from "@/app/components/HolidayManager";
 import { TrashManager } from "@/app/components/TrashManager";
-import { MesocicloDialog } from "@/app/components/MesocicloDialog";
 
 import { TrainingVolumeBloqueCharts } from "@/app/components/TrainingVolumeBloqueCharts";
 import { TrainingStats } from "@/app/components/TrainingStats";
@@ -56,11 +58,14 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Info as InfoIcon,
   Activity,
   Upload,
   Info,
-  CheckCircle
+  CheckCircle,
+  Eye,
+  Download
 } from "lucide-react";
 import type { 
   Swimmer, 
@@ -118,6 +123,12 @@ function MainApp() {
   // Estados para mostrar/ocultar información de estructura
   const [showStructureInfo, setShowStructureInfo] = useState(false);
   const [showTrainingStats, setShowTrainingStats] = useState(false);
+  
+  // Estado para el diálogo de bloque seleccionado
+  const [selectedBloque, setSelectedBloque] = useState<string | null>(null);
+  
+  // Estado para el entrenamiento seleccionado (visualización detallada)
+  const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
   
   // Obtener el nadador actual si el usuario es un nadador
   const currentSwimmer = user?.swimmerId 
@@ -635,6 +646,129 @@ function MainApp() {
     }
   };
 
+  // Función para generar PDF del entrenamiento
+  const generateWorkoutPDF = (workout: Workout) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPosition = 20;
+
+    // Header con logo del club
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(239, 68, 68); // Rojo del club
+    doc.text("Club Natación Lo Prado", pageWidth / 2, yPosition, { align: "center" });
+    
+    yPosition += 10;
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Plan de Entrenamiento", pageWidth / 2, yPosition, { align: "center" });
+    
+    yPosition += 15;
+    
+    // Información general
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Fecha: ${workout.date}`, 20, yPosition);
+    yPosition += 7;
+    
+    doc.text(`Día: ${workout.day}`, 20, yPosition);
+    yPosition += 7;
+    
+    doc.text(`Grupo: ${String(workout.group) === "1" ? "Grupo 1 (Menores)" : "Grupo 2 (Mayores)"}`, 20, yPosition);
+    yPosition += 7;
+    
+    if (workout.schedule) {
+      doc.text(`Horario: ${workout.schedule === "AM" ? "Mañana" : "Tarde"}`, 20, yPosition);
+      yPosition += 7;
+    }
+    
+    doc.text(`Bloque: ${workout.mesociclo}`, 20, yPosition);
+    yPosition += 7;
+    
+    doc.text(`Distancia Total: ${workout.distance}m`, 20, yPosition);
+    yPosition += 7;
+    
+    doc.text(`Duración: ${workout.duration} min`, 20, yPosition);
+    yPosition += 7;
+    
+    doc.text(`Intensidad: ${workout.intensity}`, 20, yPosition);
+    yPosition += 7;
+    
+    if (workout.focus) {
+      doc.text(`Enfoque: ${workout.focus}`, 20, yPosition);
+      yPosition += 7;
+    }
+    
+    yPosition += 5;
+    
+    // Calentamiento
+    doc.setFillColor(239, 68, 68);
+    doc.rect(20, yPosition, pageWidth - 40, 7, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.text("CALENTAMIENTO", 25, yPosition + 5);
+    yPosition += 12;
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "normal");
+    const warmupLines = doc.splitTextToSize(workout.warmup, pageWidth - 50);
+    doc.text(warmupLines, 25, yPosition);
+    yPosition += warmupLines.length * 6 + 5;
+    
+    // Serie Principal
+    doc.setFillColor(239, 68, 68);
+    doc.rect(20, yPosition, pageWidth - 40, 7, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("SERIE PRINCIPAL", 25, yPosition + 5);
+    yPosition += 12;
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "normal");
+    workout.mainSet.forEach((set, index) => {
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      const setLines = doc.splitTextToSize(`${index + 1}. ${set}`, pageWidth - 50);
+      doc.text(setLines, 25, yPosition);
+      yPosition += setLines.length * 6 + 2;
+    });
+    
+    yPosition += 5;
+    
+    // Enfriamiento
+    if (yPosition > 250) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    
+    doc.setFillColor(239, 68, 68);
+    doc.rect(20, yPosition, pageWidth - 40, 7, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("ENFRIAMIENTO", 25, yPosition + 5);
+    yPosition += 12;
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "normal");
+    const cooldownLines = doc.splitTextToSize(workout.cooldown, pageWidth - 50);
+    doc.text(cooldownLines, 25, yPosition);
+    
+    // Footer
+    const pageCount = doc.internal.pages.length - 1;
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`Página ${i} de ${pageCount}`, pageWidth / 2, 285, { align: "center" });
+      doc.text(`Generado: ${new Date().toLocaleDateString('es-CL')}`, pageWidth - 20, 285, { align: "right" });
+    }
+    
+    // Guardar PDF
+    const filename = `Entrenamiento_${workout.date}_${String(workout.group) === "1" ? "Grupo1" : "Grupo2"}.pdf`;
+    doc.save(filename);
+  };
+
   // Lista de sesiones de entrenamientos (sin desafíos)
   const allSessions = [
     // Mapear todos los entrenamientos (sin filtros restrictivos)
@@ -643,23 +777,13 @@ function MainApp() {
       .map((w, idx) => ({ 
         ...w, 
         type: 'workout' as const,
-        mesociclo: w.bloque || w.mesociclo || "Bloque 1", // Mapear bloque a mesociclo
+        mesociclo: w.mesociclo || w.bloque || "Bloque 1", // Usar mesociclo primero, luego bloque
         // Si week no existe, calcularlo basado en el índice (3 entrenamientos por semana)
         week: w.week || Math.floor(idx / 3) + 1
       }))
   ];
 
-  // Debug: Log para verificar entrenamientos
-  console.log("🏊 Entrenamientos procesados:", {
-    totalWorkouts: workouts.length,
-    afterFilter: allSessions.length,
-    sample: allSessions.slice(0, 3).map(s => ({ 
-      bloque: s.mesociclo, 
-      week: s.week, 
-      day: s.day,
-      distance: s.distance 
-    }))
-  });
+
 
   // Función para convertir texto de fecha a formato ISO
   const parseDateToISO = (dateText: string, week: number): string => {
@@ -789,10 +913,22 @@ function MainApp() {
 
   const sessionsByWeek = groupSessionsByWeek();
 
-  // Calcular estadísticas
+  // Calcular estadísticas generales
   const totalDistance = workouts.reduce((sum, w) => sum + w.distance, 0);
   const totalWorkouts = workouts.length;
   const avgDistance = totalWorkouts > 0 ? Math.round(totalDistance / totalWorkouts) : 0;
+
+  // Calcular estadísticas por grupo
+  const group1Workouts = workouts.filter(w => String(w.group) === "1" || w.group === 1);
+  const group2Workouts = workouts.filter(w => String(w.group) === "2" || w.group === 2);
+  
+  const group1Distance = group1Workouts.reduce((sum, w) => sum + w.distance, 0);
+  const group1Count = group1Workouts.length;
+  const group1Avg = group1Count > 0 ? Math.round(group1Distance / group1Count) : 0;
+  
+  const group2Distance = group2Workouts.reduce((sum, w) => sum + w.distance, 0);
+  const group2Count = group2Workouts.length;
+  const group2Avg = group2Count > 0 ? Math.round(group2Distance / group2Count) : 0;
 
   // Definir estadísticas de mesociclos
   const mesocicloStats = [
@@ -868,6 +1004,54 @@ function MainApp() {
       bgColor: "bg-blue-50",
       borderColor: "border-blue-200",
     },
+    {
+      name: "Bloque 7",
+      weeks: 3,
+      dateRange: "14 Sep - 4 Oct 2026",
+      description: "Resistencia aeróbica extendida, técnica económica, virajes eficientes",
+      competition: "Copas Chile 2 - Fondo",
+      competitionDate: "3-4 Oct 2026",
+      icon: TrendingUp,
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+      borderColor: "border-green-200",
+    },
+    {
+      name: "Bloque 8",
+      weeks: 5,
+      dateRange: "5 Oct - 8 Nov 2026",
+      description: "Distancias competitivas medianas, ritmo controlado, resistencia específica",
+      competition: "Copas Chile 3 - Medio Fondo",
+      competitionDate: "6-8 Nov 2026",
+      icon: CalendarDays,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
+      borderColor: "border-purple-200",
+    },
+    {
+      name: "Bloque 9",
+      weeks: 9,
+      dateRange: "9 Nov - 9 Ene 2027",
+      description: "Base aeróbica, desarrollo técnico general, preparación física integral",
+      competition: "Ninguna - Fase de Preparación",
+      competitionDate: "N/A",
+      icon: Target,
+      color: "text-gray-600",
+      bgColor: "bg-gray-50",
+      borderColor: "border-gray-200",
+    },
+    {
+      name: "Bloque 10",
+      weeks: 4,
+      dateRange: "10 Ene - 7 Feb 2027",
+      description: "Afinamiento final, optimización de rendimiento, preparación mental competitiva",
+      competition: "Nacional Apertura",
+      competitionDate: "5-7 Feb 2027",
+      icon: Trophy,
+      color: "text-red-600",
+      bgColor: "bg-red-50",
+      borderColor: "border-red-200",
+    },
   ];
 
   // Calcular total de semanas en la temporada
@@ -891,22 +1075,56 @@ function MainApp() {
             </div>
             <UserMenu />
           </div>
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-4 mt-4 sm:mt-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 sm:px-4 py-1.5 sm:py-2 border border-white/20">
+          <div className="space-y-3 mt-4 sm:mt-6">
+            {/* Temporada */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg px-3 sm:px-4 py-2 border border-white/20 w-full">
               <p className="text-xs sm:text-sm text-gray-300">Temporada 2026-2027</p>
-              <p className="font-semibold text-xs sm:text-base">9 Feb 2026 - 7 Feb 2027</p>
+              <p className="font-semibold text-sm sm:text-base">9 Feb 2026 - 7 Feb 2027</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 sm:px-4 py-1.5 sm:py-2 border border-white/20">
-              <p className="text-xs sm:text-sm text-gray-300">Entrenamientos</p>
-              <p className="font-semibold text-xs sm:text-base">{totalWorkouts} sesiones</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 sm:px-4 py-1.5 sm:py-2 border border-white/20">
-              <p className="text-xs sm:text-sm text-gray-300">Distancia Total</p>
-              <p className="font-semibold text-xs sm:text-base">{(totalDistance / 1000).toFixed(1)} km</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 sm:px-4 py-1.5 sm:py-2 border border-white/20">
-              <p className="text-xs sm:text-sm text-gray-300">Promedio por Sesión</p>
-              <p className="font-semibold text-xs sm:text-base">{avgDistance > 0 ? `${avgDistance} m` : 'N/A'}</p>
+
+            {/* Estadísticas por Grupo */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Grupo 1 */}
+              <div className="bg-red-600/20 backdrop-blur-sm rounded-lg px-3 sm:px-4 py-3 border border-red-400/40">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm sm:text-base font-bold text-red-100">👶 Grupo 1 - Menores</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <p className="text-xs text-gray-300">Entrenamientos</p>
+                    <p className="font-semibold text-sm sm:text-base">{group1Count}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-300">Dist. Total</p>
+                    <p className="font-semibold text-sm sm:text-base">{(group1Distance / 1000).toFixed(1)} km</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-300">Promedio</p>
+                    <p className="font-semibold text-sm sm:text-base">{group1Avg > 0 ? `${group1Avg}m` : 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grupo 2 */}
+              <div className="bg-gray-800/40 backdrop-blur-sm rounded-lg px-3 sm:px-4 py-3 border border-gray-600/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm sm:text-base font-bold text-gray-100">🏅 Grupo 2 - Mayores</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <p className="text-xs text-gray-300">Entrenamientos</p>
+                    <p className="font-semibold text-sm sm:text-base">{group2Count}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-300">Dist. Total</p>
+                    <p className="font-semibold text-sm sm:text-base">{(group2Distance / 1000).toFixed(1)} km</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-300">Promedio</p>
+                    <p className="font-semibold text-sm sm:text-base">{group2Avg > 0 ? `${group2Avg}m` : 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1008,28 +1226,38 @@ function MainApp() {
             </Card>
 
             {/* Alerta de Estado de Entrenamientos */}
-            {workouts.length > 0 && (
-              <Alert className="bg-gradient-to-r from-green-50 to-blue-50 border-green-300">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <AlertDescription>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-green-900 mb-1">
-                        ✅ Sistema de Entrenamientos Activo
-                      </p>
-                      <p className="text-sm text-green-800">
-                        📊 {workouts.length} entrenamientos cargados en la base de datos
-                        {workouts.filter(w => w.bloque || w.mesociclo).length > 0 && (
-                          <span className="ml-2">
-                            • {workouts.filter(w => w.bloque || w.mesociclo).length} con bloque asignado
+            {workouts.length > 0 && (() => {
+              const group1Workouts = workouts.filter(w => !w.deleted && String(w.group) === "1");
+              const group2Workouts = workouts.filter(w => !w.deleted && String(w.group) === "2");
+              const currentGroupWorkouts = selectedSeasonGroup === "group1" ? group1Workouts : group2Workouts;
+              
+              return (
+                <Alert className="bg-gradient-to-r from-green-50 to-blue-50 border-green-300">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <AlertDescription>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="w-full">
+                        <p className="font-semibold text-green-900 mb-1">
+                          ✅ Sistema de Entrenamientos Activo
+                        </p>
+                        <p className="text-sm text-green-800">
+                          📊 Total en BD: {workouts.filter(w => !w.deleted).length} entrenamientos
+                          {" • "}
+                          <span className="font-semibold text-red-600">
+                            {currentGroupWorkouts.length} para {selectedSeasonGroup === "group1" ? "Grupo 1" : "Grupo 2"}
                           </span>
-                        )}
-                      </p>
+                        </p>
+                        <p className="text-xs text-green-700 mt-1">
+                          👶 Grupo 1: {group1Workouts.length} entrenamientos
+                          {" • "}
+                          🏅 Grupo 2: {group2Workouts.length} entrenamientos
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
 
             {workouts.length === 0 && (
               <Alert className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300">
@@ -1055,7 +1283,7 @@ function MainApp() {
                     {selectedSeasonGroup === "group1" ? "Grupo 1: Menores (E-D-C-A)" : "Grupo 2: Mayores (Inf B - Juvenil - Mayores)"}
                   </h2>
                   <p className="text-sm sm:text-base text-gray-600 mt-1 break-words">
-                    10 Bloques · {totalWeeksInSeason} semanas · Haz clic en cada bloque para ver detalles
+                    📊 Haz clic en cada bloque para ver sus entrenamientos · Temporada 2026-2027
                   </p>
                 </div>
               </div>
@@ -1086,29 +1314,386 @@ function MainApp() {
                 </div>
               )}
               
+              {/* Tarjetas simples de bloques con estadísticas */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                {mesocicloStats.map((mesociclo) => (
-                  <MesocicloDialog
-                    key={mesociclo.name}
-                    mesociclo={mesociclo}
-                    sessions={allSessions}
-                    selectedGroup={selectedSeasonGroup}
-                  />
-                ))}
+                {mesocicloStats.map((mesociclo) => {
+                  const Icon = mesociclo.icon;
+                  // Calcular entrenamientos de este bloque
+                  const bloqueWorkouts = allSessions.filter(s => {
+                    const matchesMesociclo = s.mesociclo === mesociclo.name;
+                    const groupNumber = selectedSeasonGroup === "group1" ? 1 : 2;
+                    const matchesGroup = String(s.group) === String(groupNumber);
+                    
+                    // Debug: Log solo para el primer bloque
+                    if (mesociclo.name === "Bloque 1" && matchesMesociclo) {
+                      console.log(`🔍 ${mesociclo.name} - Session group: "${s.group}" (${typeof s.group}), Expected: "${groupNumber}" (${typeof groupNumber}), Match: ${matchesGroup}`);
+                    }
+                    
+                    return matchesMesociclo && matchesGroup;
+                  });
+                  const totalDistance = bloqueWorkouts.reduce((sum, s) => sum + s.distance, 0);
+                  
+                  return (
+                    <Card 
+                      key={mesociclo.name} 
+                      className={`${mesociclo.borderColor || 'border-gray-200'} ${mesociclo.bgColor || ''} cursor-pointer hover:shadow-lg transition-all hover:scale-105`}
+                      onClick={() => setSelectedBloque(mesociclo.name)}
+                    >
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-3">
+                          <Icon className={`w-6 h-6 ${mesociclo.color}`} />
+                          <div className="flex-1">
+                            <h3 className="font-semibold mb-1">{mesociclo.name}</h3>
+                            {mesociclo.dateRange && (
+                              <p className="text-xs text-gray-500 mb-1">
+                                📅 {mesociclo.dateRange}
+                              </p>
+                            )}
+                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                              {mesociclo.description}
+                            </p>
+                            {mesociclo.competition && (
+                              <div className="mb-2 p-2 bg-white rounded border border-red-200">
+                                <p className="text-xs font-semibold text-red-600 mb-0.5 line-clamp-1">
+                                  🏆 {mesociclo.competition}
+                                </p>
+                                {mesociclo.competitionDate && (
+                                  <p className="text-xs text-gray-500">
+                                    {mesociclo.competitionDate}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className="text-xs">
+                                {mesociclo.weeks} semanas
+                              </Badge>
+                              <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-300">
+                                {bloqueWorkouts.length} entrenamientos
+                              </Badge>
+                              {totalDistance > 0 && (
+                                <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-300">
+                                  {(totalDistance / 1000).toFixed(1)} km
+                                </Badge>
+                              )}
+                            </div>
+                            {bloqueWorkouts.length > 0 && (
+                              <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
+                                <span>Ver entrenamientos</span>
+                                <ChevronRight className="w-3 h-3" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
+            
+            {/* Diálogo para mostrar entrenamientos del bloque */}
+            <Dialog open={selectedBloque !== null} onOpenChange={(open) => !open && setSelectedBloque(null)}>
+                <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                      {selectedBloque && (() => {
+                        const bloque = mesocicloStats.find(m => m.name === selectedBloque);
+                        const Icon = bloque?.icon || Target;
+                        return (
+                          <>
+                            <Icon className={`w-7 h-7 ${bloque?.color || 'text-gray-600'}`} />
+                            {selectedBloque}
+                          </>
+                        );
+                      })()}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {selectedBloque && mesocicloStats.find(m => m.name === selectedBloque)?.description}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {selectedBloque && (() => {
+                    const bloqueWorkouts = allSessions.filter(s => {
+                      const matchesMesociclo = s.mesociclo === selectedBloque;
+                      const groupNumber = selectedSeasonGroup === "group1" ? 1 : 2;
+                      const matchesGroup = String(s.group) === String(groupNumber);
+                      return matchesMesociclo && matchesGroup;
+                    });
+
+                    if (bloqueWorkouts.length === 0) {
+                      return (
+                        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                          <p className="text-gray-600 font-semibold mb-2">
+                            No hay entrenamientos en este bloque
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Crea entrenamientos asignándolos a "{selectedBloque}" en el gestor de entrenamientos.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    // Agrupar por fecha
+                    const workoutsByDate: { [key: string]: typeof bloqueWorkouts } = {};
+                    bloqueWorkouts.forEach((workout) => {
+                      if (!workoutsByDate[workout.date]) {
+                        workoutsByDate[workout.date] = [];
+                      }
+                      workoutsByDate[workout.date].push(workout);
+                    });
+
+                    return (
+                      <div className="space-y-4 mt-4">
+                        {/* Estadísticas del bloque */}
+                        <Card className="bg-gradient-to-r from-blue-50 to-purple-50">
+                          <CardContent className="pt-4">
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                              <div>
+                                <p className="text-sm text-gray-600">Entrenamientos</p>
+                                <p className="text-2xl font-bold">{bloqueWorkouts.length}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Distancia Total</p>
+                                <p className="text-2xl font-bold">
+                                  {(bloqueWorkouts.reduce((sum, w) => sum + w.distance, 0) / 1000).toFixed(1)} km
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Promedio/Sesión</p>
+                                <p className="text-2xl font-bold">
+                                  {Math.round(bloqueWorkouts.reduce((sum, w) => sum + w.distance, 0) / bloqueWorkouts.length)}m
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Lista de entrenamientos agrupados por fecha */}
+                        <div className="space-y-3">
+                          {Object.entries(workoutsByDate)
+                            .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+                            .map(([date, workouts]) => (
+                              <div key={date} className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+                                <div className="font-semibold text-lg mb-3 flex items-center gap-2">
+                                  <span>{workouts[0]?.day}</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {date}
+                                  </Badge>
+                                </div>
+                                <div className="space-y-2">
+                                  {workouts.map((workout, idx) => (
+                                    <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                                      <div className="flex items-start justify-between mb-2 gap-3">
+                                        <div className="flex items-center gap-2 flex-wrap flex-1">
+                                          {workout.schedule && (
+                                            <Badge className="text-xs bg-blue-100 text-blue-700">
+                                              {workout.schedule === "AM" ? "🌅 AM" : "🌆 PM"}
+                                            </Badge>
+                                          )}
+                                          <Badge className={`text-xs ${
+                                            String(workout.group) === "1" ? "bg-purple-100 text-purple-700" :
+                                            "bg-green-100 text-green-700"
+                                          }`}>
+                                            {String(workout.group) === "1" ? "👶 Grupo 1" : "🏅 Grupo 2"}
+                                          </Badge>
+                                          <Badge variant="outline" className="text-xs">
+                                            {workout.distance}m
+                                          </Badge>
+                                          <Badge variant="outline" className="text-xs">
+                                            {workout.intensity}
+                                          </Badge>
+                                          {workout.focus && (
+                                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
+                                              {workout.focus}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <div className="flex gap-1 flex-shrink-0">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 px-2"
+                                            onClick={() => setSelectedWorkout(workout)}
+                                          >
+                                            <Eye className="w-3 h-3 mr-1" />
+                                            Ver
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 px-2 hover:bg-red-50"
+                                            onClick={() => generateWorkoutPDF(workout)}
+                                          >
+                                            <Download className="w-3 h-3 mr-1" />
+                                            PDF
+                                          </Button>
+                                        </div>
+                                      </div>
+                                      {workout.focus && (
+                                        <p className="text-xs text-gray-500 mt-2">
+                                          🎯 Enfoque: {workout.focus}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </DialogContent>
+              </Dialog>
+
+            {/* Diálogo para visualizar entrenamiento completo */}
+            <Dialog open={selectedWorkout !== null} onOpenChange={(open) => !open && setSelectedWorkout(null)}>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center justify-between">
+                    <span>Entrenamiento Completo</span>
+                    {selectedWorkout && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="hover:bg-red-50"
+                        onClick={() => generateWorkoutPDF(selectedWorkout)}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Descargar PDF
+                      </Button>
+                    )}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Detalle completo del plan de entrenamiento
+                  </DialogDescription>
+                </DialogHeader>
+
+                {selectedWorkout && (
+                  <div className="space-y-4">
+                    {/* Información General */}
+                    <Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
+                      <CardContent className="pt-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Fecha</p>
+                            <p className="font-semibold">{selectedWorkout.date}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Día</p>
+                            <p className="font-semibold">{selectedWorkout.day}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Horario</p>
+                            <Badge className="text-xs bg-blue-100 text-blue-700">
+                              {selectedWorkout.schedule === "AM" ? "🌅 Mañana" : "🌆 Tarde"}
+                            </Badge>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Grupo</p>
+                            <Badge className={`text-xs ${
+                              String(selectedWorkout.group) === "1" ? "bg-purple-100 text-purple-700" :
+                              "bg-green-100 text-green-700"
+                            }`}>
+                              {String(selectedWorkout.group) === "1" ? "👶 Grupo 1" : "🏅 Grupo 2"}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Bloque</p>
+                            <p className="font-semibold text-sm">{selectedWorkout.mesociclo}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Distancia</p>
+                            <p className="font-semibold text-red-600">{selectedWorkout.distance}m</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Duración</p>
+                            <p className="font-semibold">{selectedWorkout.duration} min</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Intensidad</p>
+                            <Badge variant="outline">{selectedWorkout.intensity}</Badge>
+                          </div>
+                        </div>
+                        {selectedWorkout.focus && (
+                          <div className="mt-4">
+                            <p className="text-xs text-gray-600 mb-1">Enfoque</p>
+                            <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300">
+                              🎯 {selectedWorkout.focus}
+                            </Badge>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Calentamiento */}
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-1 h-6 bg-red-600 rounded"></div>
+                          <h3 className="font-bold text-lg">Calentamiento</h3>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-line">
+                          {selectedWorkout.warmup}
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    {/* Serie Principal */}
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-1 h-6 bg-red-600 rounded"></div>
+                          <h3 className="font-bold text-lg">Serie Principal</h3>
+                        </div>
+                        <div className="space-y-2">
+                          {selectedWorkout.mainSet.map((set, index) => (
+                            <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                              <p className="text-sm">
+                                <span className="font-semibold text-red-600 mr-2">{index + 1}.</span>
+                                {set}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Enfriamiento */}
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-1 h-6 bg-red-600 rounded"></div>
+                          <h3 className="font-bold text-lg">Enfriamiento</h3>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-line">
+                          {selectedWorkout.cooldown}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
 
             {/* Gestión de Entrenamientos (solo para admins/coaches) */}
             {(user?.role === "admin" || user?.role === "coach") && (
               <div className="space-y-4">
-                {/* Indicador de Grupo Activo */}
+                {/* Indicador de Grupo Activo con Selector de Bloque Rápido */}
                 <Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
-                  <CardContent className="pt-4">
+                  <CardContent className="pt-4 space-y-3">
                     <p className="text-sm font-semibold text-gray-700">
                       📝 Gestionando entrenamientos de: <span className="text-red-600">
                         {selectedSeasonGroup === "group1" ? "Grupo 1 - Menores (E-D-C-A)" : "Grupo 2 - Mayores (Inf B - Juvenil - Mayores)"}
                       </span>
                     </p>
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <CalendarDays className="w-4 h-4 text-red-600" />
+                      <span>Los bloques de arriba muestran estadísticas de entrenamientos creados</span>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -1116,9 +1701,9 @@ function MainApp() {
                   key={selectedSeasonGroup}
                   workouts={workouts.filter(w => {
                     if (selectedSeasonGroup === "group1") {
-                      return w.group === "1" || w.group === 1 || w.group === "Ambos";
+                      return w.group === "1" || w.group === 1;
                     } else {
-                      return w.group === "2" || w.group === 2 || w.group === "Ambos";
+                      return w.group === "2" || w.group === 2;
                     }
                   })}
                   onAddWorkout={handleAddWorkout}

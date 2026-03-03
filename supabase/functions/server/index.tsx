@@ -109,7 +109,7 @@ async function initializeStorage() {
         allowedMimeTypes: ['application/pdf']
       });
       
-      if (error) {
+      if (error && error.message !== "The resource already exists") {
         console.error('❌ Error creating bucket:', error);
       } else {
         console.log(`✅ Bucket created: ${COMPETITIONS_BUCKET}`);
@@ -1898,6 +1898,9 @@ app.get("/make-server-4909a0bc/workouts", async (c) => {
     // Filter out deleted workouts - only return active ones
     const activeWorkouts = workouts.filter((w: any) => !w.deleted);
     console.log(`📊 Returning ${activeWorkouts.length} active workouts (${workouts.length} total, ${workouts.length - activeWorkouts.length} deleted)`);
+    if (activeWorkouts.length > 0) {
+      console.log("🔍 Sample workout groups:", activeWorkouts.slice(0, 3).map((w: any) => ({ id: w.id, group: w.group, groupType: typeof w.group })));
+    }
     return c.json({ workouts: activeWorkouts });
   } catch (error) {
     console.error("Error fetching workouts:", error);
@@ -1910,6 +1913,7 @@ app.post("/make-server-4909a0bc/workouts", async (c) => {
   try {
     const newWorkout = await c.req.json();
     console.log("📝 Creating new workout:", newWorkout.title || newWorkout.type);
+    console.log("🔍 Group value received:", newWorkout.group, "Type:", typeof newWorkout.group);
     
     const workouts = await getWorkoutsFromStorage();
     console.log("📋 Existing workouts before add:", workouts.length);

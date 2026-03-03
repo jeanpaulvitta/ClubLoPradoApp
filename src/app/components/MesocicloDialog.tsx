@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Target, TrendingUp, CalendarDays, Trophy, ChevronRight, Users } from "lucide-react";
+import { Target, TrendingUp, CalendarDays, Trophy, ChevronRight, Users, Plus } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { WorkoutCard } from "./WorkoutCard";
 
@@ -60,15 +60,7 @@ export function MesocicloDialog({ mesociclo, sessions, selectedGroup }: Mesocicl
     return s.group === "Ambos" || s.group === groupNumber;
   });
 
-  // Debug: Log cuando se abre el dialog
-  if (open && mesocicloSessions.length > 0) {
-    console.log(`📊 ${mesociclo.name}:`, {
-      totalSessions: sessions.length,
-      filtered: mesocicloSessions.length,
-      group: selectedGroup,
-      sampleMesociclos: sessions.slice(0, 5).map(s => s.mesociclo)
-    });
-  }
+
   
   // Agrupar por semana
   const sessionsByWeek: { [key: number]: SessionType[] } = {};
