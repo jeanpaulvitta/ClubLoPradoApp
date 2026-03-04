@@ -26,7 +26,7 @@ import allWorkoutsGroup2, { workoutsGroup2Stats } from './data/allWorkoutsGroup2
 
 | Bloque | Nombre | Semanas | Entrenamientos | Competencia Objetivo | Fechas |
 |--------|--------|---------|----------------|----------------------|--------|
-| **1** | Velocidad Inicial | 6 | 36 | Copa Chile 1 - 50m | 9 Feb - 22 Mar |
+| **1** | Velocidad Inicial | 6 | 36 | Copa Chile 1 - 50m | 9 Feb - 21 Mar |
 | **2** | Fondo | 4 | 24 | Copa Chile 2 - 800-1500m | 23 Mar - 19 Abr |
 | **3** | Medio Fondo | 4 | 24 | Copa Chile 3 - 100-400m | 20 Abr - 17 May |
 | **4** | Competitivo Mayor | 6 | 36 | Nacionales Jun-Jul | 19 May - 5 Jul |

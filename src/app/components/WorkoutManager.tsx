@@ -6,7 +6,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Checkbox } from "./ui/checkbox";
-import { Plus, Edit, Trash2, Dumbbell, Calendar, Users, Filter, Calculator } from "lucide-react";
+import { Plus, Edit, Trash2, Dumbbell, Calendar, Users, Filter, Calculator, ChevronUp, ChevronDown } from "lucide-react";
 import type { Workout } from "../data/workouts";
 import { useAuth } from "../contexts/AuthContext";
 import { getGroupName } from "../utils/swimmerUtils";
@@ -144,13 +144,11 @@ export function WorkoutManager({
 
   // Actualizar distancia automáticamente cuando cambian los sets
   useEffect(() => {
-    if (!editingWorkout) {
-      const calculatedDistance = calculateTotalDistance();
-      if (calculatedDistance > 0) {
-        setFormData(prev => ({ ...prev, distance: calculatedDistance }));
-      }
+    const calculatedDistance = calculateTotalDistance();
+    if (calculatedDistance > 0) {
+      setFormData(prev => ({ ...prev, distance: calculatedDistance }));
     }
-  }, [formData.warmup, JSON.stringify(formData.mainSet), formData.cooldown, editingWorkout]);
+  }, [formData.warmup, JSON.stringify(formData.mainSet), formData.cooldown]);
 
   // Filtrar entrenamientos
   const filteredWorkouts = workouts.filter((workout) => {
@@ -279,6 +277,20 @@ export function WorkoutManager({
     setFormData({ ...formData, mainSet: newMainSet });
   };
 
+  const moveMainSetItemUp = (index: number) => {
+    if (index === 0) return; // No se puede mover el primer elemento hacia arriba
+    const newMainSet = [...formData.mainSet];
+    [newMainSet[index - 1], newMainSet[index]] = [newMainSet[index], newMainSet[index - 1]];
+    setFormData({ ...formData, mainSet: newMainSet });
+  };
+
+  const moveMainSetItemDown = (index: number) => {
+    if (index === formData.mainSet.length - 1) return; // No se puede mover el último elemento hacia abajo
+    const newMainSet = [...formData.mainSet];
+    [newMainSet[index], newMainSet[index + 1]] = [newMainSet[index + 1], newMainSet[index]];
+    setFormData({ ...formData, mainSet: newMainSet });
+  };
+
   if (!isAdmin) {
     return null;
   }
@@ -355,7 +367,7 @@ export function WorkoutManager({
                     onChange={(e) => setFormData({ ...formData, mesociclo: e.target.value })}
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <option value="Bloque 1">Bloque 1 - Velocidad (9 Feb - 22 Mar)</option>
+                    <option value="Bloque 1">Bloque 1 - Velocidad (9 Feb - 21 Mar)</option>
                     <option value="Bloque 2">Bloque 2 - Fondo (23 Mar - 19 Abr)</option>
                     <option value="Bloque 3">Bloque 3 - Medio Fondo (20 Abr - 17 May)</option>
                     <option value="Bloque 4">Bloque 4 - Competitivo (18 May - 5 Jul)</option>
@@ -449,7 +461,7 @@ export function WorkoutManager({
                 </div>
 
                 {/* Información del cálculo de distancia */}
-                {!editingWorkout && calculateTotalDistance() > 0 && (
+                {calculateTotalDistance() > 0 && (
                   <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
                       <Calculator className="w-4 h-4 text-green-600" />
@@ -476,22 +488,50 @@ export function WorkoutManager({
                 <div className="space-y-2">
                   <Label>Series Principales</Label>
                   {formData.mainSet.map((item, index) => (
-                    <div key={`mainset-${index}`} className="flex gap-2">
-                      <Input
-                        placeholder="Ej: 4 x 100m estilo libre (descanso 20s)"
-                        value={item}
-                        onChange={(e) => updateMainSet(index, e.target.value)}
-                      />
-                      {formData.mainSet.length > 1 && (
+                    <div key={`mainset-${index}`} className="flex gap-2 items-center">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Ej: 4 x 100m estilo libre (descanso 20s)"
+                          value={item}
+                          onChange={(e) => updateMainSet(index, e.target.value)}
+                        />
+                      </div>
+                      <div className="flex gap-1">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => removeMainSetItem(index)}
+                          onClick={() => moveMainSetItemUp(index)}
+                          disabled={index === 0}
+                          className="px-2"
+                          title="Mover arriba"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <ChevronUp className="w-4 h-4" />
                         </Button>
-                      )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => moveMainSetItemDown(index)}
+                          disabled={index === formData.mainSet.length - 1}
+                          className="px-2"
+                          title="Mover abajo"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
+                        {formData.mainSet.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeMainSetItem(index)}
+                            className="px-2"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                   <Button type="button" variant="outline" size="sm" onClick={addMainSetItem}>

@@ -24,7 +24,7 @@ export function BulkWorkoutEditor({ workouts, onBulkUpdate }: BulkWorkoutEditorP
 
   // Definición de bloques con sus rangos de semanas
   const bloqueDefinitions = [
-    { name: "Bloque 1", weekStart: 1, weekEnd: 6, label: "Bloque 1 - Velocidad (9 Feb - 22 Mar)" },
+    { name: "Bloque 1", weekStart: 1, weekEnd: 6, label: "Bloque 1 - Velocidad (9 Feb - 21 Mar)" },
     { name: "Bloque 2", weekStart: 7, weekEnd: 10, label: "Bloque 2 - Fondo (23 Mar - 19 Abr)" },
     { name: "Bloque 3", weekStart: 11, weekEnd: 14, label: "Bloque 3 - Medio Fondo (20 Abr - 17 May)" },
     { name: "Bloque 4", weekStart: 15, weekEnd: 20, label: "Bloque 4 - Competitivo (18 May - 5 Jul)" },

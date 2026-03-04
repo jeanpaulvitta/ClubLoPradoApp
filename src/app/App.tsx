@@ -216,8 +216,14 @@ function MainApp() {
           bloque: w.bloque,
           mesociclo: w.mesociclo,
           day: w.day,
-          group: w.group
+          group: w.group,
+          distance: w.distance
         })));
+        
+        // Verificar estadísticas de distancia
+        const totalDist = workoutsData.reduce((sum: number, w: any) => sum + (w.distance || 0), 0);
+        console.log('📏 Distancia total de entrenamientos:', totalDist, 'm');
+        console.log('📏 Promedio por entrenamiento:', Math.round(totalDist / workoutsData.length), 'm');
       }
       setWorkouts(workoutsData);
       
@@ -914,7 +920,7 @@ function MainApp() {
   const sessionsByWeek = groupSessionsByWeek();
 
   // Calcular estadísticas generales
-  const totalDistance = workouts.reduce((sum, w) => sum + w.distance, 0);
+  const totalDistance = workouts.reduce((sum, w) => sum + (w.distance || 0), 0);
   const totalWorkouts = workouts.length;
   const avgDistance = totalWorkouts > 0 ? Math.round(totalDistance / totalWorkouts) : 0;
 
@@ -922,11 +928,11 @@ function MainApp() {
   const group1Workouts = workouts.filter(w => String(w.group) === "1" || w.group === 1);
   const group2Workouts = workouts.filter(w => String(w.group) === "2" || w.group === 2);
   
-  const group1Distance = group1Workouts.reduce((sum, w) => sum + w.distance, 0);
+  const group1Distance = group1Workouts.reduce((sum, w) => sum + (w.distance || 0), 0);
   const group1Count = group1Workouts.length;
   const group1Avg = group1Count > 0 ? Math.round(group1Distance / group1Count) : 0;
   
-  const group2Distance = group2Workouts.reduce((sum, w) => sum + w.distance, 0);
+  const group2Distance = group2Workouts.reduce((sum, w) => sum + (w.distance || 0), 0);
   const group2Count = group2Workouts.length;
   const group2Avg = group2Count > 0 ? Math.round(group2Distance / group2Count) : 0;
 
