@@ -123,12 +123,48 @@ export function PasswordRequestsManager() {
       const { projectId } = await import('../../../utils/supabase/info');
       const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;
       
+      console.log('🔍 Verificando configuración del servidor...');
+      console.log('📍 URL:', `${API_URL}/health`);
+      
+      // NO enviar Authorization header para el health check
+      // porque es un endpoint público
       const response = await fetch(`${API_URL}/health`);
+      
+      console.log('📡 Respuesta del servidor:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+      
+      // Si el servidor devuelve un error HTTP (401, 500, etc)
+      if (!response.ok) {
+        console.error('❌ El servidor respondió con error:', response.status, response.statusText);
+        
+        // Si es 401, probablemente las variables de entorno no están configuradas
+        if (response.status === 401) {
+          console.error('⚠️ Error 401: Las variables de entorno probablemente no están configuradas');
+          setServerConfigured(false);
+          return;
+        }
+        
+        const errorData = await response.json().catch(() => ({ message: 'No se pudo parsear la respuesta' }));
+        console.error('❌ Datos del error:', errorData);
+        setServerConfigured(false);
+        return;
+      }
+      
       const data = await response.json();
+      console.log('✅ Health check data:', data);
       
       setServerConfigured(data.status === 'ok');
+      
+      if (data.status !== 'ok') {
+        console.error('⚠️ Servidor respondió pero no está configurado correctamente:', data);
+      } else {
+        console.log('✅ Servidor configurado correctamente');
+      }
     } catch (error) {
-      console.error('Error verificando configuración del servidor:', error);
+      console.error('❌ Error al verificar configuración del servidor:', error);
       setServerConfigured(false);
     }
   };
@@ -152,24 +188,68 @@ export function PasswordRequestsManager() {
       console.log('  - Estado actual:', request.status);
       console.log('');
 
-      // VALIDAR QUE EL SERVIDOR ESTÉ CONFIGURADO ANTES DE CONTINUAR
+      // MODO DEGRADADO: Si el servidor NO está configurado, usar generación local
       if (serverConfigured === false) {
-        console.error('❌ BLOQUEADO: Servidor no configurado');
-        toast.error('⚠️ No se puede aprobar. El servidor necesita configuración.', {
-          duration: 6000,
-        });
-        alert(
-          '🚨 SERVIDOR NO CONFIGURADO\n\n' +
-          'No se puede aprobar solicitudes porque el servidor Edge Function\n' +
-          'no tiene las variables de entorno configuradas.\n\n' +
-          '📋 DEBES COMPLETAR ESTOS PASOS PRIMERO:\n\n' +
-          '1. Ve a Supabase Dashboard\n' +
-          '2. Edge Functions → make-server-4909a0bc → Settings/Secrets\n' +
-          '3. Agrega las 3 variables de entorno\n' +
-          '4. Reinicia la función\n' +
-          '5. Haz clic en "Verificar de Nuevo"\n\n' +
-          'Ver instrucciones completas en /SOLUCION_INVALID_JWT.md'
+        console.warn('⚠️ MODO DEGRADADO: Servidor no disponible, generando credenciales localmente');
+        console.warn('   ADVERTENCIA: Esto NO crea una cuenta real en Supabase Auth');
+        console.warn('   El usuario NO podrá iniciar sesión hasta que el backend esté configurado');
+        
+        // Confirmar con el usuario
+        const confirmed = window.confirm(
+          '⚠️ MODO DEGRADADO ACTIVADO\n\n' +
+          'El servidor backend NO está disponible (Error 401).\n\n' +
+          '🔧 Opciones:\n\n' +
+          '1. CANCELAR y configurar el servidor primero (RECOMENDADO)\n' +
+          '   - Click en "Abrir Supabase Dashboard"\n' +
+          '   - Desplegar la Edge Function\n' +
+          '   - Configurar variables de entorno\n\n' +
+          '2. CONTINUAR en modo degradado (solo para testing)\n' +
+          '   - Se generará una contraseña local\n' +
+          '   - NO se creará cuenta en Supabase\n' +
+          '   - El usuario NO podrá iniciar sesión\n\n' +
+          '¿Deseas CONTINUAR en modo degradado?\n' +
+          '(NO recomendado para producción)'
         );
+        
+        if (!confirmed) {
+          console.log('✅ Usuario canceló. Debe configurar el servidor primero.');
+          setLoading(false);
+          toast.info('Configuración cancelada. Por favor, configura el servidor primero.', {
+            duration: 5000,
+          });
+          return;
+        }
+        
+        // Generar contraseña local (temporal)
+        const generatedPassword = generateLocalPassword();
+        
+        console.warn('⚠️ Contraseña generada localmente (NO válida para login):', generatedPassword);
+        
+        // Actualizar el estado de la solicitud
+        const updatedRequests = requests.map(req => 
+          req.id === request.id 
+            ? { ...req, status: 'approved' as const, generatedPassword }
+            : req
+        );
+        
+        savePasswordRequests(updatedRequests);
+        setRequests(updatedRequests);
+        
+        // Mostrar credenciales generadas
+        setApprovedCredentials({
+          email: request.email,
+          password: generatedPassword
+        });
+        setShowApproveDialog(true);
+        
+        toast.warning('⚠️ Credenciales generadas localmente. El usuario NO podrá iniciar sesión hasta que configures el servidor.', {
+          duration: 8000,
+        });
+        
+        console.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.warn('⚠️ MODO DEGRADADO: Solicitud marcada como aprobada (sin cuenta real)');
+        console.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
         setLoading(false);
         return;
       }
@@ -179,7 +259,19 @@ export function PasswordRequestsManager() {
       const { projectId } = await import('../../../utils/supabase/info');
       const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;
       
+      // NO enviar Authorization header - es un endpoint público
       const healthCheck = await fetch(`${API_URL}/health`);
+      
+      if (!healthCheck.ok) {
+        console.error('❌ BLOQUEADO: Health check falló con status:', healthCheck.status);
+        setServerConfigured(false);
+        toast.error('⚠️ El servidor no está disponible. Por favor, configúralo primero.', {
+          duration: 6000,
+        });
+        setLoading(false);
+        return;
+      }
+      
       const healthData = await healthCheck.json();
       
       if (healthData.status !== 'ok') {
@@ -458,7 +550,11 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
       
       // Probar endpoint de health
       console.log('📍 Probando endpoint de health...');
-      const healthResponse = await fetch(`${API_URL}/health`);
+      const healthResponse = await fetch(`${API_URL}/health`, {
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+        },
+      });
       const healthData = await healthResponse.json();
       console.log('✅ Health check:', healthData);
       
@@ -543,9 +639,188 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
 
   return (
     <div className="space-y-6">
-      {/* Botón de prueba de autenticación - Solo para debugging */}
-      {serverConfigured !== false && (
-        <Card className="border-blue-200 bg-blue-50">
+      {/* Alerta de servidor no configurado */}
+      {serverConfigured === false && (
+        <Alert variant="destructive" className="border-red-300 bg-red-50">
+          <AlertTriangle className="h-5 w-5 text-red-600" />
+          <AlertTitle className="text-red-900 font-bold text-lg">🚨 Servidor Backend NO Disponible</AlertTitle>
+          <AlertDescription className="text-red-800">
+            <div className="space-y-3 mt-3">
+              <div className="bg-white border border-red-200 rounded-lg p-4">
+                <p className="font-semibold text-base mb-2">
+                  ❌ Error 401: No se puede conectar con la Edge Function
+                </p>
+                <p className="text-sm mb-3">
+                  La Edge Function <code className="bg-red-100 px-2 py-1 rounded font-mono">make-server-4909a0bc</code> NO está respondiendo correctamente.
+                </p>
+                
+                <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 mb-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-blue-900">
+                      <p className="font-bold mb-2">🤔 ¿Por qué funciona tu login pero NO crear usuarios?</p>
+                      <div className="space-y-1.5 text-blue-800">
+                        <p>
+                          <strong>Tu login SÍ funciona:</strong> Usa Supabase Auth directo (no necesita servidor)
+                        </p>
+                        <p>
+                          <strong>Crear usuarios NO funciona:</strong> Requiere Edge Function con <code className="bg-blue-100 px-1 rounded text-xs">SERVICE_ROLE_KEY</code> (clave secreta que no puede estar en el navegador)
+                        </p>
+                        <p className="mt-2">
+                          📖 <button 
+                            onClick={() => window.open('/POR_QUE_FUNCIONA_ADMIN_PERO_NO_CREAR_USUARIOS.md', '_blank')}
+                            className="text-blue-700 underline hover:text-blue-900 font-semibold"
+                          >
+                            Ver explicación completa aquí
+                          </button>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-red-50 border border-red-200 rounded p-3 text-sm space-y-2">
+                  <p className="font-semibold">🔍 Posibles causas del error 401:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>La función NO ha sido desplegada en Supabase</li>
+                    <li>Las variables de entorno NO están configuradas</li>
+                    <li>Hay un error de compilación en la función</li>
+                    <li>La función fue borrada accidentalmente</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  SOLUCIÓN: Desplegar Edge Function Manualmente (5 minutos)
+                </h4>
+                
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold mb-2">📋 Opción 1: Verificar si existe (más rápido)</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-sm ml-2">
+                      <li>Abre el <strong>Supabase Dashboard</strong> (botón abajo)</li>
+                      <li>Ve a <strong>Edge Functions</strong> en el menú lateral</li>
+                      <li>Busca la función <code className="bg-blue-100 px-1 rounded">make-server-4909a0bc</code></li>
+                      <li>Si existe pero está inactiva:
+                        <ul className="list-disc list-inside ml-4 mt-1">
+                          <li>Click en la función → <strong>Settings</strong></li>
+                          <li>Agrega las 3 variables de entorno (ver abajo)</li>
+                          <li>Click en <strong>"Deploy"</strong> o <strong>"Redeploy"</strong></li>
+                        </ul>
+                      </li>
+                      <li>Si NO existe, continúa con Opción 2</li>
+                    </ol>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <p className="text-sm font-semibold mb-2">🚀 Opción 2: Desplegar desde código</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-sm ml-2">
+                      <li>En Supabase Dashboard → <strong>Edge Functions</strong></li>
+                      <li>Click en <strong>"Create a new function"</strong></li>
+                      <li>Nombre: <code className="bg-blue-100 px-2 py-1 rounded font-mono">make-server-4909a0bc</code></li>
+                      <li>Copia y pega TODO el código de <code>/supabase/functions/server/index.tsx</code></li>
+                      <li>Click en <strong>"Deploy function"</strong></li>
+                      <li>Espera 1-2 minutos a que se despliegue</li>
+                      <li>Luego configura las variables (ver abajo)</li>
+                    </ol>
+                  </div>
+
+                  <Separator />
+
+                  <div className="bg-yellow-50 border border-yellow-300 rounded p-3">
+                    <p className="text-sm font-semibold text-yellow-900 mb-2">⚙️ Variables de entorno requeridas:</p>
+                    <div className="space-y-1 text-xs font-mono bg-white p-2 rounded border border-yellow-200">
+                      <div>1. <strong>SUPABASE_URL</strong> = https://vrclozhgaacehojbnpuo.supabase.co</div>
+                      <div>2. <strong>SUPABASE_ANON_KEY</strong> = (tu anon key)</div>
+                      <div>3. <strong>SUPABASE_SERVICE_ROLE_KEY</strong> = (tu service role key)</div>
+                    </div>
+                    <p className="text-xs text-yellow-800 mt-2">
+                      💡 Las keys están en: Settings → API → Project API keys
+                    </p>
+                  </div>
+
+                  <div className="bg-green-50 border border-green-200 rounded p-3">
+                    <p className="text-sm font-semibold text-green-900 mb-2">✅ Después de configurar:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-sm ml-2 text-green-800">
+                      <li>Haz click en <strong>"Deploy"</strong> o <strong>"Redeploy"</strong></li>
+                      <li><strong>IMPORTANTE:</strong> Espera 30-60 segundos</li>
+                      <li>Verifica que el status sea <strong>"Active"</strong></li>
+                      <li>Regresa aquí y haz click en "Verificar de Nuevo"</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  onClick={() => window.open(`https://supabase.com/dashboard/project/${projectIdState}/functions`, '_blank')}
+                  className="bg-green-600 hover:bg-green-700 flex-1"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Abrir Supabase Dashboard
+                </Button>
+                <Button 
+                  onClick={() => window.open('/SOLUCION_ERROR_401_PASO_A_PASO.md', '_blank')}
+                  variant="outline"
+                  className="flex-1 border-2 border-blue-500 text-blue-700 hover:bg-blue-50 font-semibold"
+                >
+                  📖 Guía Paso a Paso (5 min)
+                </Button>
+                <Button 
+                  onClick={checkServerConfig}
+                  variant="outline"
+                  className="bg-white hover:bg-blue-50"
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Verificar de Nuevo
+                </Button>
+              </div>
+
+              <div className="mt-3 p-3 bg-gray-100 rounded text-xs text-gray-700">
+                <p className="font-semibold mb-1">📞 ¿Necesitas ayuda?</p>
+                <p>Si después de seguir estos pasos el error persiste, verifica:</p>
+                <ul className="list-disc list-inside ml-2 mt-1 space-y-0.5">
+                  <li>Que la función esté en estado <strong>"Active"</strong></li>
+                  <li>Que las 3 variables estén configuradas correctamente</li>
+                  <li>Que hiciste <strong>Redeploy</strong> después de configurar</li>
+                  <li>Los <strong>Logs</strong> de la función para ver errores</li>
+                </ul>
+                <div className="mt-2 pt-2 border-t border-gray-300">
+                  <p className="font-semibold mb-1">📖 Recursos disponibles:</p>
+                  <div className="flex flex-col gap-1">
+                    <button 
+                      onClick={() => window.open('/SOLUCION_RAPIDA_ERROR_401.md', '_blank')}
+                      className="text-blue-600 hover:text-blue-800 underline text-left"
+                    >
+                      → Solución Rápida (2 min)
+                    </button>
+                    <button 
+                      onClick={() => window.open('/SOLUCION_ERROR_401_PASO_A_PASO.md', '_blank')}
+                      className="text-blue-600 hover:text-blue-800 underline text-left"
+                    >
+                      → Guía Completa Paso a Paso (5 min)
+                    </button>
+                    <button 
+                      onClick={() => window.open('/POR_QUE_FUNCIONA_ADMIN_PERO_NO_CREAR_USUARIOS.md', '_blank')}
+                      className="text-blue-600 hover:text-blue-800 underline text-left"
+                    >
+                      → ¿Por qué mi login funciona pero crear usuarios no?
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Botón de prueba de autenticación - Solo cuando está OK */}
+      {serverConfigured === true && (
+        <Card className="border-green-200 bg-green-50">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -766,27 +1041,59 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
       {/* Dialog de credenciales aprobadas */}
       <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
         <DialogContent className="max-w-md">
-          <DialogHeader className="bg-green-50 -mx-6 -mt-6 px-6 py-4 border-b border-green-100">
+          <DialogHeader className={serverConfigured === false ? "bg-yellow-50 -mx-6 -mt-6 px-6 py-4 border-b border-yellow-100" : "bg-green-50 -mx-6 -mt-6 px-6 py-4 border-b border-green-100"}>
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-              <DialogTitle className="text-green-900">¡Solicitud Aprobada!</DialogTitle>
+              {serverConfigured === false ? (
+                <>
+                  <AlertTriangle className="w-6 h-6 text-yellow-600" />
+                  <DialogTitle className="text-yellow-900">⚠️ Credenciales Generadas (Modo Degradado)</DialogTitle>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                  <DialogTitle className="text-green-900">¡Solicitud Aprobada!</DialogTitle>
+                </>
+              )}
             </div>
-            <DialogDescription className="text-green-700">
-              La cuenta ha sido creada exitosamente. Comparte estas credenciales con el usuario.
+            <DialogDescription className={serverConfigured === false ? "text-yellow-700" : "text-green-700"}>
+              {serverConfigured === false 
+                ? "ADVERTENCIA: Estas credenciales fueron generadas localmente. El usuario NO podrá iniciar sesión hasta que configures el servidor backend."
+                : "La cuenta ha sido creada exitosamente. Comparte estas credenciales con el usuario."}
             </DialogDescription>
           </DialogHeader>
 
           {approvedCredentials && (
             <div className="space-y-4 py-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-yellow-800">
-                    <strong>IMPORTANTE:</strong> Copia estas credenciales y envíalas al usuario de forma segura. 
-                    La contraseña es temporal y el usuario podrá cambiarla desde su perfil.
+              {serverConfigured === false && (
+                <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-red-900">
+                      <p className="font-bold mb-2">🚨 MODO DEGRADADO ACTIVO</p>
+                      <ul className="list-disc list-inside space-y-1 text-red-800">
+                        <li><strong>La contraseña NO es válida</strong> para iniciar sesión</li>
+                        <li><strong>NO se creó cuenta</strong> en Supabase Auth</li>
+                        <li><strong>Debes configurar el servidor</strong> para crear cuentas reales</li>
+                      </ul>
+                      <p className="mt-2 font-semibold text-red-900">
+                        📋 Configura el servidor antes de compartir estas credenciales
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {serverConfigured !== false && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-yellow-800">
+                      <strong>IMPORTANTE:</strong> Copia estas credenciales y envíalas al usuario de forma segura. 
+                      La contraseña es temporal y el usuario podrá cambiarla desde su perfil.
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3">
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
@@ -961,3 +1268,13 @@ export function createPasswordRequest(name: string, email: string, role: 'swimme
   requests.push(newRequest);
   savePasswordRequests(requests);
 }
+
+// Función para generar contraseña local (modo degradado)
+const generateLocalPassword = (): string => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*';
+  let password = '';
+  for (let i = 0; i < 16; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+};

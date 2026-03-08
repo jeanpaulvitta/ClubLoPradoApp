@@ -11,24 +11,35 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
+// Track configuration status
+const ENV_CONFIGURED = !!(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && SUPABASE_ANON_KEY);
+
+if (!ENV_CONFIGURED) {
   console.error('❌ CRITICAL ERROR: Missing required environment variables!');
   console.error('   Required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY');
   console.error('   Configure them in: Supabase Dashboard → Edge Functions → server → Environment Variables');
   console.error('   See: /SOLUCION_MISSING_AUTHORIZATION_HEADER.md for instructions');
 }
 
-// Initialize Supabase client for auth and storage
-const supabase = createClient(
-  SUPABASE_URL ?? '',
-  SUPABASE_SERVICE_ROLE_KEY ?? '',
-);
+// Initialize Supabase clients only if configured
+let supabase: any = null;
+let supabaseAuth: any = null;
 
-// Create a separate client for auth operations (uses ANON_KEY)
-const supabaseAuth = createClient(
-  SUPABASE_URL ?? '',
-  SUPABASE_ANON_KEY ?? '',
-);
+if (ENV_CONFIGURED) {
+  // Initialize Supabase client for auth and storage
+  supabase = createClient(
+    SUPABASE_URL!,
+    SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  // Create a separate client for auth operations (uses ANON_KEY)
+  supabaseAuth = createClient(
+    SUPABASE_URL!,
+    SUPABASE_ANON_KEY!,
+  );
+} else {
+  console.warn('⚠️ Supabase clients NOT initialized - environment variables missing');
+}
 
 // Storage bucket name
 const COMPETITIONS_BUCKET = "make-4909a0bc-competitions";
@@ -37,6 +48,16 @@ const COMPETITIONS_BUCKET = "make-4909a0bc-competitions";
 
 // Middleware to verify JWT token and get user
 async function authMiddleware(c: any, next: any) {
+  // Check if environment is configured
+  if (!ENV_CONFIGURED || !supabase || !supabaseAuth) {
+    console.error('❌ Auth middleware: Server not configured');
+    return c.json({ 
+      code: 503, 
+      message: 'Server not configured. Environment variables missing.',
+      configured: false
+    }, 503);
+  }
+
   const authHeader = c.req.header('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -127,6 +148,11 @@ async function authMiddleware(c: any, next: any) {
 
 // Ensure bucket exists on startup
 async function initializeStorage() {
+  if (!ENV_CONFIGURED || !supabase) {
+    console.warn('⚠️ Skipping storage initialization - server not configured');
+    return;
+  }
+  
   try {
     const { data: buckets } = await supabase.storage.listBuckets();
     const bucketExists = buckets?.some(bucket => bucket.name === COMPETITIONS_BUCKET);
@@ -612,7 +638,8 @@ app.post("/make-server-4909a0bc/auth/change-password", authMiddleware, async (c)
   }
 });
 
-// Health check endpoint
+// Health check endpoint - NO requiere autenticación
+// Este endpoint debe funcionar SIEMPRE, incluso sin variables de entorno
 app.get("/make-server-4909a0bc/health", (c) => {
   const envCheck = {
     SUPABASE_URL: !!SUPABASE_URL,
@@ -620,23 +647,23 @@ app.get("/make-server-4909a0bc/health", (c) => {
     SUPABASE_ANON_KEY: !!SUPABASE_ANON_KEY,
   };
   
-  const allConfigured = Object.values(envCheck).every(v => v);
-  
   // Log environment details for debugging
   console.log('🔍 Health Check - Environment Status:', {
+    ENV_CONFIGURED,
     SUPABASE_URL_length: SUPABASE_URL ? SUPABASE_URL.length : 0,
     SUPABASE_URL_preview: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'NOT SET',
     SUPABASE_SERVICE_ROLE_KEY_length: SUPABASE_SERVICE_ROLE_KEY ? SUPABASE_SERVICE_ROLE_KEY.length : 0,
     SUPABASE_ANON_KEY_length: SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.length : 0,
-    allConfigured,
   });
   
+  // SIEMPRE devolver 200 OK, incluso si no está configurado
   return c.json({ 
-    status: allConfigured ? "ok" : "misconfigured", 
+    status: ENV_CONFIGURED ? "ok" : "misconfigured", 
     timestamp: new Date().toISOString(),
-    version: "2.0.4",
+    version: "2.0.7",
     environment: envCheck,
-    message: allConfigured 
+    configured: ENV_CONFIGURED,
+    message: ENV_CONFIGURED 
       ? "✅ All environment variables configured correctly" 
       : "⚠️ Missing environment variables. Configure in Supabase Dashboard → Edge Functions → Environment Variables",
     debug: {
@@ -647,7 +674,7 @@ app.get("/make-server-4909a0bc/health", (c) => {
       anonKeySet: !!SUPABASE_ANON_KEY,
       anonKeyLength: SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.length : 0,
     }
-  });
+  }, 200); // Explícitamente devolver status code 200
 });
 
 // Utility endpoint to confirm all unconfirmed emails
