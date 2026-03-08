@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { UserPlus, CheckCircle, XCircle, Clock, Copy, Shield, Mail, User, AlertCircle, AlertTriangle, ExternalLink, Share2, MessageCircle, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
-import { ServerSetupGuide } from './ServerSetupGuide';
 import { QRCodeSVG } from 'qrcode.react';
 
 interface PasswordRequest {
@@ -399,7 +398,7 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
 ⚠️ IMPORTANTE:
 • Guarda estas credenciales en un lugar seguro
 • No compartas tu contraseña con nadie
-��� Si olvidas tu contraseña, contacta al administrador
+ Si olvidas tu contraseña, contacta al administrador
 
 ¡Bienvenido al equipo del Club Natación Lo Prado! 🏊‍♂️💪`);
       
@@ -544,17 +543,6 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
 
   return (
     <div className="space-y-6">
-      {/* Guía visual de configuración del servidor */}
-      {serverConfigured === false && (
-        <ServerSetupGuide 
-          projectId={projectIdState} 
-          onRecheck={async () => {
-            await checkServerConfig();
-            await testAuth();
-          }}
-        />
-      )}
-
       {/* Botón de prueba de autenticación - Solo para debugging */}
       {serverConfigured !== false && (
         <Card className="border-blue-200 bg-blue-50">
