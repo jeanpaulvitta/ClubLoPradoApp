@@ -15,51 +15,97 @@ export { supabase };
 async function getFreshAccessToken(): Promise<string> {
   console.log('🔑 Obteniendo token de acceso fresco...');
   
-  // Obtener sesión actual
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError || !sessionData.session) {
-    console.error('❌ Error obteniendo sesión:', sessionError);
-    throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
-  }
-  
-  let accessToken = sessionData.session.access_token;
-  const expiresAt = sessionData.session.expires_at;
-  const now = Math.floor(Date.now() / 1000);
-  const timeUntilExpiry = expiresAt ? expiresAt - now : 0;
-  
-  console.log(`⏰ Token expira en ${timeUntilExpiry} segundos`);
-  
-  // Si expira en menos de 5 minutos o ya expiró, refrescar
-  if (timeUntilExpiry < 300) {
-    console.log('🔄 Token próximo a expirar o expirado, refrescando...');
-    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+  try {
+    // Obtener sesión actual de Supabase
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     
-    if (refreshError) {
-      console.error('❌ Error al refrescar token:', refreshError);
-      throw new Error('No se pudo refrescar la sesión. Por favor, vuelve a iniciar sesión.');
+    if (sessionError) {
+      console.error('❌ Error obteniendo sesión de Supabase:', sessionError);
+      console.error('   Error message:', sessionError.message);
+      throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
     }
     
-    if (refreshData.session) {
-      accessToken = refreshData.session.access_token;
-      console.log('✅ Token refrescado exitosamente');
+    if (!sessionData.session) {
+      console.error('❌ No hay sesión activa en Supabase');
+      console.log('🔍 Intentando recuperar sesión local...');
       
-      // Actualizar sesión local
+      // Intentar recuperar de localStorage
       const localSession = getSession();
-      if (localSession) {
-        saveSession({
-          ...localSession,
-          accessToken: accessToken,
-        });
+      if (localSession?.accessToken) {
+        console.log('⚠️ Usando token de localStorage como último recurso');
+        return localSession.accessToken;
+      }
+      
+      throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
+    }
+    
+    let accessToken = sessionData.session.access_token;
+    const expiresAt = sessionData.session.expires_at;
+    const now = Math.floor(Date.now() / 1000);
+    const timeUntilExpiry = expiresAt ? expiresAt - now : 0;
+    
+    console.log(`⏰ Token expira en ${timeUntilExpiry} segundos`);
+    console.log('🔍 Token obtenido (longitud):', accessToken.length);
+    console.log('🔍 Token preview:', accessToken.substring(0, 50) + '...');
+    
+    // Si expira en menos de 5 minutos o ya expiró, refrescar
+    if (timeUntilExpiry < 300) {
+      console.log('🔄 Token próximo a expirar o expirado, refrescando...');
+      
+      try {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error('❌ Error al refrescar token:', refreshError);
+          console.error('   Error message:', refreshError.message);
+          
+          // Si el refresh falla, intentar usar el token actual de todos modos
+          console.log('⚠️ Usando token actual a pesar del error de refresh');
+        } else if (refreshData.session) {
+          accessToken = refreshData.session.access_token;
+          console.log('✅ Token refrescado exitosamente');
+          console.log('🔍 Nuevo token (longitud):', accessToken.length);
+          
+          // Actualizar sesión local
+          const localSession = getSession();
+          if (localSession) {
+            saveSession({
+              ...localSession,
+              accessToken: accessToken,
+            });
+          }
+        }
+      } catch (refreshError) {
+        console.error('❌ Excepción al refrescar token:', refreshError);
+        console.log('⚠️ Continuando con token actual');
       }
     }
+    
+    if (!accessToken || accessToken.trim() === '') {
+      console.error('❌ Token vacío o inválido');
+      throw new Error('No se pudo obtener un token válido. Por favor, vuelve a iniciar sesión.');
+    }
+    
+    // Validar que el token tenga formato JWT válido
+    const jwtParts = accessToken.split('.');
+    if (jwtParts.length !== 3) {
+      console.error('❌ Token con formato JWT inválido (no tiene 3 partes)');
+      console.error('   Partes encontradas:', jwtParts.length);
+      throw new Error('Token inválido. Por favor, vuelve a iniciar sesión.');
+    }
+    
+    console.log('✅ Token válido obtenido y verificado, enviando al servidor...');
+    return accessToken;
+  } catch (error) {
+    console.error('❌ Error en getFreshAccessToken:', error);
+    console.error('   Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    
+    // Re-lanzar el error con contexto adicional
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Error al obtener token de acceso. Por favor, vuelve a iniciar sesión.');
   }
-  
-  if (!accessToken || accessToken.trim() === '') {
-    throw new Error('No se pudo obtener un token válido. Por favor, vuelve a iniciar sesión.');
-  }
-  
-  return accessToken;
 }
 
 // ==================== AUTHENTICATION ====================
@@ -104,9 +150,14 @@ export async function login(email: string, password: string): Promise<User> {
           
           console.log('✅ Usuario admin creado y autenticado');
           
-          // Guardar sesión
-          if (session?.access_token) {
-            localStorage.setItem('supabase.auth.token', JSON.stringify(session));
+          // IMPORTANTE: Establecer la sesión en Supabase client para que getFreshAccessToken funcione
+          if (session?.access_token && session?.refresh_token) {
+            console.log('🔄 Estableciendo sesión en Supabase client...');
+            await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+            });
+            console.log('✅ Sesión establecida en Supabase client');
             
             saveSession({
               id: createdUser.id,
@@ -152,8 +203,9 @@ export async function login(email: string, password: string): Promise<User> {
       }
     }
     
-    // Guardar sesión en localStorage
-    localStorage.setItem('supabase.auth.token', JSON.stringify(data.session));
+    // NO guardar sesión manualmente - Supabase lo hace automáticamente
+    // El cliente de Supabase con persistSession: true guarda automáticamente
+    console.log('✅ Sesión de Supabase guardada automáticamente');
     
     // Guardar en formato de nuestra app
     const userRole = data.user.user_metadata.role || (email === 'admin@loprado.cl' ? 'admin' : 'swimmer');
@@ -194,34 +246,92 @@ export async function signup(
 ): Promise<User & { initialPassword?: string }> {
   try {
     console.log('🔐 SIGNUP - Creando usuario con Supabase Auth:', { email, name, role });
+    console.log('📍 Paso 1: Obteniendo token de acceso...');
     
-    const response = await fetch(`${API_URL}/auth/signup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password, name, role }),
-    });
+    // Obtener token de acceso del admin que está creando el usuario
+    let accessToken: string;
+    try {
+      accessToken = await getFreshAccessToken();
+      console.log('✅ Token obtenido exitosamente');
+    } catch (tokenError) {
+      console.error('❌ Error obteniendo token:', tokenError);
+      throw new Error('No se pudo obtener credenciales de sesión. Por favor, cierra sesión y vuelve a iniciar sesión.');
+    }
+    
+    console.log('📍 Paso 2: Enviando solicitud de creación al servidor...');
+    console.log('🔗 URL:', `${API_URL}/auth/signup`);
+    console.log('📦 Body:', { email, name, role });
+    
+    let response: Response;
+    try {
+      response = await fetch(`${API_URL}/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ email, password, name, role }),
+      });
+      
+      console.log('📍 Paso 3: Respuesta recibida del servidor');
+      console.log('   Status:', response.status, response.statusText);
+    } catch (fetchError) {
+      console.error('❌ Error de red al crear usuario:', fetchError);
+      throw new Error('Error de conexión con el servidor. Verifica tu conexión a internet.');
+    }
     
     if (!response.ok) {
       const error = await response.json();
-      console.error('❌ Server error response:', error);
+      console.error('❌ Server error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: error
+      });
       
       // Extraer el mensaje de error más específico
-      const errorMessage = error.message || error.details?.message || error.error || 'Error al registrar usuario';
+      let errorMessage = error.message || error.details?.message || error.error || 'Error al registrar usuario';
+      
+      // Proporcionar mensajes más útiles según el error
+      if (error.code === 401 && (errorMessage.includes('Invalid JWT') || errorMessage.includes('Missing authorization'))) {
+        console.error('🚨 SERVIDOR NO CONFIGURADO - Variables de entorno faltantes en Edge Function');
+        errorMessage = '⚠️ El servidor Edge Function NO está configurado correctamente.\n\n' +
+                      'Las variables de entorno (SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY) ' +
+                      'no están configuradas en Supabase.\n\n' +
+                      'Ver /SOLUCION_INVALID_JWT.md para instrucciones paso a paso.';
+      } else if (error.code === 401) {
+        errorMessage = 'Tu sesión ha expirado. Por favor, cierra sesión y vuelve a iniciar sesión.';
+      } else if (errorMessage.includes('Invalid JWT')) {
+        errorMessage = 'Error de autenticación. Por favor, cierra sesión y vuelve a iniciar sesión.';
+      } else if (errorMessage.includes('already') || errorMessage.includes('exists')) {
+        errorMessage = 'Ya existe un usuario con este correo electrónico.';
+      }
+      
       throw new Error(errorMessage);
     }
     
+    console.log('📍 Paso 4: Procesando respuesta exitosa...');
     const { user } = await response.json();
     
-    console.log('✅ Usuario creado:', user);
+    console.log('✅ Usuario creado exitosamente:', {
+      id: user.id,
+      email: user.email,
+      role: user.role
+    });
     
     // Retornar con password inicial para mostrarlo al admin
     return { ...user, initialPassword: password };
   } catch (error) {
     console.error('❌ Signup error:', error);
+    console.error('❌ Error type:', error instanceof Error ? error.constructor.name : typeof error);
     console.error('❌ Error details:', error instanceof Error ? error.message : String(error));
-    throw error;
+    
+    // Si ya es un Error con mensaje útil, re-lanzarlo
+    if (error instanceof Error) {
+      throw error;
+    }
+    
+    // Si no, crear un error genérico
+    throw new Error('Error desconocido al crear usuario. Por favor, intenta nuevamente.');
   }
 }
 

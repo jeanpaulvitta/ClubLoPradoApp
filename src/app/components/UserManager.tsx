@@ -42,6 +42,7 @@ interface UserData {
 
 interface UserManagerProps {
   swimmers: Swimmer[];
+  onSwimmerUpdate?: () => void;
 }
 
 const REGISTERED_USERS_KEY = 'natacion_master_users';
@@ -70,7 +71,7 @@ function generateSecurePassword(length: number = 12): string {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
-export function UserManager({ swimmers }: UserManagerProps) {
+export function UserManager({ swimmers, onSwimmerUpdate }: UserManagerProps) {
   const [users, setUsers] = useState<UserData[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);

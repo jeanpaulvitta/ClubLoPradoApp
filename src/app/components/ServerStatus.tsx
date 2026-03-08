@@ -1,4 +1,8 @@
 import { AlertCircle, CheckCircle, RefreshCw, Server } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;

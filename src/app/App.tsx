@@ -32,7 +32,7 @@ import { TeamRecordsBoard } from "@/app/components/TeamRecordsBoard";
 import { AchievementsBoard } from "@/app/components/AchievementsBoard";
 import { AttendanceManager } from "@/app/components/AttendanceManager";
 import { TestControlManager } from "@/app/components/TestControlManager";
-import { UserManager } from "@/app/components/UserManager";
+import { PasswordRequestsManager } from "@/app/components/PasswordRequestsManager";
 import { MinimumTimesChecker } from "@/app/components/MinimumTimesChecker";
 import { SwimmerMinimumTimesView } from "@/app/components/SwimmerMinimumTimesView";
 import { MinimumTimesReference } from "@/app/components/MinimumTimesReference";
@@ -1972,10 +1972,15 @@ function MainApp() {
 
           {/* SECCIÓN 10: GESTIÓN DE USUARIOS (Solo Admin) */}
           {user?.role === "admin" && (
-            <TabsContent value="usuarios" className="space-y-8">
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Gestión de Usuarios</h2>
-                <UserManager swimmers={swimmers} onSwimmerUpdate={loadData} />
+            <TabsContent value="usuarios" className="space-y-6">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold mb-2">Gestión de Usuarios</h2>
+                  <p className="text-gray-600 mb-6">
+                    Administra las solicitudes de acceso al sistema. Los usuarios se crean automáticamente al aprobar sus solicitudes.
+                  </p>
+                  <PasswordRequestsManager />
+                </div>
               </div>
             </TabsContent>
           )}

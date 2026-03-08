@@ -42,46 +42,71 @@ async function authMiddleware(c: any, next: any) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     console.error('❌ Auth middleware: No token provided');
     console.error('   Headers:', JSON.stringify(Object.fromEntries(c.req.header())));
-    return c.json({ error: 'Unauthorized - No token provided' }, 401);
+    return c.json({ code: 401, message: 'Missing authorization header' }, 401);
   }
 
   const token = authHeader.split(' ')[1];
   
   if (!token || token.trim() === '') {
     console.error('❌ Auth middleware: Empty token');
-    return c.json({ error: 'Unauthorized - Empty token' }, 401);
+    return c.json({ code: 401, message: 'Empty token' }, 401);
   }
   
   console.log('🔑 Auth middleware: Validating token (length:', token.length, ')');
   console.log('🔍 Token preview:', token.substring(0, 50) + '...');
   
   try {
-    // Use supabase with SERVICE_ROLE_KEY for getUser
-    // This allows us to validate any JWT token
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    // IMPORTANTE: Primero intentar validar con SERVICE_ROLE_KEY
+    // Esto permite validar tokens generados con cualquier key (ANON o SERVICE_ROLE)
+    let validationResult = await supabase.auth.getUser(token);
+    
+    // Si falla con SERVICE_ROLE_KEY, intentar con ANON_KEY
+    if (validationResult.error) {
+      console.log('⚠️ Validación con SERVICE_ROLE_KEY falló, intentando con ANON_KEY...');
+      validationResult = await supabaseAuth.auth.getUser(token);
+    }
+    
+    const { data: { user }, error } = validationResult;
     
     if (error) {
       console.error('❌ Auth middleware - Token validation error:', error.message);
       console.error('   Error details:', JSON.stringify(error, null, 2));
       console.error('   Token (first 50 chars):', token.substring(0, 50));
+      console.error('   SUPABASE_URL configurada:', !!SUPABASE_URL);
+      console.error('   SUPABASE_SERVICE_ROLE_KEY configurada:', !!SUPABASE_SERVICE_ROLE_KEY);
+      console.error('   SUPABASE_ANON_KEY configurada:', !!SUPABASE_ANON_KEY);
       
       // Proveer mensajes de error más específicos
       if (error.message.includes('expired')) {
-        return c.json({ error: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.' }, 401);
+        return c.json({ code: 401, message: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.' }, 401);
       }
-      if (error.message.includes('invalid') || error.message.includes('malformed')) {
-        return c.json({ error: 'Token inválido. Por favor, vuelve a iniciar sesión.' }, 401);
+      if (error.message.includes('invalid') || error.message.includes('malformed') || error.message.includes('JWT')) {
+        console.error('❌ Token JWT inválido. Esto puede ser por:');
+        console.error('   1. Token corrupto o malformado');
+        console.error('   2. Token generado con diferentes credenciales de Supabase');
+        console.error('   3. Variables de entorno mal configuradas en Edge Functions');
+        return c.json({ 
+          code: 401, 
+          message: 'Invalid JWT',
+          debug: {
+            errorMessage: error.message,
+            tokenLength: token.length,
+            tokenPreview: token.substring(0, 30) + '...',
+            supabaseConfigured: !!SUPABASE_URL && !!SUPABASE_SERVICE_ROLE_KEY && !!SUPABASE_ANON_KEY
+          }
+        }, 401);
       }
       
-      return c.json({ error: `Unauthorized - ${error.message}` }, 401);
+      return c.json({ code: 401, message: error.message }, 401);
     }
     
     if (!user) {
       console.error('❌ Auth middleware: No user found');
-      return c.json({ error: 'Unauthorized - Invalid token' }, 401);
+      return c.json({ code: 401, message: 'Invalid token - no user' }, 401);
     }
     
     console.log('✅ Auth middleware: User validated:', user.email, '(ID:', user.id, ')');
+    console.log('   User metadata:', JSON.stringify(user.user_metadata, null, 2));
     
     // Store user in context
     c.set('user', user);
@@ -90,8 +115,13 @@ async function authMiddleware(c: any, next: any) {
     await next();
   } catch (error) {
     console.error('❌ Auth middleware unexpected error:', error);
+    console.error('   Error type:', error instanceof Error ? error.constructor.name : typeof error);
     console.error('   Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    return c.json({ error: 'Unauthorized - Auth error' }, 401);
+    return c.json({ 
+      code: 401, 
+      message: 'Auth error',
+      debug: error instanceof Error ? error.message : String(error)
+    }, 401);
   }
 }
 
@@ -139,12 +169,26 @@ app.use(
 
 // ==================== AUTHENTICATION ROUTES ====================
 
-// Sign up new user
-app.post("/make-server-4909a0bc/auth/signup", async (c) => {
+// Sign up new user (requires admin authentication)
+app.post("/make-server-4909a0bc/auth/signup", authMiddleware, async (c) => {
   try {
     const { email, password, name, role } = await c.req.json();
     
+    // Verificar que el usuario que está creando sea admin
+    const creatingUser = c.get('user');
+    const creatingUserRole = creatingUser?.user_metadata?.role;
+    
+    console.log('🔐 SIGNUP - User creating account:', creatingUser?.email, 'Role:', creatingUserRole);
     console.log('🔐 SIGNUP - Creating user:', { email, name, role });
+    
+    // Solo admins pueden crear usuarios
+    if (creatingUserRole !== 'admin') {
+      console.error('❌ SIGNUP - Non-admin trying to create user:', creatingUser?.email);
+      return c.json({ 
+        code: 403,
+        message: 'Solo los administradores pueden crear nuevos usuarios'
+      }, 403);
+    }
     
     // Create user with Supabase Auth
     const { data, error } = await supabase.auth.admin.createUser({
