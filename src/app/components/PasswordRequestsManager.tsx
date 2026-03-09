@@ -96,6 +96,7 @@ export function PasswordRequestsManager() {
   const [copiedPassword, setCopiedPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverConfigured, setServerConfigured] = useState<boolean | null>(null);
+  const [healthCheckData, setHealthCheckData] = useState<any>(null);
   const [projectIdState, setProjectIdState] = useState<string>('vrclozhgaacehojbnpuo');
   const [showQRCode, setShowQRCode] = useState(false);
 
@@ -120,15 +121,21 @@ export function PasswordRequestsManager() {
 
   const checkServerConfig = async () => {
     try {
-      const { projectId } = await import('../../../utils/supabase/info');
+      const { projectId, publicAnonKey } = await import('../../../utils/supabase/info');
       const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;
       
       console.log('🔍 Verificando configuración del servidor...');
       console.log('📍 URL:', `${API_URL}/health`);
       
-      // NO enviar Authorization header para el health check
-      // porque es un endpoint público
-      const response = await fetch(`${API_URL}/health`);
+      // Enviar Authorization header con el ANON_KEY
+      // Supabase requiere autenticación incluso para endpoints públicos
+      const response = await fetch(`${API_URL}/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        }
+      });
       
       console.log('📡 Respuesta del servidor:', {
         status: response.status,
@@ -140,15 +147,70 @@ export function PasswordRequestsManager() {
       if (!response.ok) {
         console.error('❌ El servidor respondió con error:', response.status, response.statusText);
         
-        // Si es 401, probablemente las variables de entorno no están configuradas
+        // Intentar leer el cuerpo de la respuesta para más detalles
+        let errorDetails = '';
+        try {
+          const text = await response.text();
+          console.error('📄 Cuerpo de la respuesta:', text);
+          errorDetails = text;
+        } catch (e) {
+          console.error('⚠️ No se pudo leer el cuerpo de la respuesta');
+        }
+        
+        // Si es 401, analizar el mensaje de error
         if (response.status === 401) {
-          console.error('⚠️ Error 401: Las variables de entorno probablemente no están configuradas');
+          console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.error('⚠️ ERROR 401: PROBLEMA DE AUTENTICACIÓN');
+          console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.error('');
+          console.error('🔍 DIAGNÓSTICO:');
+          console.error('');
+          
+          // Analizar el mensaje de error específico
+          if (errorDetails.includes('Missing authorization header')) {
+            console.error('❌ PROBLEMA: Edge Function requiere autenticación pero NO tiene');
+            console.error('             configuradas las variables de entorno.');
+            console.error('');
+            console.error('Esto significa:');
+            console.error('1. La Edge Function está desplegada ✅');
+            console.error('2. Supabase está protegiendo la función con JWT ✅');
+            console.error('3. PERO las variables de entorno NO están configuradas ❌');
+          } else {
+            console.error('1. La Edge Function está desplegada ✅');
+            console.error('2. PERO las variables de entorno NO están configuradas ❌');
+          }
+          console.error('');
+          console.error('🛠️ SOLUCIÓN:');
+          console.error('');
+          console.error('Paso 1: Ve a Supabase Dashboard');
+          console.error('Paso 2: Edge Functions → make-server-4909a0bc → Settings');
+          console.error('Paso 3: Agrega estas 3 variables (botón "Add new secret"):');
+          console.error('');
+          console.error('   Variable 1:');
+          console.error('   Name:  SUPABASE_URL');
+          console.error('   Value: https://vrclozhgaacehojbnpuo.supabase.co');
+          console.error('');
+          console.error('   Variable 2:');
+          console.error('   Name:  SUPABASE_ANON_KEY');
+          console.error('   Value: [Settings → API → anon key]');
+          console.error('          Debe empezar con "eyJ" y tener ~300 caracteres');
+          console.error('');
+          console.error('   Variable 3:');
+          console.error('   Name:  SUPABASE_SERVICE_ROLE_KEY');
+          console.error('   Value: [Settings → API → service_role key]');
+          console.error('          Debe empezar con "eyJ" y tener ~300 caracteres');
+          console.error('');
+          console.error('Paso 4: REDEPLOY la función (botón "Deploy")');
+          console.error('Paso 5: Espera 1-2 minutos');
+          console.error('Paso 6: Recarga esta página');
+          console.error('');
+          console.error('📖 Guía detallada: /CONFIGURAR_VARIABLES_ENTORNO.md');
+          console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          
           setServerConfigured(false);
           return;
         }
         
-        const errorData = await response.json().catch(() => ({ message: 'No se pudo parsear la respuesta' }));
-        console.error('❌ Datos del error:', errorData);
         setServerConfigured(false);
         return;
       }
@@ -156,15 +218,86 @@ export function PasswordRequestsManager() {
       const data = await response.json();
       console.log('✅ Health check data:', data);
       
-      setServerConfigured(data.status === 'ok');
+      // Guardar los datos del health check para mostrarlos en el UI
+      setHealthCheckData(data);
       
-      if (data.status !== 'ok') {
-        console.error('⚠️ Servidor respondió pero no está configurado correctamente:', data);
+      // Verificar si el servidor tiene las variables configuradas Y son válidas
+      const isConfigured = data.status === 'ok' && data.configured === true && data.valid === true;
+      setServerConfigured(isConfigured);
+      
+      if (!isConfigured) {
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        if (data.valid === false) {
+          console.error('❌ KEYS CONFIGURADAS PERO INVÁLIDAS!');
+          console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.error('');
+          console.error('⚠️ Las variables están SET pero con valores INCORRECTOS');
+          console.error('');
+          console.error('📊 Diagnóstico:');
+          if (data.validationErrors) {
+            data.validationErrors.forEach((err: string) => console.error('  ' + err));
+          }
+          console.error('');
+          console.error('🔍 Debug info:');
+          console.error('  SUPABASE_URL length:', data.debug?.urlLength, data.debug?.urlValid ? '✅' : '❌');
+          console.error('  SERVICE_ROLE_KEY length:', data.debug?.serviceKeyLength, data.debug?.serviceKeyValid ? '✅' : '❌');
+          console.error('  SERVICE_ROLE_KEY preview:', data.debug?.serviceKeyPreview);
+          console.error('  ANON_KEY length:', data.debug?.anonKeyLength, data.debug?.anonKeyValid ? '✅' : '❌');
+          console.error('  ANON_KEY preview:', data.debug?.anonKeyPreview);
+          console.error('');
+          console.error('🚨 PROBLEMA DETECTADO:');
+          console.error('  Las keys parecen ser HASHES (SHA-256) en lugar de JWT tokens!');
+          console.error('');
+          console.error('✅ SOLUCIÓN:');
+          console.error('  1. Ve a Supabase Dashboard → Settings → API → Project API keys');
+          console.error('  2. Copia las keys COMPLETAS (empiezan con "eyJ", no con letras/números random)');
+          console.error('  3. ANON_KEY debe tener ~200-300 caracteres');
+          console.error('  4. SERVICE_ROLE_KEY debe tener ~200-300 caracteres');
+          console.error('  5. Ve a Edge Functions → make-server-4909a0bc → Environment Variables');
+          console.error('  6. BORRA las variables actuales');
+          console.error('  7. Agrega nuevamente con las keys JWT CORRECTAS');
+          console.error('  8. Redeploy la función');
+        } else {
+          console.error('⚠️ SERVIDOR RESPONDE PERO NO ESTÁ CONFIGURADO');
+          console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.error('');
+          console.error('Respuesta del servidor:', data);
+          console.error('');
+          console.error('Esto significa que:');
+          console.error('- La función está desplegada ✅');
+          console.error('- PERO las variables de entorno NO están configuradas ❌');
+          console.error('');
+          console.error('Sigue los pasos en /CONFIGURAR_VARIABLES_ENTORNO.md');
+        }
+        
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       } else {
-        console.log('✅ Servidor configurado correctamente');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('✅ SERVIDOR CONFIGURADO CORRECTAMENTE');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('');
+        console.log('El sistema de creación de usuarios está listo para usarse.');
+        console.log('');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
     } catch (error) {
-      console.error('❌ Error al verificar configuración del servidor:', error);
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('❌ ERROR AL VERIFICAR CONFIGURACIÓN DEL SERVIDOR');
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('');
+      console.error('Detalles del error:', error);
+      console.error('');
+      console.error('Posibles causas:');
+      console.error('1. La Edge Function NO está desplegada');
+      console.error('2. Hay un error de red (CORS, timeout, etc)');
+      console.error('3. La URL del proyecto es incorrecta');
+      console.error('');
+      console.error('Verifica:');
+      console.error('- Edge Functions → make-server-4909a0bc → Status: "Active"');
+      console.error('- Las variables de entorno están configuradas');
+      console.error('- La función fue redesplegada después de agregar las variables');
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       setServerConfigured(false);
     }
   };
@@ -179,7 +312,7 @@ export function PasswordRequestsManager() {
     try {
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('🔐 PasswordRequestsManager - Iniciando aprobación de solicitud');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━��━');
       console.log('📋 Datos de la solicitud:');
       console.log('  - ID:', request.id);
       console.log('  - Email:', request.email);
@@ -643,16 +776,109 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
       {serverConfigured === false && (
         <Alert variant="destructive" className="border-red-300 bg-red-50">
           <AlertTriangle className="h-5 w-5 text-red-600" />
-          <AlertTitle className="text-red-900 font-bold text-lg">🚨 Servidor Backend NO Disponible</AlertTitle>
+          <AlertTitle className="text-red-900 font-bold text-lg">
+            {healthCheckData?.valid === false ? '🔑 Keys Configuradas PERO Inválidas' : '🚨 Servidor Backend NO Disponible'}
+          </AlertTitle>
           <AlertDescription className="text-red-800">
             <div className="space-y-3 mt-3">
-              <div className="bg-white border border-red-200 rounded-lg p-4">
-                <p className="font-semibold text-base mb-2">
-                  ❌ Error 401: No se puede conectar con la Edge Function
-                </p>
-                <p className="text-sm mb-3">
-                  La Edge Function <code className="bg-red-100 px-2 py-1 rounded font-mono">make-server-4909a0bc</code> NO está respondiendo correctamente.
-                </p>
+              <>
+              {/* CASO 1: Keys inválidas (placeholders sb_secret_xxx) */}
+              {healthCheckData?.valid === false && (
+                <div className="bg-white border border-red-200 rounded-lg p-4">
+                  <p className="font-semibold text-base mb-2 text-red-900">
+                    ❌ PROBLEMA DETECTADO: Estás usando PLACEHOLDERS en lugar de las Keys JWT reales
+                  </p>
+                  
+                  <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3 my-3">
+                    <p className="font-bold text-yellow-900 mb-2">🔍 Diagnóstico del Servidor:</p>
+                    <div className="space-y-1 text-sm font-mono bg-white p-2 rounded border border-yellow-200">
+                      <div className="flex justify-between">
+                        <span>SUPABASE_URL:</span>
+                        <span className={healthCheckData.debug?.urlValid ? 'text-green-600' : 'text-red-600'}>
+                          {healthCheckData.debug?.urlLength} chars {healthCheckData.debug?.urlValid ? '✅' : '❌'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>SERVICE_ROLE_KEY:</span>
+                        <span className={healthCheckData.debug?.serviceKeyValid ? 'text-green-600' : 'text-red-600'}>
+                          {healthCheckData.debug?.serviceKeyLength} chars {healthCheckData.debug?.serviceKeyValid ? '✅' : '❌'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 ml-4">
+                        Preview: {healthCheckData.debug?.serviceKeyPreview}
+                      </div>
+                      <div className="flex justify-between">
+                        <span>ANON_KEY:</span>
+                        <span className={healthCheckData.debug?.anonKeyValid ? 'text-green-600' : 'text-red-600'}>
+                          {healthCheckData.debug?.anonKeyLength} chars {healthCheckData.debug?.anonKeyValid ? '✅' : '❌'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 ml-4">
+                        Preview: {healthCheckData.debug?.anonKeyPreview}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 border border-red-300 rounded-lg p-3 my-3">
+                    <p className="font-bold text-red-900 mb-2">🚨 El Problema:</p>
+                    <p className="text-sm text-red-800">
+                      Las keys que configuraste son <strong>referencias/placeholders</strong> (como <code className="bg-red-100 px-1 rounded">sb_secret_xxx</code> o <code className="bg-red-100 px-1 rounded">sb_publish_xxx</code>), 
+                      NO las keys JWT reales que empiezan con <code className="bg-green-100 px-1 rounded">eyJ</code>.
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-300 rounded-lg p-3">
+                    <p className="font-bold text-blue-900 mb-2">✅ Solución (3 minutos):</p>
+                    <ol className="list-decimal list-inside space-y-2 text-sm">
+                      <li className="text-blue-800">
+                        <strong>Ve a Settings → API</strong> en Supabase Dashboard
+                      </li>
+                      <li className="text-blue-800">
+                        Copia las <strong>keys COMPLETAS</strong>:
+                        <ul className="list-disc list-inside ml-6 mt-1 space-y-1">
+                          <li><code className="bg-blue-100 px-1 rounded text-xs">anon public</code> → debe empezar con <code className="bg-green-100 px-1 rounded text-xs">eyJ</code> (~205 chars)</li>
+                          <li><code className="bg-blue-100 px-1 rounded text-xs">service_role secret</code> → debe empezar con <code className="bg-green-100 px-1 rounded text-xs">eyJ</code> (~300 chars)</li>
+                        </ul>
+                      </li>
+                      <li className="text-blue-800">
+                        Ve a <strong>Edge Functions → make-server-4909a0bc → Settings → Secrets</strong>
+                      </li>
+                      <li className="text-blue-800">
+                        <strong>BORRA</strong> las 3 variables actuales
+                      </li>
+                      <li className="text-blue-800">
+                        <strong>Agrega nuevamente</strong> con las keys JWT reales (NO pongas <code className="bg-red-100 px-1 rounded text-xs">sb_secret_xxx</code>)
+                      </li>
+                      <li className="text-blue-800">
+                        Click en <strong>"Deploy function"</strong> y espera 1-2 min
+                      </li>
+                      <li className="text-blue-800">
+                        Recarga esta página (F5)
+                      </li>
+                    </ol>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="mt-3 w-full"
+                      onClick={() => window.open('/INSTRUCCIONES_CONFIGURACION_SUPABASE.md', '_blank')}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Ver Guía Completa Paso a Paso
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* CASO 2: Función no desplegada o error 401 genérico */}
+              {!healthCheckData || healthCheckData.valid !== false ? (
+                <div className="bg-white border border-red-200 rounded-lg p-4">
+                  <p className="font-semibold text-base mb-2">
+                    ❌ Error 401: No se puede conectar con la Edge Function
+                  </p>
+                  <p className="text-sm mb-3">
+                    La Edge Function <code className="bg-red-100 px-2 py-1 rounded font-mono">make-server-4909a0bc</code> NO está respondiendo correctamente.
+                  </p>
                 
                 <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 mb-3">
                   <div className="flex items-start gap-2">
@@ -688,9 +914,8 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
                     <li>La función fue borrada accidentalmente</li>
                   </ul>
                 </div>
-              </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
                   <Shield className="w-5 h-5" />
                   SOLUCIÓN: Desplegar Edge Function Manualmente (5 minutos)
@@ -753,7 +978,9 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
                     </ol>
                   </div>
                 </div>
+                </div>
               </div>
+              ) : null}
 
               <div className="flex flex-wrap gap-2">
                 <Button 
@@ -813,6 +1040,7 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
                   </div>
                 </div>
               </div>
+            </>
             </div>
           </AlertDescription>
         </Alert>

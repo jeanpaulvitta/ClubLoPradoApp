@@ -143,6 +143,20 @@ export async function login(email: string, password: string): Promise<User> {
           
           if (!createResponse.ok) {
             const errorData = await createResponse.json();
+            console.error('❌ Error del servidor al crear admin:', errorData);
+            
+            // Si es un error de red/fetch, dar mensaje específico
+            if (!errorData || typeof errorData !== 'object') {
+              throw new Error(
+                '🚨 Error de Conexión con el Servidor\\n\\n' +
+                'No se puede conectar con la Edge Function. Posibles causas:\\n\\n' +
+                '1. Las variables de entorno NO están configuradas correctamente\\n' +
+                '2. La función NO ha sido desplegada\\n' +
+                '3. Las keys son PLACEHOLDERS (sb_secret_xxx) en lugar de JWT reales\\n\\n' +
+                '👉 Haz clic en el banner rojo arriba para ver la guía paso a paso'
+              );
+            }
+            
             throw new Error(errorData.error || 'Error al crear usuario admin');
           }
           
@@ -172,6 +186,69 @@ export async function login(email: string, password: string): Promise<User> {
           return createdUser;
         } catch (createError) {
           console.error('❌ Error al crear admin:', createError);
+          
+          // FALLBACK: Si el backend falla completamente (Failed to fetch),
+          // crear admin local temporal en modo offline
+          if (createError instanceof TypeError && createError.message.includes('fetch')) {
+            console.log('🔧 MODO FALLBACK: Creando admin local temporal...');
+            console.log('⚠️ El backend NO está disponible - usando modo offline');
+            
+            // Crear usuario admin local usando Supabase Auth directamente
+            try {
+              const { data: signupData, error: signupError } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                  data: {
+                    name: 'Administrador',
+                    role: 'admin',
+                  }
+                }
+              });
+              
+              if (signupError) {
+                console.error('❌ Error al crear admin local:', signupError);
+                throw new Error('No se pudo crear el usuario administrador. Por favor, configura el backend correctamente.');
+              }
+              
+              if (!signupData.user || !signupData.session) {
+                throw new Error('Error al crear admin local - no se recibió usuario o sesión');
+              }
+              
+              console.log('✅ Admin local creado exitosamente');
+              
+              // Guardar sesión local
+              const adminUser: User = {
+                id: signupData.user.id,
+                email: signupData.user.email!,
+                name: 'Administrador',
+                role: 'admin',
+                swimmerId: null,
+              };
+              
+              saveSession({
+                ...adminUser,
+                accessToken: signupData.session.access_token,
+              });
+              
+              // Guardar flag indicando que está en modo offline
+              localStorage.setItem('backend_offline_mode', 'true');
+              
+              console.log('⚠️ IMPORTANTE: La app está en MODO OFFLINE');
+              console.log('⚠️ Debes configurar el backend para funcionalidad completa');
+              
+              return adminUser;
+            } catch (fallbackError) {
+              console.error('❌ Error en fallback:', fallbackError);
+              throw new Error(
+                '🚨 No se pudo crear el usuario administrador\n\n' +
+                'El backend Edge Function NO está configurado correctamente.\n\n' +
+                '👉 Necesitas configurar las variables de entorno en Supabase.\n' +
+                'Consulta el banner rojo arriba para instrucciones paso a paso.'
+              );
+            }
+          }
+          
           throw new Error('Credenciales inválidas. Verifica tu correo y contraseña.');
         }
       }
@@ -366,12 +443,17 @@ export async function logout(): Promise<void> {
     
     // PASO 3: Limpiar sesión personalizada de localStorage
     clearSession();
+    
+    // PASO 4: Limpiar flag de modo offline
+    localStorage.removeItem('backend_offline_mode');
+    
     console.log('✅ Logout completado exitosamente');
     
   } catch (error) {
     console.error('❌ Logout error:', error);
     // Asegurar que la sesión local se limpie incluso si algo falla
     clearSession();
+    localStorage.removeItem('backend_offline_mode');
     await supabase.auth.signOut(); // Intentar de nuevo
     throw error;
   }

@@ -65,7 +65,8 @@ import {
   Info,
   CheckCircle,
   Eye,
-  Download
+  Download,
+  AlertCircle
 } from "lucide-react";
 import type { 
   Swimmer, 
@@ -84,6 +85,7 @@ import * as api from "@/app/services/api";
 import { isTeamRecord } from "@/app/utils/recordsUtils";
 import { calculateAge, calculateCategoryFromBirthDate, getTrainingGroupFromBirthDate } from "@/app/utils/swimmerUtils";
 import { Logo } from "./components/Logo";
+import { projectId, publicAnonKey } from "/utils/supabase/info";
 
 // Función auxiliar para convertir tiempo MM:SS.SS a segundos
 function timeToSeconds(time: string): number {
@@ -1135,6 +1137,67 @@ function MainApp() {
           </div>
         </div>
       </header>
+
+      {/* Banner de Modo Offline - Solo si el backend está offline */}
+      {typeof window !== 'undefined' && localStorage.getItem('backend_offline_mode') === 'true' && (
+        <div className="bg-yellow-500 border-b-4 border-yellow-600">
+          <div className="container mx-auto px-3 sm:px-4 py-3">
+            <Alert className="bg-yellow-50 border-yellow-600">
+              <AlertCircle className="h-5 w-5 text-yellow-800" />
+              <AlertDescription className="text-yellow-900">
+                <div className="space-y-2">
+                  <p className="font-bold text-lg">⚠️ MODO OFFLINE ACTIVADO</p>
+                  <p className="text-sm">
+                    La aplicación está funcionando con datos locales porque el backend NO está configurado correctamente.
+                  </p>
+                  <p className="text-sm font-semibold">
+                    ⚠️ LIMITACIONES: No se pueden crear nadadores, registrar asistencias ni guardar cambios en el servidor.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="bg-yellow-100 border-yellow-600 hover:bg-yellow-200"
+                      onClick={async () => {
+                        // Verificar conexión al servidor
+                        try {
+                          const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc/health`, {
+                            headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+                          });
+                          
+                          if (response.ok) {
+                            // Servidor está OK, limpiar modo offline
+                            localStorage.removeItem('backend_offline_mode');
+                            alert('✅ Servidor conectado correctamente. Recargando aplicación...');
+                            window.location.reload();
+                          } else {
+                            alert('❌ El servidor aún no está disponible. Verifica la configuración en Supabase Dashboard.');
+                          }
+                        } catch (error) {
+                          alert('❌ No se pudo conectar al servidor. Verifica que las Edge Functions estén desplegadas.');
+                        }
+                      }}
+                    >
+                      🔄 Verificar Servidor y Salir
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="bg-yellow-100 border-yellow-600 hover:bg-yellow-200"
+                      onClick={() => {
+                        localStorage.removeItem('backend_offline_mode');
+                        window.location.reload();
+                      }}
+                    >
+                      Salir Sin Verificar ⚠️
+                    </Button>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">

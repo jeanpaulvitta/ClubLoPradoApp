@@ -1,15 +1,27 @@
-# 🎉 ¡EXCELENTE! Ya desplegaste la Edge Function
+# 🚨 ERROR 401 DETECTADO
 
-## ✅ Lo que YA hiciste:
-- ✅ Desplegaste la función `make-server-4909a0bc`
-- ✅ Copiaste el código correctamente
-- ✅ La función está en Supabase
+## ❌ Problema Actual:
+- Estás viendo: **Error 401**
+- **Las variables de entorno NO están configuradas correctamente**
 
-## 🔑 SIGUIENTE PASO (3 minutos):
+## ✅ Buenas Noticias:
+- ✅ La función `make-server-4909a0bc` está desplegada
+- ✅ El servidor responde
+- ❌ PERO las keys que agregaste son INCORRECTAS
 
-### Configurar las 3 variables de entorno
+## 🔑 Problema Identificado:
 
-**SIN ESTE PASO, LA FUNCIÓN NO FUNCIONARÁ** (seguirás viendo Error 401).
+Las keys que agregaste se ven así (INCORRECTAS):
+```
+❌ 301fd969f77c128a6773714e0c14c019b7d3def89ad759a908062cee62504854
+```
+
+Las keys CORRECTAS de Supabase se ven así:
+```
+✅ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh...
+```
+
+**Tu problema:** Copiaste hashes/códigos encriptados en lugar de las keys reales JWT.
 
 ---
 
@@ -63,7 +75,8 @@ En Supabase Dashboard:
 
 ## 📖 Recursos:
 
-- [Guía Detallada de Variables](/CONFIGURAR_VARIABLES_ENTORNO.md) ← **Recomendado**
+- [**DIAGNÓSTICO ERROR 401**](/DIAGNOSTICO_ERROR_401.md) ← **LEE ESTO PRIMERO** 🔥
+- [Guía Detallada de Variables](/CONFIGURAR_VARIABLES_ENTORNO.md)
 - [Solución Error 401](/SOLUCION_ERROR_401_PASO_A_PASO.md)
 - [¿Por qué funciona login pero no crear usuarios?](/POR_QUE_FUNCIONA_ADMIN_PERO_NO_CREAR_USUARIOS.md)
 

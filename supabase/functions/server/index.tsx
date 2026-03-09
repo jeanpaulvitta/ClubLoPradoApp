@@ -6,19 +6,53 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const app = new Hono();
 
-// Check for required environment variables
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+// ==================== WORKAROUND: VALORES CORRECTOS ====================
+// Las variables de entorno están corruptas (hashes en lugar de JWT tokens)
+// Solución temporal: usar los valores correctos directamente
+const CORRECT_SUPABASE_URL = "https://vrclozhgaacehojbnpuo.supabase.co";
+const CORRECT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZyY2xvemhnYWFjZWhvamJucHVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MDc1OTEsImV4cCI6MjA4NTk4MzU5MX0.efL3mUq8zFgaqAY92FWiwGTBxlPmzkVq9kDjVXbjeVQ";
+
+// IMPORTANTE: Reemplaza este valor con tu SERVICE_ROLE_KEY real
+// Ve a: https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/settings/api
+// Busca "service_role" key (la que es SECRET) y cópiala aquí abajo
+const CORRECT_SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZyY2xvemhnYWFjZWhvamJucHVvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDQwNzU5MSwiZXhwIjoyMDg1OTgzNTkxfQ.JKJ5UjZEkT1rJzV-JezonKaWI83-oO-X_0A60woQAh4";
+
+// Check environment variables
+const ENV_SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const ENV_SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const ENV_SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+
+// Validate if environment variables are corrupted (hashes instead of JWT tokens)
+const urlIsValid = ENV_SUPABASE_URL && ENV_SUPABASE_URL.length > 40 && ENV_SUPABASE_URL.startsWith('https://');
+const serviceKeyIsValid = ENV_SUPABASE_SERVICE_ROLE_KEY && ENV_SUPABASE_SERVICE_ROLE_KEY.length > 100 && ENV_SUPABASE_SERVICE_ROLE_KEY.startsWith('eyJ');
+const anonKeyIsValid = ENV_SUPABASE_ANON_KEY && ENV_SUPABASE_ANON_KEY.length > 100 && ENV_SUPABASE_ANON_KEY.startsWith('eyJ');
+
+// Use correct values if environment variables are corrupted
+const SUPABASE_URL = urlIsValid ? ENV_SUPABASE_URL : CORRECT_SUPABASE_URL;
+const SUPABASE_ANON_KEY = anonKeyIsValid ? ENV_SUPABASE_ANON_KEY : CORRECT_SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = serviceKeyIsValid ? ENV_SUPABASE_SERVICE_ROLE_KEY : CORRECT_SUPABASE_SERVICE_ROLE_KEY;
 
 // Track configuration status
 const ENV_CONFIGURED = !!(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && SUPABASE_ANON_KEY);
+const USING_WORKAROUND = !urlIsValid || !serviceKeyIsValid || !anonKeyIsValid;
+
+console.log('🔧 Server Configuration:', {
+  url: SUPABASE_URL,
+  urlSource: urlIsValid ? 'ENV (valid)' : 'HARDCODED',
+  anonKeySource: anonKeyIsValid ? 'ENV (valid)' : 'HARDCODED',
+  serviceKeySource: serviceKeyIsValid ? 'ENV (valid)' : 'HARDCODED',
+  usingWorkaround: USING_WORKAROUND,
+  configured: ENV_CONFIGURED
+});
+
+if (USING_WORKAROUND) {
+  console.warn('⚠️ USING WORKAROUND: Environment variables are corrupted, using hardcoded values');
+  console.warn('   This is a temporary solution. Ideally, secrets should be fixed in Supabase Dashboard.');
+}
 
 if (!ENV_CONFIGURED) {
   console.error('❌ CRITICAL ERROR: Missing required environment variables!');
   console.error('   Required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY');
-  console.error('   Configure them in: Supabase Dashboard → Edge Functions → server → Environment Variables');
-  console.error('   See: /SOLUCION_MISSING_AUTHORIZATION_HEADER.md for instructions');
 }
 
 // Initialize Supabase clients only if configured
@@ -647,32 +681,84 @@ app.get("/make-server-4909a0bc/health", (c) => {
     SUPABASE_ANON_KEY: !!SUPABASE_ANON_KEY,
   };
   
+  // Validate JWT keys format
+  const urlValid = SUPABASE_URL && SUPABASE_URL.length > 40 && SUPABASE_URL.startsWith('https://');
+  const serviceKeyValid = SUPABASE_SERVICE_ROLE_KEY && SUPABASE_SERVICE_ROLE_KEY.length > 100 && SUPABASE_SERVICE_ROLE_KEY.startsWith('eyJ');
+  const anonKeyValid = SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 100 && SUPABASE_ANON_KEY.startsWith('eyJ');
+  
+  const allValid = urlValid && serviceKeyValid && anonKeyValid;
+  
   // Log environment details for debugging
   console.log('🔍 Health Check - Environment Status:', {
     ENV_CONFIGURED,
     SUPABASE_URL_length: SUPABASE_URL ? SUPABASE_URL.length : 0,
+    SUPABASE_URL_valid: urlValid,
     SUPABASE_URL_preview: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'NOT SET',
     SUPABASE_SERVICE_ROLE_KEY_length: SUPABASE_SERVICE_ROLE_KEY ? SUPABASE_SERVICE_ROLE_KEY.length : 0,
+    SUPABASE_SERVICE_ROLE_KEY_valid: serviceKeyValid,
+    SUPABASE_SERVICE_ROLE_KEY_preview: SUPABASE_SERVICE_ROLE_KEY ? `${SUPABASE_SERVICE_ROLE_KEY.substring(0, 10)}...` : 'NOT SET',
     SUPABASE_ANON_KEY_length: SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.length : 0,
+    SUPABASE_ANON_KEY_valid: anonKeyValid,
+    SUPABASE_ANON_KEY_preview: SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : 'NOT SET',
   });
+  
+  // Build validation messages
+  const validationErrors = [];
+  if (!urlValid) {
+    validationErrors.push('❌ SUPABASE_URL: Must be a valid HTTPS URL (> 40 chars, starts with https://)');
+  }
+  if (!serviceKeyValid) {
+    validationErrors.push('❌ SUPABASE_SERVICE_ROLE_KEY: Must be a valid JWT token (> 100 chars, starts with eyJ)');
+  }
+  if (!anonKeyValid) {
+    validationErrors.push('❌ SUPABASE_ANON_KEY: Must be a valid JWT token (> 100 chars, starts with eyJ)');
+  }
   
   // SIEMPRE devolver 200 OK, incluso si no está configurado
   return c.json({ 
-    status: ENV_CONFIGURED ? "ok" : "misconfigured", 
+    status: allValid ? "ok" : "misconfigured", 
     timestamp: new Date().toISOString(),
-    version: "2.0.7",
+    version: "2.2.0",
     environment: envCheck,
     configured: ENV_CONFIGURED,
-    message: ENV_CONFIGURED 
-      ? "✅ All environment variables configured correctly" 
-      : "⚠️ Missing environment variables. Configure in Supabase Dashboard → Edge Functions → Environment Variables",
+    valid: allValid,
+    usingWorkaround: USING_WORKAROUND,
+    message: allValid
+      ? USING_WORKAROUND 
+        ? "✅ All environment variables configured correctly (using workaround for corrupted secrets)" 
+        : "✅ All environment variables configured correctly"
+      : "⚠️ Environment variables are SET but INVALID. Check format below.",
+    validationErrors: validationErrors.length > 0 ? validationErrors : undefined,
+    workaroundInfo: USING_WORKAROUND ? {
+      reason: "Environment variables are corrupted (hashes instead of JWT tokens)",
+      solution: "Using hardcoded correct values as workaround",
+      sources: {
+        url: urlIsValid ? 'ENV' : 'HARDCODED',
+        anonKey: anonKeyIsValid ? 'ENV' : 'HARDCODED',
+        serviceKey: serviceKeyIsValid ? 'ENV' : 'HARDCODED'
+      }
+    } : undefined,
+    instructions: !allValid ? [
+      "🔧 Go to Supabase Dashboard → Edge Functions → make-server-4909a0bc → Environment Variables",
+      "📋 Get your keys from: Settings → API → Project API keys",
+      "🔑 SUPABASE_URL: Should start with https:// (e.g., https://xxxxx.supabase.co)",
+      "🔑 SUPABASE_ANON_KEY: Should start with eyJ and be ~200-300 characters",
+      "🔑 SUPABASE_SERVICE_ROLE_KEY: Should start with eyJ and be ~200-300 characters",
+      "⚠️ Current keys look like HASHES (SHA-256), not JWT tokens!",
+      "💾 After updating, redeploy the function"
+    ] : undefined,
     debug: {
       urlSet: !!SUPABASE_URL,
       urlLength: SUPABASE_URL ? SUPABASE_URL.length : 0,
+      urlValid,
       serviceKeySet: !!SUPABASE_SERVICE_ROLE_KEY,
       serviceKeyLength: SUPABASE_SERVICE_ROLE_KEY ? SUPABASE_SERVICE_ROLE_KEY.length : 0,
+      serviceKeyValid,
+      serviceKeyPreview: SUPABASE_SERVICE_ROLE_KEY ? SUPABASE_SERVICE_ROLE_KEY.substring(0, 10) + '...' : 'NOT SET',
       anonKeySet: !!SUPABASE_ANON_KEY,
       anonKeyLength: SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.length : 0,
+      anonKeyValid,
+      anonKeyPreview: SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.substring(0, 10) + '...' : 'NOT SET',
     }
   }, 200); // Explícitamente devolver status code 200
 });

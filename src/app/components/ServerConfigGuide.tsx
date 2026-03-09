@@ -27,6 +27,15 @@ export function ServerConfigGuide() {
   const [showDetailedGuide, setShowDetailedGuide] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [offlineMode, setOfflineMode] = useState(false);
+
+  // Verificar si está en modo offline al cargar
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isOffline = localStorage.getItem('backend_offline_mode') === 'true';
+      setOfflineMode(isOffline);
+    }
+  }, []);
 
   const checkServerConfig = async () => {
     setChecking(true);
@@ -50,6 +59,12 @@ export function ServerConfigGuide() {
         const data = await response.json();
         setServerStatus('configured');
         console.log('✅ Servidor configurado correctamente:', data);
+        
+        // Si el servidor está OK, limpiar modo offline
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('backend_offline_mode');
+          setOfflineMode(false);
+        }
       } else {
         const errorData = await response.json().catch(() => null);
         setErrorDetails(errorData);
@@ -73,6 +88,14 @@ export function ServerConfigGuide() {
       }
     } finally {
       setChecking(false);
+    }
+  };
+
+  const exitOfflineMode = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('backend_offline_mode');
+      setOfflineMode(false);
+      window.location.reload();
     }
   };
 
@@ -389,11 +412,26 @@ export function ServerConfigGuide() {
               {/* Documentation Link */}
               <div className="pt-4 border-t border-orange-200">
                 <p className="text-sm text-gray-700 mb-2">
-                  📚 Para instrucciones detalladas, consulta:
+                  📚 Documentación completa disponible:
                 </p>
-                <code className="text-xs bg-black/10 px-2 py-1 rounded">
-                  /SOLUCION_MISSING_AUTHORIZATION_HEADER.md
-                </code>
+                <div className="space-y-2">
+                  <div>
+                    <code className="text-xs bg-black/10 px-2 py-1 rounded block">
+                      /GUIA_CONEXION_SUPABASE.md
+                    </code>
+                    <p className="text-xs text-gray-600 mt-1 ml-1">
+                      👉 Guía paso a paso en español con todos los detalles
+                    </p>
+                  </div>
+                  <div>
+                    <code className="text-xs bg-black/10 px-2 py-1 rounded block">
+                      /SOLUCION_MISSING_AUTHORIZATION_HEADER.md
+                    </code>
+                    <p className="text-xs text-gray-600 mt-1 ml-1">
+                      Solución técnica para errores de autorización
+                    </p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           )}
@@ -408,6 +446,25 @@ export function ServerConfigGuide() {
           <AlertDescription className="text-green-800">
             El servidor Edge Function está desplegado y configurado correctamente. 
             Todas las funcionalidades del sistema están disponibles.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Offline Mode Message */}
+      {offlineMode && (
+        <Alert className="bg-red-50 border-red-200">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertTitle className="text-red-900">Modo Offline Activado</AlertTitle>
+          <AlertDescription className="text-red-800">
+            El servidor Edge Function no está disponible. Se está utilizando un modo offline.
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={exitOfflineMode}
+            >
+              Salir del Modo Offline
+            </Button>
           </AlertDescription>
         </Alert>
       )}

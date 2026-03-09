@@ -4,6 +4,28 @@ import type { Swimmer, Competition, SwimmerCompetition, Workout, Holiday } from 
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;
 
+// ==================== OFFLINE MODE DETECTION ====================
+
+/**
+ * Detecta si la aplicación está en modo offline
+ */
+function isOfflineMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem('backend_offline_mode') === 'true';
+}
+
+/**
+ * Muestra advertencia de modo offline una sola vez por sesión
+ */
+let offlineWarningShown = false;
+function showOfflineWarning() {
+  if (!offlineWarningShown && isOfflineMode()) {
+    console.warn('⚠️ MODO OFFLINE ACTIVADO - Los datos del servidor no están disponibles');
+    console.warn('⚠️ Configurar backend Edge Function para funcionalidad completa');
+    offlineWarningShown = true;
+  }
+}
+
 // Get auth token from session (SOLO para autenticación)
 function getAuthToken(): string {
   try {
@@ -120,6 +142,13 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout:
 // ==================== SWIMMERS API ====================
 
 export async function fetchSwimmers(): Promise<Swimmer[]> {
+  // Si está en modo offline, retornar array vacío
+  if (isOfflineMode()) {
+    showOfflineWarning();
+    console.log('📴 Modo offline: retornando lista vacía de nadadores');
+    return [];
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/swimmers`, { headers: getPublicHeaders() });
     if (!response.ok) {
@@ -134,7 +163,9 @@ export async function fetchSwimmers(): Promise<Swimmer[]> {
     return swimmers;
   } catch (error) {
     console.error('❌ Error fetching swimmers from Supabase:', error);
-    throw error;
+    showOfflineWarning();
+    console.log('📴 Retornando lista vacía debido a error');
+    return [];
   }
 }
 
@@ -298,6 +329,13 @@ export async function deleteAttendanceRecord(id: string): Promise<void> {
 // ==================== COMPETITIONS API ====================
 
 export async function fetchCompetitions(): Promise<Competition[]> {
+  // Si está en modo offline, retornar array vacío
+  if (isOfflineMode()) {
+    showOfflineWarning();
+    console.log('📴 Modo offline: retornando lista vacía de competencias');
+    return [];
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/competitions`, { headers: getPublicHeaders() });
     if (!response.ok) {
@@ -309,7 +347,9 @@ export async function fetchCompetitions(): Promise<Competition[]> {
     return data.competitions;
   } catch (error) {
     console.error('❌ Error fetching competitions:', error);
-    throw error;
+    showOfflineWarning();
+    console.log('📴 Retornando lista vacía debido a error');
+    return [];
   }
 }
 
@@ -454,6 +494,13 @@ export async function deleteCompetitionPDF(competitionId: string): Promise<Compe
 // ==================== SWIMMER COMPETITIONS API ====================
 
 export async function fetchSwimmerCompetitions(): Promise<SwimmerCompetition[]> {
+  // Si está en modo offline, retornar array vacío
+  if (isOfflineMode()) {
+    showOfflineWarning();
+    console.log('📴 Modo offline: retornando lista vacía de participaciones');
+    return [];
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/swimmer-competitions`, { headers: getPublicHeaders() });
     if (!response.ok) {
@@ -465,7 +512,9 @@ export async function fetchSwimmerCompetitions(): Promise<SwimmerCompetition[]> 
     return data.participations;
   } catch (error) {
     console.error('❌ Error fetching swimmer competitions:', error);
-    throw error;
+    showOfflineWarning();
+    console.log('📴 Retornando lista vacía debido a error');
+    return [];
   }
 }
 
@@ -555,6 +604,13 @@ export async function updateCompetitionResults(
 // ==================== WORKOUTS API ====================
 
 export async function fetchWorkouts(): Promise<Workout[]> {
+  // Si está en modo offline, retornar array vacío
+  if (isOfflineMode()) {
+    showOfflineWarning();
+    console.log('📴 Modo offline: retornando lista vacía de entrenamientos');
+    return [];
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/workouts`, { headers: getPublicHeaders() });
     
@@ -582,7 +638,9 @@ export async function fetchWorkouts(): Promise<Workout[]> {
     return workouts;
   } catch (error) {
     console.error('❌ Error fetching workouts from Supabase:', error);
-    throw error;
+    showOfflineWarning();
+    console.log('📴 Retornando lista vacía debido a error');
+    return [];
   }
 }
 
@@ -679,6 +737,13 @@ export async function migrateWorkouts(): Promise<{ count: number }> {
 }
 
 export async function fetchHolidays(): Promise<Holiday[]> {
+  // Si está en modo offline, retornar array vacío
+  if (isOfflineMode()) {
+    showOfflineWarning();
+    console.log('📴 Modo offline: retornando lista vacía de feriados');
+    return [];
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/holidays`, { headers: getPublicHeaders() });
     if (!response.ok) {
@@ -690,7 +755,9 @@ export async function fetchHolidays(): Promise<Holiday[]> {
     return data.holidays;
   } catch (error) {
     console.error('❌ Error fetching holidays:', error);
-    throw error;
+    showOfflineWarning();
+    console.log('📴 Retornando lista vacía debido a error');
+    return [];
   }
 }
 

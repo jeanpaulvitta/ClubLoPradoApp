@@ -1,13 +1,15 @@
-import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Waves, Lock, Mail, User, Shield, AlertCircle } from 'lucide-react';
 import { createPasswordRequest } from './PasswordRequestsManager';
 import { toast } from 'sonner';
+import { ServerConfigGuide } from './ServerConfigGuide';
+import { SystemDiagnostics } from './SystemDiagnostics';
+import { useAuth } from '../contexts/AuthContext';
+import { useState } from 'react';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -19,6 +21,8 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showServerGuide, setShowServerGuide] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +35,17 @@ export function LoginPage() {
     } catch (err: any) {
       const errorMessage = err.message || 'Error al iniciar sesión';
       setError(errorMessage);
-      toast.error(errorMessage);
+      
+      // Mensaje toast más amigable
+      if (errorMessage.includes('Backend') || errorMessage.includes('configurado')) {
+        toast.error('Backend no configurado', {
+          description: 'Revisa las instrucciones en el banner rojo',
+          duration: 5000,
+        });
+        setShowServerGuide(true);
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -265,7 +279,29 @@ export function LoginPage() {
         <div className="text-center mt-8 text-gray-400 text-sm">
           <p>© 2026 Club Natación Lo Prado</p>
           <p className="mt-1 text-gray-500">Haz que todo sea posible</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-4 text-gray-400 hover:text-gray-200"
+            onClick={() => setShowDiagnostics(!showDiagnostics)}
+          >
+            {showDiagnostics ? '✕ Cerrar' : '🔧'} Diagnóstico del Sistema
+          </Button>
         </div>
+
+        {/* Server Configuration Guide (solo si hay errores de backend) */}
+        {showServerGuide && !showDiagnostics && (
+          <div className="mt-8">
+            <ServerConfigGuide />
+          </div>
+        )}
+
+        {/* System Diagnostics (opcional) */}
+        {showDiagnostics && (
+          <div className="mt-8">
+            <SystemDiagnostics />
+          </div>
+        )}
       </div>
     </div>
   );
