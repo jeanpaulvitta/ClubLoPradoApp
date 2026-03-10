@@ -1,5 +1,5 @@
 import { Waves, Lock, Mail, User, Shield, AlertCircle } from 'lucide-react';
-import { createPasswordRequest } from './PasswordRequestsManager';
+import { createPasswordRequest } from '../services/passwordRequests';
 import { toast } from 'sonner';
 import { ServerConfigGuide } from './ServerConfigGuide';
 import { SystemDiagnostics } from './SystemDiagnostics';
@@ -55,16 +55,23 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      createPasswordRequest(requestName, requestEmail, requestRole);
+      console.log('📝 Enviando solicitud de acceso...');
+      
+      await createPasswordRequest(requestName, requestEmail, requestRole);
+      
+      console.log('✅ Solicitud enviada exitosamente');
       toast.success('Solicitud enviada exitosamente');
       setSuccessMessage('Tu solicitud ha sido enviada. El administrador la revisará pronto.');
+      
       // Limpiar formulario
       setRequestName('');
       setRequestEmail('');
       setRequestRole('swimmer');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al enviar solicitud');
-      toast.error(err instanceof Error ? err.message : 'Error al enviar solicitud');
+      console.error('❌ Error al enviar solicitud:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al enviar solicitud';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

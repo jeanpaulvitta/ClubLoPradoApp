@@ -7,22 +7,12 @@ import { Label } from './ui/label';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { UserPlus, CheckCircle, XCircle, Clock, Copy, Shield, Mail, User, AlertCircle, AlertTriangle, ExternalLink, Share2, MessageCircle, QrCode } from 'lucide-react';
+import { UserPlus, CheckCircle, XCircle, Clock, Copy, Shield, Mail, User, AlertCircle, AlertTriangle, ExternalLink, Share2, MessageCircle, QrCode, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
-
-interface PasswordRequest {
-  id: string;
-  name: string;
-  email: string;
-  role: 'swimmer' | 'coach';
-  status: 'pending' | 'approved' | 'rejected';
-  requestedAt: string;
-  generatedPassword?: string;
-}
-
-const REQUESTS_KEY = 'natacion_master_password_requests';
+import * as passwordRequestsApi from '../services/passwordRequests';
+import type { PasswordRequest } from '../services/passwordRequests';
 
 // Helper function para copiar texto al portapapeles con fallback
 function copyToClipboard(text: string): Promise<void> {
@@ -72,19 +62,8 @@ function fallbackCopyTextToClipboard(text: string, resolve: () => void, reject: 
   }
 }
 
-function getPasswordRequests(): PasswordRequest[] {
-  const stored = localStorage.getItem(REQUESTS_KEY);
-  if (!stored) return [];
-  try {
-    return JSON.parse(stored);
-  } catch {
-    return [];
-  }
-}
-
-function savePasswordRequests(requests: PasswordRequest[]) {
-  localStorage.setItem(REQUESTS_KEY, JSON.stringify(requests));
-}
+// Funciones de localStorage eliminadas - ahora usamos Supabase KV store
+// Las solicitudes se almacenan en el backend en "password-requests:list"
 
 export function PasswordRequestsManager() {
   const [requests, setRequests] = useState<PasswordRequest[]>([]);
@@ -302,9 +281,30 @@ export function PasswordRequestsManager() {
     }
   };
 
-  const loadRequests = () => {
-    const allRequests = getPasswordRequests();
-    setRequests(allRequests);
+  const loadRequests = async () => {
+    try {
+      setLoading(true);
+      console.log('📋 Cargando solicitudes de contraseña desde Supabase...');
+      
+      const allRequests = await passwordRequestsApi.getPasswordRequests();
+      
+      console.log(`✅ ${allRequests.length} solicitudes cargadas`);
+      setRequests(allRequests);
+    } catch (error) {
+      console.error('Error cargando solicitudes:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Error al cargar solicitudes';
+      
+      // Solo mostrar toast si es un error real, no si es "no hay sesión"
+      if (!errorMessage.includes('No hay sesión')) {
+        toast.error(errorMessage);
+      }
+      
+      // Mostrar array vacío si hay error
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleApproveRequest = async (request: PasswordRequest) => {
@@ -1504,27 +1504,7 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
   );
 }
 
-// Función helper para crear una nueva solicitud (se llamará desde LoginPage)
-export function createPasswordRequest(name: string, email: string, role: 'swimmer' | 'coach'): void {
-  const requests = getPasswordRequests();
-  
-  // Verificar si ya existe una solicitud para este email
-  if (requests.some(r => r.email === email && r.status === 'pending')) {
-    throw new Error('Ya existe una solicitud pendiente para este correo electrónico');
-  }
-  
-  const newRequest: PasswordRequest = {
-    id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    name,
-    email,
-    role,
-    requestedAt: new Date().toISOString(),
-    status: 'pending',
-  };
-  
-  requests.push(newRequest);
-  savePasswordRequests(requests);
-}
+// Función eliminada - ahora se usa el servicio en /src/app/services/passwordRequests.ts
 
 // Función para generar contraseña local (modo degradado)
 const generateLocalPassword = (): string => {

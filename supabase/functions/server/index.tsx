@@ -765,6 +765,24 @@ app.get("/make-server-4909a0bc/health", (c) => {
   }, 200); // Explícitamente devolver status code 200
 });
 
+// Debug endpoint to check password-requests routes
+app.get("/make-server-4909a0bc/debug/password-requests-status", (c) => {
+  return c.json({
+    message: "Password requests routes are registered",
+    routes: {
+      "POST /password-requests/create": "Create new request (PUBLIC - NO AUTH) ⭐",
+      "GET /password-requests": "List all requests (admin only)",
+      "POST /password-requests/:id/approve": "Approve request (admin only)",
+      "POST /password-requests/:id/reject": "Reject request (admin only)",
+      "DELETE /password-requests/:id": "Delete request (admin only)",
+    },
+    timestamp: new Date().toISOString(),
+    serverConfigured: ENV_CONFIGURED,
+    supabaseReady: !!supabase && !!supabaseAuth,
+    note: "POST /password-requests/create does NOT require authentication - it's a public endpoint"
+  });
+});
+
 // Utility endpoint to confirm all unconfirmed emails
 app.post("/make-server-4909a0bc/util/confirm-emails", async (c) => {
   try {
@@ -950,6 +968,375 @@ app.get("/make-server-4909a0bc/debug/test-controls", async (c) => {
   } catch (error) {
     console.error("Error in debug endpoint:", error);
     return c.json({ error: String(error) }, 500);
+  }
+});
+
+// ==================== PASSWORD REQUESTS ROUTES ====================
+
+// Create a new password request - PUBLIC ENDPOINT (NO AUTH)
+// Using explicit /create path to avoid any routing conflicts
+app.post("/make-server-4909a0bc/password-requests/create", async (c) => {
+  try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📝 POST /password-requests/create - PUBLIC ENDPOINT');
+    
+    const body = await c.req.json();
+    const { name, email, role } = body;
+    
+    console.log('📋 Datos recibidos:', { name, email, role });
+    
+    if (!name || !email || !role) {
+      console.error('❌ Validación falló: Campos faltantes');
+      return c.json({ error: 'Nombre, email y rol son requeridos' }, 400);
+    }
+    
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.error('❌ Validación falló: Email inválido:', email);
+      return c.json({ error: 'Email inválido' }, 400);
+    }
+    
+    // Validar rol
+    if (!['swimmer', 'coach'].includes(role)) {
+      console.error('❌ Validación falló: Rol inválido:', role);
+      return c.json({ error: 'Rol inválido. Debe ser "swimmer" o "coach"' }, 400);
+    }
+    
+    console.log('✅ Validaciones pasadas, obteniendo solicitudes existentes...');
+    
+    const requests = await kv.get("password-requests:list") || [];
+    console.log(`📦 Solicitudes existentes: ${Array.isArray(requests) ? requests.length : 0}`);
+    
+    // Verificar si ya existe una solicitud pendiente para este email
+    const existingRequest = requests.find((r: any) => 
+      r.email === email && r.status === 'pending'
+    );
+    
+    if (existingRequest) {
+      console.warn('⚠️ Ya existe solicitud pendiente para:', email);
+      return c.json({ 
+        error: 'Ya existe una solicitud pendiente para este correo electrónico' 
+      }, 400);
+    }
+    
+    console.log('🔨 Creando nueva solicitud...');
+    
+    // Crear nueva solicitud
+    const newRequest = {
+      id: `pr_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      name,
+      email,
+      role,
+      requestedAt: new Date().toISOString(),
+      status: 'pending',
+    };
+    
+    console.log('📦 Nueva solicitud creada:', newRequest);
+    
+    requests.push(newRequest);
+    
+    console.log('💾 Guardando en KV store...');
+    await kv.set("password-requests:list", requests);
+    
+    console.log('✅ Solicitud guardada exitosamente:', newRequest.id);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    return c.json({ 
+      success: true,
+      request: newRequest,
+      message: 'Solicitud enviada exitosamente. El administrador la revisará pronto.'
+    }, 201);
+  } catch (error) {
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error("❌ Error creating password request:", error);
+    console.error("Error type:", error instanceof Error ? error.constructor.name : typeof error);
+    console.error("Error message:", error instanceof Error ? error.message : String(error));
+    if (error instanceof Error && error.stack) {
+      console.error("Stack trace:", error.stack);
+    }
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    return c.json({ 
+      error: error instanceof Error ? error.message : "Error al crear solicitud de contraseña",
+      details: String(error) 
+    }, 500);
+  }
+});
+
+// Get all password requests (admin only)
+app.get("/make-server-4909a0bc/password-requests", authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    if (user?.user_metadata?.role !== 'admin') {
+      return c.json({ error: 'Solo administradores pueden ver solicitudes' }, 403);
+    }
+    
+    const requests = await kv.get("password-requests:list") || [];
+    return c.json({ requests });
+  } catch (error) {
+    console.error("Error fetching password requests:", error);
+    return c.json({ error: "Failed to fetch password requests", details: String(error) }, 500);
+  }
+});
+
+// Create a new password request (public endpoint - anyone can request access)
+app.post("/make-server-4909a0bc/password-requests", async (c) => {
+  try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📝 POST /password-requests - Iniciando');
+    
+    const body = await c.req.json();
+    const { name, email, role } = body;
+    
+    console.log('📋 Datos recibidos:', { name, email, role });
+    
+    if (!name || !email || !role) {
+      console.error('❌ Validación falló: Campos faltantes');
+      return c.json({ error: 'Nombre, email y rol son requeridos' }, 400);
+    }
+    
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.error('❌ Validación falló: Email inválido:', email);
+      return c.json({ error: 'Email inválido' }, 400);
+    }
+    
+    // Validar rol
+    if (!['swimmer', 'coach'].includes(role)) {
+      console.error('❌ Validación falló: Rol inválido:', role);
+      return c.json({ error: 'Rol inválido. Debe ser "swimmer" o "coach"' }, 400);
+    }
+    
+    console.log('✅ Validaciones pasadas, obteniendo solicitudes existentes...');
+    
+    const requests = await kv.get("password-requests:list") || [];
+    console.log(`📦 Solicitudes existentes: ${Array.isArray(requests) ? requests.length : 0}`);
+    
+    // Verificar si ya existe una solicitud pendiente para este email
+    const existingRequest = requests.find((r: any) => 
+      r.email === email && r.status === 'pending'
+    );
+    
+    if (existingRequest) {
+      console.warn('⚠️ Ya existe solicitud pendiente para:', email);
+      return c.json({ 
+        error: 'Ya existe una solicitud pendiente para este correo electrónico' 
+      }, 400);
+    }
+    
+    console.log('🔨 Creando nueva solicitud...');
+    
+    // Crear nueva solicitud
+    const newRequest = {
+      id: `pr_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      name,
+      email,
+      role,
+      requestedAt: new Date().toISOString(),
+      status: 'pending',
+    };
+    
+    console.log('📦 Nueva solicitud creada:', newRequest);
+    
+    requests.push(newRequest);
+    
+    console.log('💾 Guardando en KV store...');
+    await kv.set("password-requests:list", requests);
+    
+    console.log('✅ Solicitud guardada exitosamente:', newRequest.id);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    return c.json({ 
+      success: true,
+      request: newRequest,
+      message: 'Solicitud enviada exitosamente. El administrador la revisará pronto.'
+    }, 201);
+  } catch (error) {
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error("❌ Error creating password request:", error);
+    console.error("Error type:", error instanceof Error ? error.constructor.name : typeof error);
+    console.error("Error message:", error instanceof Error ? error.message : String(error));
+    if (error instanceof Error && error.stack) {
+      console.error("Stack trace:", error.stack);
+    }
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    return c.json({ 
+      error: error instanceof Error ? error.message : "Error al crear solicitud de contraseña",
+      details: String(error) 
+    }, 500);
+  }
+});
+
+// Approve a password request and create user account (admin only)
+app.post("/make-server-4909a0bc/password-requests/:id/approve", authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    if (user?.user_metadata?.role !== 'admin') {
+      return c.json({ error: 'Solo administradores pueden aprobar solicitudes' }, 403);
+    }
+    
+    const requestId = c.req.param('id');
+    const requests = await kv.get("password-requests:list") || [];
+    
+    const requestIndex = requests.findIndex((r: any) => r.id === requestId);
+    if (requestIndex === -1) {
+      return c.json({ error: 'Solicitud no encontrada' }, 404);
+    }
+    
+    const request = requests[requestIndex];
+    
+    if (request.status !== 'pending') {
+      return c.json({ error: 'Esta solicitud ya fue procesada' }, 400);
+    }
+    
+    console.log('✅ Aprobando solicitud:', requestId);
+    
+    // Generar contraseña temporal fuerte
+    const tempPassword = `NP${Date.now()}!${Math.random().toString(36).substring(2, 10)}`;
+    
+    // Crear usuario con Supabase Auth (cliente directo - no requiere service role key)
+    const { data, error } = await supabase.auth.signUp({
+      email: request.email,
+      password: tempPassword,
+      options: {
+        data: {
+          name: request.name,
+          role: request.role,
+          status: 'pending_approval', // Marcar como pendiente de aprobación final
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Error al crear usuario:', error);
+      
+      if (error.message.includes('already') || error.message.includes('exists')) {
+        // Usuario ya existe - marcar solicitud como aprobada de todos modos
+        requests[requestIndex] = {
+          ...request,
+          status: 'approved',
+          approvedAt: new Date().toISOString(),
+          generatedPassword: 'Usuario ya existe',
+        };
+        await kv.set("password-requests:list", requests);
+        
+        return c.json({ 
+          error: 'El usuario ya existe en el sistema',
+          existingUser: true
+        }, 400);
+      }
+      
+      return c.json({ error: error.message }, 400);
+    }
+    
+    if (!data.user) {
+      return c.json({ error: 'No se recibió información del usuario creado' }, 500);
+    }
+    
+    console.log('✅ Usuario creado exitosamente:', data.user.id);
+    
+    // Actualizar solicitud
+    requests[requestIndex] = {
+      ...request,
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: user.email,
+      generatedPassword: tempPassword, // Guardar temporalmente para mostrar al admin
+    };
+    
+    await kv.set("password-requests:list", requests);
+    
+    return c.json({ 
+      success: true,
+      credentials: {
+        email: request.email,
+        password: tempPassword,
+      },
+      userId: data.user.id,
+      message: '✅ Usuario creado. IMPORTANTE: Debes aprobar al usuario en el Dashboard de Supabase (cambiar status a "approved")'
+    }, 201);
+    
+  } catch (error) {
+    console.error("Error approving password request:", error);
+    return c.json({ error: "Failed to approve request", details: String(error) }, 500);
+  }
+});
+
+// Reject a password request (admin only)
+app.post("/make-server-4909a0bc/password-requests/:id/reject", authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    if (user?.user_metadata?.role !== 'admin') {
+      return c.json({ error: 'Solo administradores pueden rechazar solicitudes' }, 403);
+    }
+    
+    const requestId = c.req.param('id');
+    const requests = await kv.get("password-requests:list") || [];
+    
+    const requestIndex = requests.findIndex((r: any) => r.id === requestId);
+    if (requestIndex === -1) {
+      return c.json({ error: 'Solicitud no encontrada' }, 404);
+    }
+    
+    const request = requests[requestIndex];
+    
+    if (request.status !== 'pending') {
+      return c.json({ error: 'Esta solicitud ya fue procesada' }, 400);
+    }
+    
+    console.log('❌ Rechazando solicitud:', requestId);
+    
+    // Actualizar solicitud
+    requests[requestIndex] = {
+      ...request,
+      status: 'rejected',
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: user.email,
+    };
+    
+    await kv.set("password-requests:list", requests);
+    
+    return c.json({ 
+      success: true,
+      message: 'Solicitud rechazada exitosamente'
+    });
+    
+  } catch (error) {
+    console.error("Error rejecting password request:", error);
+    return c.json({ error: "Failed to reject request", details: String(error) }, 500);
+  }
+});
+
+// Delete a password request (admin only)
+app.delete("/make-server-4909a0bc/password-requests/:id", authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    if (user?.user_metadata?.role !== 'admin') {
+      return c.json({ error: 'Solo administradores pueden eliminar solicitudes' }, 403);
+    }
+    
+    const requestId = c.req.param('id');
+    const requests = await kv.get("password-requests:list") || [];
+    
+    const filteredRequests = requests.filter((r: any) => r.id !== requestId);
+    
+    if (filteredRequests.length === requests.length) {
+      return c.json({ error: 'Solicitud no encontrada' }, 404);
+    }
+    
+    await kv.set("password-requests:list", filteredRequests);
+    
+    return c.json({ 
+      success: true,
+      message: 'Solicitud eliminada exitosamente'
+    });
+    
+  } catch (error) {
+    console.error("Error deleting password request:", error);
+    return c.json({ error: "Failed to delete request", details: String(error) }, 500);
   }
 });
 
