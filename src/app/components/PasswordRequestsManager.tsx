@@ -460,8 +460,13 @@ export function PasswordRequestsManager() {
       setShowApproveDialog(true);
       
       console.log('✅ PasswordRequestsManager - Solicitud aprobada y credenciales guardadas');
+      console.log('⚠️ RECORDATORIO: Debes aprobar al usuario en Supabase Dashboard');
+      console.log('📋 Dashboard → Authentication → Users → Editar usuario → Cambiar status a "approved"');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      toast.success('Solicitud aprobada y cuenta creada');
+      
+      toast.success('Cuenta creada - Recuerda aprobar al usuario en el Dashboard de Supabase', {
+        duration: 6000,
+      });
     } catch (error) {
       console.error('');
       console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -1312,15 +1317,39 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
               )}
 
               {serverConfigured !== false && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-yellow-800">
-                      <strong>IMPORTANTE:</strong> Copia estas credenciales y envíalas al usuario de forma segura. 
-                      La contraseña es temporal y el usuario podrá cambiarla desde su perfil.
+                <>
+                  <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-red-900">
+                        <p className="font-bold mb-2">🔴 PASO OBLIGATORIO: Aprobar Usuario</p>
+                        <p className="mb-2">
+                          El usuario fue creado pero <strong>NO podrá iniciar sesión</strong> hasta que lo apruebes manualmente en Supabase:
+                        </p>
+                        <ol className="list-decimal list-inside space-y-1 text-red-800 ml-2">
+                          <li>Ve a <strong>Dashboard de Supabase</strong></li>
+                          <li>Authentication → Users</li>
+                          <li>Encuentra al usuario por email</li>
+                          <li>Editar → User Metadata</li>
+                          <li>Cambiar <code className="bg-red-100 px-1">"pending_approval"</code> → <code className="bg-green-100 px-1">"approved"</code></li>
+                        </ol>
+                        <p className="mt-3 font-semibold text-red-900">
+                          📖 Ver guía completa: <code className="bg-red-100 px-1">/GUIA_RAPIDA_APROBAR_USUARIOS.md</code>
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                  
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-yellow-800">
+                        <strong>IMPORTANTE:</strong> Copia estas credenciales y envíalas al usuario de forma segura. 
+                        La contraseña es temporal y el usuario podrá cambiarla desde su perfil.
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="space-y-3">

@@ -268,6 +268,18 @@ export async function login(email: string, password: string): Promise<User> {
     
     console.log('✅ Autenticación exitosa:', data.user.email);
     
+    // VERIFICAR SI EL USUARIO ESTÁ APROBADO
+    const userStatus = data.user.user_metadata.status;
+    if (userStatus === 'pending_approval') {
+      console.warn('⚠️ Usuario pendiente de aprobación:', data.user.email);
+      // Cerrar la sesión inmediatamente
+      await supabase.auth.signOut();
+      throw new Error(
+        'Tu cuenta está pendiente de aprobación por un administrador.\n\n' +
+        'Por favor, espera a que el administrador apruebe tu solicitud antes de iniciar sesión.'
+      );
+    }
+    
     // Obtener swimmerId si es nadador
     let swimmerId = null;
     if (data.user.user_metadata.role === 'swimmer') {
@@ -322,81 +334,89 @@ export async function signup(
   swimmerId?: string
 ): Promise<User & { initialPassword?: string }> {
   try {
-    console.log('🔐 SIGNUP - Creando usuario con Supabase Auth:', { email, name, role });
-    console.log('📍 Paso 1: Obteniendo token de acceso...');
+    console.log('🔐 SIGNUP - Registrando usuario directamente con Supabase Auth:', { email, name, role });
+    console.log('✨ NUEVO MÉTODO: Sin service role key - registro directo del cliente');
     
-    // Obtener token de acceso del admin que está creando el usuario
-    let accessToken: string;
-    try {
-      accessToken = await getFreshAccessToken();
-      console.log('✅ Token obtenido exitosamente');
-    } catch (tokenError) {
-      console.error('❌ Error obteniendo token:', tokenError);
-      throw new Error('No se pudo obtener credenciales de sesión. Por favor, cierra sesión y vuelve a iniciar sesión.');
-    }
-    
-    console.log('📍 Paso 2: Enviando solicitud de creación al servidor...');
-    console.log('🔗 URL:', `${API_URL}/auth/signup`);
-    console.log('📦 Body:', { email, name, role });
-    
-    let response: Response;
-    try {
-      response = await fetch(`${API_URL}/auth/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ email, password, name, role }),
-      });
-      
-      console.log('📍 Paso 3: Respuesta recibida del servidor');
-      console.log('   Status:', response.status, response.statusText);
-    } catch (fetchError) {
-      console.error('❌ Error de red al crear usuario:', fetchError);
-      throw new Error('Error de conexión con el servidor. Verifica tu conexión a internet.');
-    }
-    
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('❌ Server error response:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: error
-      });
-      
-      // Extraer el mensaje de error más específico
-      let errorMessage = error.message || error.details?.message || error.error || 'Error al registrar usuario';
-      
-      // Proporcionar mensajes más útiles según el error
-      if (error.code === 401 && (errorMessage.includes('Invalid JWT') || errorMessage.includes('Missing authorization'))) {
-        console.error('🚨 SERVIDOR NO CONFIGURADO - Variables de entorno faltantes en Edge Function');
-        errorMessage = '⚠️ El servidor Edge Function NO está configurado correctamente.\n\n' +
-                      'Las variables de entorno (SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY) ' +
-                      'no están configuradas en Supabase.\n\n' +
-                      'Ver /SOLUCION_INVALID_JWT.md para instrucciones paso a paso.';
-      } else if (error.code === 401) {
-        errorMessage = 'Tu sesión ha expirado. Por favor, cierra sesión y vuelve a iniciar sesión.';
-      } else if (errorMessage.includes('Invalid JWT')) {
-        errorMessage = 'Error de autenticación. Por favor, cierra sesión y vuelve a iniciar sesión.';
-      } else if (errorMessage.includes('already') || errorMessage.includes('exists')) {
-        errorMessage = 'Ya existe un usuario con este correo electrónico.';
+    // NUEVO MÉTODO: Usar signUp directo del cliente
+    // Esto NO requiere service role key y funciona desde el frontend
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          role,
+          status: 'pending_approval', // Marcar como pendiente de aprobación
+        }
       }
-      
-      throw new Error(errorMessage);
-    }
-    
-    console.log('📍 Paso 4: Procesando respuesta exitosa...');
-    const { user } = await response.json();
-    
-    console.log('✅ Usuario creado exitosamente:', {
-      id: user.id,
-      email: user.email,
-      role: user.role
     });
     
-    // Retornar con password inicial para mostrarlo al admin
-    return { ...user, initialPassword: password };
+    if (error) {
+      console.error('❌ Error al registrar usuario:', error);
+      
+      // Mensajes de error más específicos
+      if (error.message.includes('already') || error.message.includes('exists')) {
+        throw new Error('Ya existe un usuario con este correo electrónico.');
+      }
+      
+      throw new Error(error.message || 'Error al registrar usuario');
+    }
+    
+    if (!data.user) {
+      throw new Error('No se recibió información del usuario creado');
+    }
+    
+    console.log('✅ Usuario registrado exitosamente en Supabase Auth:', {
+      id: data.user.id,
+      email: data.user.email,
+      role: data.user.user_metadata.role,
+      status: data.user.user_metadata.status
+    });
+    
+    // Si es nadador, crear perfil automáticamente
+    // (Solo si el admin lo está creando, no en auto-registro)
+    if (role === 'swimmer' && swimmerId) {
+      try {
+        const accessToken = await getFreshAccessToken();
+        await fetch(`${API_URL}/swimmers`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            id: swimmerId,
+            userId: data.user.id,
+            name,
+            email,
+            rut: '00.000.000-0',
+            gender: 'Masculino',
+            dateOfBirth: new Date(Date.now() - 25 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            schedule: '7am',
+            joinDate: new Date().toISOString().split('T')[0],
+            personalBests: [],
+            personalBestsHistory: [],
+            goals: [],
+          }),
+        });
+        console.log('✅ Perfil de nadador creado');
+      } catch (err) {
+        console.warn('⚠️ Error al crear perfil de nadador:', err);
+      }
+    }
+    
+    const user: User & { initialPassword?: string } = {
+      id: data.user.id,
+      email: data.user.email!,
+      name: data.user.user_metadata.name || name,
+      role: data.user.user_metadata.role || role,
+      swimmerId: swimmerId || null,
+      initialPassword: password,
+    };
+    
+    console.log('✅ Usuario creado exitosamente (pendiente de aprobación)');
+    return user;
+    
   } catch (error) {
     console.error('❌ Signup error:', error);
     console.error('❌ Error type:', error instanceof Error ? error.constructor.name : typeof error);
@@ -678,6 +698,51 @@ export function clearLegacyData(): void {
 }
 
 // ==================== HELPER FUNCTIONS ====================
+
+// Aprobar un usuario pendiente (solo para admins)
+export async function approveUser(userId: string): Promise<void> {
+  try {
+    console.log('✅ Aprobando usuario:', userId);
+    
+    // Obtener token del admin
+    const accessToken = await getFreshAccessToken();
+    
+    // Actualizar el usuario para marcar como aprobado
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      user_metadata: { status: 'approved' }
+    });
+    
+    if (error) {
+      console.error('❌ Error al aprobar usuario:', error);
+      throw new Error(error.message || 'Error al aprobar usuario');
+    }
+    
+    console.log('✅ Usuario aprobado exitosamente');
+  } catch (error) {
+    console.error('❌ Error en approveUser:', error);
+    throw error;
+  }
+}
+
+// Obtener lista de usuarios pendientes de aprobación (solo para admins)
+export async function getPendingUsers(): Promise<any[]> {
+  try {
+    console.log('📋 Obteniendo usuarios pendientes...');
+    
+    // Esto requiere obtener todos los usuarios desde Supabase Auth
+    // Por limitaciones de la API, vamos a usar un enfoque diferente
+    
+    // La mejor opción es que el admin vea los usuarios desde el dashboard de Supabase
+    // O crear una Cloud Function que consulte todos los usuarios
+    
+    // Por ahora, retornar array vacío y documentar la limitación
+    console.warn('⚠️ La obtención de usuarios pendientes requiere acceso al dashboard de Supabase');
+    return [];
+  } catch (error) {
+    console.error('❌ Error en getPendingUsers:', error);
+    return [];
+  }
+}
 
 async function fetchSwimmers() {
   const response = await fetch(`${API_URL}/swimmers`);

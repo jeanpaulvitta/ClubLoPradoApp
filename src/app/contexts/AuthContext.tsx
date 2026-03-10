@@ -256,11 +256,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
-      // Generar contraseña temporal
-      const tempPassword = `temp_${Date.now()}`;
+      // Generar contraseña temporal fuerte
+      const tempPassword = `NP${Date.now()}!${Math.random().toString(36).substring(2, 10)}`;
+      
+      console.log('📝 Creando cuenta de usuario:', { email, name, role });
       
       const userData = await authApi.signup(email, tempPassword, name, role, undefined);
       const initialPassword = (userData as any).initialPassword || tempPassword;
+      
+      console.log('✅ Usuario creado exitosamente');
+      console.log('⚠️ IMPORTANTE: El usuario tiene status "pending_approval"');
+      console.log('📋 Para que pueda iniciar sesión, debes aprobar al usuario en el Dashboard de Supabase');
+      console.log('📖 Ver guía: /GUIA_RAPIDA_APROBAR_USUARIOS.md');
       
       // NO llamamos a setUser() ni saveSession() - el admin sigue logueado
       return { email: userData.email, password: initialPassword };

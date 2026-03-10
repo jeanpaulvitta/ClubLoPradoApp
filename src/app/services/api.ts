@@ -39,7 +39,25 @@ function getAuthToken(): string {
       }
     }
     
-    // Fallback: intentar con supabase.auth.token
+    // Fallback: intentar con el formato nativo de Supabase Auth
+    // Supabase guarda la sesión como: sb-<project-ref>-auth-token
+    const supabaseAuthKey = `sb-${projectId}-auth-token`;
+    const supabaseAuthStr = window.localStorage.getItem(supabaseAuthKey);
+    if (supabaseAuthStr) {
+      const authData = JSON.parse(supabaseAuthStr);
+      // Supabase guarda en formato { access_token, refresh_token, expires_at, ... }
+      if (authData.access_token) {
+        console.log('🔑 Token encontrado en', supabaseAuthKey);
+        return authData.access_token;
+      }
+      // También puede estar en currentSession
+      if (authData.currentSession?.access_token) {
+        console.log('🔑 Token encontrado en currentSession de', supabaseAuthKey);
+        return authData.currentSession.access_token;
+      }
+    }
+    
+    // Fallback adicional: intentar con supabase.auth.token (formato antiguo)
     const authTokenStr = window.localStorage.getItem('supabase.auth.token');
     if (authTokenStr) {
       const authSession = JSON.parse(authTokenStr);
@@ -47,9 +65,14 @@ function getAuthToken(): string {
         console.log('🔑 Token encontrado en supabase.auth.token');
         return authSession.access_token;
       }
+      if (authSession.currentSession?.access_token) {
+        console.log('🔑 Token encontrado en currentSession de supabase.auth.token');
+        return authSession.currentSession.access_token;
+      }
     }
     
-    console.warn('⚠️ No se encontró token de autenticación, usando publicAnonKey');
+    console.warn('⚠️ No se encontró token de autenticación en ningún formato conocido');
+    console.warn('⚠️ Usando publicAnonKey como fallback (puede causar errores 401)');
   } catch (error) {
     console.warn('Error getting auth token:', error);
   }
@@ -92,7 +115,7 @@ async function checkServerHealth(): Promise<boolean> {
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     
     const response = await fetch(`${API_BASE_URL}/health`, {
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey en lugar de token de usuario
       signal: controller.signal,
     });
     
@@ -244,7 +267,8 @@ export interface AttendanceRecord {
 
 export async function fetchAttendance(): Promise<AttendanceRecord[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/attendance`, { headers: getHeaders() });
+    // Usar publicAnonKey para GET (no requiere autenticación de usuario)
+    const response = await fetch(`${API_BASE_URL}/attendance`, { headers: getPublicHeaders() });
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Attendance fetch error response:', errorText);
