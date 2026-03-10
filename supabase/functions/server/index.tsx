@@ -23,7 +23,7 @@ const ENV_SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const ENV_SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
 // Validate if environment variables are corrupted (hashes instead of JWT tokens)
-const urlIsValid = ENV_SUPABASE_URL && ENV_SUPABASE_URL.length > 40 && ENV_SUPABASE_URL.startsWith('https://');
+const urlIsValid = ENV_SUPABASE_URL && ENV_SUPABASE_URL.length >= 40 && ENV_SUPABASE_URL.startsWith('https://');
 const serviceKeyIsValid = ENV_SUPABASE_SERVICE_ROLE_KEY && ENV_SUPABASE_SERVICE_ROLE_KEY.length > 100 && ENV_SUPABASE_SERVICE_ROLE_KEY.startsWith('eyJ');
 const anonKeyIsValid = ENV_SUPABASE_ANON_KEY && ENV_SUPABASE_ANON_KEY.length > 100 && ENV_SUPABASE_ANON_KEY.startsWith('eyJ');
 
@@ -681,8 +681,9 @@ app.get("/make-server-4909a0bc/health", (c) => {
     SUPABASE_ANON_KEY: !!SUPABASE_ANON_KEY,
   };
   
-  // Validate JWT keys format
-  const urlValid = SUPABASE_URL && SUPABASE_URL.length > 40 && SUPABASE_URL.startsWith('https://');
+  // Validate JWT keys format (usando las variables FINALES, no las de entorno)
+  // Estas son las que ya tienen el workaround aplicado si es necesario
+  const urlValid = SUPABASE_URL && SUPABASE_URL.length >= 40 && SUPABASE_URL.startsWith('https://');
   const serviceKeyValid = SUPABASE_SERVICE_ROLE_KEY && SUPABASE_SERVICE_ROLE_KEY.length > 100 && SUPABASE_SERVICE_ROLE_KEY.startsWith('eyJ');
   const anonKeyValid = SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 100 && SUPABASE_ANON_KEY.startsWith('eyJ');
   
@@ -702,10 +703,10 @@ app.get("/make-server-4909a0bc/health", (c) => {
     SUPABASE_ANON_KEY_preview: SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : 'NOT SET',
   });
   
-  // Build validation messages
+  // Build validation messages (solo si las variables FINALES son inválidas)
   const validationErrors = [];
   if (!urlValid) {
-    validationErrors.push('❌ SUPABASE_URL: Must be a valid HTTPS URL (> 40 chars, starts with https://)');
+    validationErrors.push('❌ SUPABASE_URL: Must be a valid HTTPS URL (>= 40 chars, starts with https://)');
   }
   if (!serviceKeyValid) {
     validationErrors.push('❌ SUPABASE_SERVICE_ROLE_KEY: Must be a valid JWT token (> 100 chars, starts with eyJ)');
@@ -733,10 +734,11 @@ app.get("/make-server-4909a0bc/health", (c) => {
       reason: "Environment variables are corrupted (hashes instead of JWT tokens)",
       solution: "Using hardcoded correct values as workaround",
       sources: {
-        url: urlIsValid ? 'ENV' : 'HARDCODED',
-        anonKey: anonKeyIsValid ? 'ENV' : 'HARDCODED',
-        serviceKey: serviceKeyIsValid ? 'ENV' : 'HARDCODED'
-      }
+        url: !urlIsValid ? 'HARDCODED' : 'ENV',
+        anonKey: !anonKeyIsValid ? 'HARDCODED' : 'ENV',
+        serviceKey: !serviceKeyIsValid ? 'HARDCODED' : 'ENV'
+      },
+      note: "The server is using the FINAL values (after workaround), so it should work correctly"
     } : undefined,
     instructions: !allValid ? [
       "🔧 Go to Supabase Dashboard → Edge Functions → make-server-4909a0bc → Environment Variables",
