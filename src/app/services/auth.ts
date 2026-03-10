@@ -699,6 +699,55 @@ export function clearLegacyData(): void {
 
 // ==================== HELPER FUNCTIONS ====================
 
+// Crear usuario con generación automática de contraseña (solo admin) - USA LA NUEVA RUTA
+export async function createUserAccount(
+  email: string,
+  name: string,
+  role: 'admin' | 'swimmer' | 'coach'
+): Promise<{ email: string; password: string }> {
+  try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('👤 createUserAccount - Llamando a /auth/create-user');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📋 Datos:', { email, name, role });
+    
+    // Obtener token del admin
+    const accessToken = await getFreshAccessToken();
+    
+    // Llamar a la nueva ruta /auth/create-user
+    const response = await fetch(`${API_URL}/auth/create-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ email, name, role }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Error del servidor:', error);
+      throw new Error(error.error || 'Error al crear usuario');
+    }
+    
+    const { user, password } = await response.json();
+    
+    console.log('✅ Usuario creado exitosamente');
+    console.log('  - Email:', user.email);
+    console.log('  - Password length:', password.length);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    return {
+      email: user.email,
+      password,
+    };
+  } catch (error) {
+    console.error('❌ Error en createUserAccount:', error);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    throw error;
+  }
+}
+
 // Aprobar un usuario pendiente (solo para admins)
 export async function approveUser(userId: string): Promise<void> {
   try {

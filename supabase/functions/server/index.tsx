@@ -227,7 +227,126 @@ app.use(
   }),
 );
 
+// ==================== HELPER FUNCTIONS ====================
+
+/**
+ * Función compartida para crear usuario con contraseña generada automáticamente
+ * Usada por /auth/create-user y /password-requests/:id/approve
+ */
+async function createUserWithPassword(
+  email: string,
+  name: string,
+  role: 'admin' | 'swimmer' | 'coach'
+): Promise<{ user: any; password: string }> {
+  console.log('🔐 createUserWithPassword - Iniciando creación de usuario');
+  console.log('  - Email:', email);
+  console.log('  - Nombre:', name);
+  console.log('  - Rol:', role);
+  
+  // Generar contraseña temporal fuerte
+  const tempPassword = `NP${Date.now()}!${Math.random().toString(36).substring(2, 10)}`;
+  console.log('  - Password generada (length):', tempPassword.length);
+  
+  // Crear usuario con Supabase Auth usando admin.createUser
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password: tempPassword,
+    email_confirm: true, // Auto-confirmar email
+    user_metadata: {
+      name,
+      role,
+    }
+  });
+  
+  if (error) {
+    console.error('❌ Error al crear usuario:', error);
+    throw error;
+  }
+  
+  if (!data.user) {
+    console.error('❌ No se recibió información del usuario creado');
+    throw new Error('No se recibió información del usuario creado');
+  }
+  
+  console.log('✅ Usuario creado exitosamente:', data.user.id);
+  
+  return {
+    user: data.user,
+    password: tempPassword
+  };
+}
+
 // ==================== AUTHENTICATION ROUTES ====================
+
+/**
+ * Crear nuevo usuario (solo admin)
+ * Genera password automática y crea usuario en Supabase Auth
+ */
+app.post("/make-server-4909a0bc/auth/create-user", authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    if (user?.user_metadata?.role !== 'admin') {
+      return c.json({ 
+        error: 'Solo administradores pueden crear nuevos usuarios' 
+      }, 403);
+    }
+    
+    const { email, name, role } = await c.req.json();
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('👤 POST /auth/create-user - Creando usuario');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📋 Datos recibidos:', { email, name, role });
+    
+    // Validar datos requeridos
+    if (!email || !name || !role) {
+      return c.json({ 
+        error: 'Email, nombre y rol son requeridos' 
+      }, 400);
+    }
+    
+    // Validar rol
+    if (!['admin', 'swimmer', 'coach'].includes(role)) {
+      return c.json({ 
+        error: 'Rol inválido. Debe ser "admin", "swimmer" o "coach"' 
+      }, 400);
+    }
+    
+    // Crear usuario usando función compartida
+    const { user: createdUser, password } = await createUserWithPassword(email, name, role);
+    
+    console.log('✅ Usuario creado exitosamente');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    return c.json({
+      success: true,
+      user: {
+        id: createdUser.id,
+        email: createdUser.email,
+        name,
+        role,
+      },
+      password, // Contraseña generada
+      message: 'Usuario creado exitosamente'
+    }, 201);
+    
+  } catch (error) {
+    console.error('❌ Error en /auth/create-user:', error);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    if (error instanceof Error && (error.message.includes('already') || error.message.includes('exists'))) {
+      return c.json({ 
+        error: 'Ya existe un usuario con este correo electrónico',
+        existingUser: true
+      }, 400);
+    }
+    
+    return c.json({ 
+      error: error instanceof Error ? error.message : 'Error al crear usuario',
+      details: String(error)
+    }, 500);
+  }
+});
 
 // Sign up new user (requires admin authentication)
 app.post("/make-server-4909a0bc/auth/signup", authMiddleware, async (c) => {
@@ -1080,96 +1199,6 @@ app.get("/make-server-4909a0bc/password-requests", authMiddleware, async (c) => 
   }
 });
 
-// Create a new password request (public endpoint - anyone can request access)
-app.post("/make-server-4909a0bc/password-requests", async (c) => {
-  try {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📝 POST /password-requests - Iniciando');
-    
-    const body = await c.req.json();
-    const { name, email, role } = body;
-    
-    console.log('📋 Datos recibidos:', { name, email, role });
-    
-    if (!name || !email || !role) {
-      console.error('❌ Validación falló: Campos faltantes');
-      return c.json({ error: 'Nombre, email y rol son requeridos' }, 400);
-    }
-    
-    // Validar email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      console.error('❌ Validación falló: Email inválido:', email);
-      return c.json({ error: 'Email inválido' }, 400);
-    }
-    
-    // Validar rol
-    if (!['swimmer', 'coach'].includes(role)) {
-      console.error('❌ Validación falló: Rol inválido:', role);
-      return c.json({ error: 'Rol inválido. Debe ser "swimmer" o "coach"' }, 400);
-    }
-    
-    console.log('✅ Validaciones pasadas, obteniendo solicitudes existentes...');
-    
-    const requests = await kv.get("password-requests:list") || [];
-    console.log(`📦 Solicitudes existentes: ${Array.isArray(requests) ? requests.length : 0}`);
-    
-    // Verificar si ya existe una solicitud pendiente para este email
-    const existingRequest = requests.find((r: any) => 
-      r.email === email && r.status === 'pending'
-    );
-    
-    if (existingRequest) {
-      console.warn('⚠️ Ya existe solicitud pendiente para:', email);
-      return c.json({ 
-        error: 'Ya existe una solicitud pendiente para este correo electrónico' 
-      }, 400);
-    }
-    
-    console.log('🔨 Creando nueva solicitud...');
-    
-    // Crear nueva solicitud
-    const newRequest = {
-      id: `pr_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      name,
-      email,
-      role,
-      requestedAt: new Date().toISOString(),
-      status: 'pending',
-    };
-    
-    console.log('📦 Nueva solicitud creada:', newRequest);
-    
-    requests.push(newRequest);
-    
-    console.log('💾 Guardando en KV store...');
-    await kv.set("password-requests:list", requests);
-    
-    console.log('✅ Solicitud guardada exitosamente:', newRequest.id);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    return c.json({ 
-      success: true,
-      request: newRequest,
-      message: 'Solicitud enviada exitosamente. El administrador la revisará pronto.'
-    }, 201);
-  } catch (error) {
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error("❌ Error creating password request:", error);
-    console.error("Error type:", error instanceof Error ? error.constructor.name : typeof error);
-    console.error("Error message:", error instanceof Error ? error.message : String(error));
-    if (error instanceof Error && error.stack) {
-      console.error("Stack trace:", error.stack);
-    }
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    return c.json({ 
-      error: error instanceof Error ? error.message : "Error al crear solicitud de contraseña",
-      details: String(error) 
-    }, 500);
-  }
-});
-
 // Approve a password request and create user account (admin only)
 app.post("/make-server-4909a0bc/password-requests/:id/approve", authMiddleware, async (c) => {
   try {
@@ -1192,28 +1221,48 @@ app.post("/make-server-4909a0bc/password-requests/:id/approve", authMiddleware, 
       return c.json({ error: 'Esta solicitud ya fue procesada' }, 400);
     }
     
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('✅ Aprobando solicitud:', requestId);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // Generar contraseña temporal fuerte
-    const tempPassword = `NP${Date.now()}!${Math.random().toString(36).substring(2, 10)}`;
-    
-    // Crear usuario con Supabase Auth (cliente directo - no requiere service role key)
-    const { data, error } = await supabase.auth.signUp({
-      email: request.email,
-      password: tempPassword,
-      options: {
-        data: {
-          name: request.name,
-          role: request.role,
-          status: 'pending_approval', // Marcar como pendiente de aprobación final
-        }
-      }
-    });
-    
-    if (error) {
-      console.error('❌ Error al crear usuario:', error);
+    try {
+      // Crear usuario usando función compartida
+      const { user: createdUser, password: tempPassword } = await createUserWithPassword(
+        request.email,
+        request.name,
+        request.role
+      );
       
-      if (error.message.includes('already') || error.message.includes('exists')) {
+      console.log('✅ Usuario creado exitosamente:', createdUser.id);
+      
+      // Actualizar solicitud
+      requests[requestIndex] = {
+        ...request,
+        status: 'approved',
+        approvedAt: new Date().toISOString(),
+        approvedBy: user.email,
+        generatedPassword: tempPassword,
+      };
+      
+      await kv.set("password-requests:list", requests);
+      
+      console.log('✅ Solicitud aprobada y usuario creado');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      return c.json({ 
+        success: true,
+        credentials: {
+          email: request.email,
+          password: tempPassword,
+        },
+        userId: createdUser.id,
+        message: '✅ Usuario creado exitosamente'
+      }, 201);
+      
+    } catch (createError) {
+      console.error('❌ Error al crear usuario:', createError);
+      
+      if (createError instanceof Error && (createError.message.includes('already') || createError.message.includes('exists'))) {
         // Usuario ya existe - marcar solicitud como aprobada de todos modos
         requests[requestIndex] = {
           ...request,
@@ -1229,39 +1278,16 @@ app.post("/make-server-4909a0bc/password-requests/:id/approve", authMiddleware, 
         }, 400);
       }
       
-      return c.json({ error: error.message }, 400);
+      throw createError;
     }
-    
-    if (!data.user) {
-      return c.json({ error: 'No se recibió información del usuario creado' }, 500);
-    }
-    
-    console.log('✅ Usuario creado exitosamente:', data.user.id);
-    
-    // Actualizar solicitud
-    requests[requestIndex] = {
-      ...request,
-      status: 'approved',
-      approvedAt: new Date().toISOString(),
-      approvedBy: user.email,
-      generatedPassword: tempPassword, // Guardar temporalmente para mostrar al admin
-    };
-    
-    await kv.set("password-requests:list", requests);
-    
-    return c.json({ 
-      success: true,
-      credentials: {
-        email: request.email,
-        password: tempPassword,
-      },
-      userId: data.user.id,
-      message: '✅ Usuario creado. IMPORTANTE: Debes aprobar al usuario en el Dashboard de Supabase (cambiar status a "approved")'
-    }, 201);
     
   } catch (error) {
-    console.error("Error approving password request:", error);
-    return c.json({ error: "Failed to approve request", details: String(error) }, 500);
+    console.error("❌ Error approving password request:", error);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    return c.json({ 
+      error: error instanceof Error ? error.message : "Failed to approve request", 
+      details: String(error) 
+    }, 500);
   }
 });
 
@@ -1287,26 +1313,34 @@ app.post("/make-server-4909a0bc/password-requests/:id/reject", authMiddleware, a
       return c.json({ error: 'Esta solicitud ya fue procesada' }, 400);
     }
     
-    console.log('❌ Rechazando solicitud:', requestId);
-    
     // Actualizar solicitud
     requests[requestIndex] = {
       ...request,
-      status: 'rejected',
-      rejectedAt: new Date().toISOString(),
-      rejectedBy: user.email,
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: user.email,
+      generatedPassword: tempPassword, // Guardar temporalmente para mostrar al admin
     };
     
     await kv.set("password-requests:list", requests);
     
     return c.json({ 
       success: true,
-      message: 'Solicitud rechazada exitosamente'
-    });
+      credentials: {
+        email: request.email,
+        password: tempPassword,
+      },
+      userId: data.user.id,
+      message: '✅ Usuario creado. IMPORTANTE: Debes aprobar al usuario en el Dashboard de Supabase (cambiar status a "approved")'
+    }, 201);
     
   } catch (error) {
-    console.error("Error rejecting password request:", error);
-    return c.json({ error: "Failed to reject request", details: String(error) }, 500);
+    console.error("❌ Error approving password request:", error);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    return c.json({ 
+      error: error instanceof Error ? error.message : "Failed to approve request", 
+      details: String(error) 
+    }, 500);
   }
 });
 
