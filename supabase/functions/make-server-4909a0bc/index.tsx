@@ -227,6 +227,90 @@ app.use(
   }),
 );
 
+// ==================== PUBLIC ENDPOINTS (NO AUTH REQUIRED) ====================
+// IMPORTANTE: Estos endpoints DEBEN ir ANTES de cualquier middleware de autenticación
+
+// TEST ENDPOINT - Verificar que el código nuevo está desplegado
+app.get("/make-server-4909a0bc/test-public", async (c) => {
+  return c.json({ 
+    success: true, 
+    message: "✅ Código nuevo desplegado correctamente - Version 3.0!",
+    timestamp: new Date().toISOString(),
+    version: "3.0-public-endpoints-before-auth",
+    deployedAt: "2026-03-10"
+  });
+});
+
+// Create a new password request - PUBLIC ENDPOINT (NO AUTH)
+app.post("/make-server-4909a0bc/password-requests/create", async (c) => {
+  try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📝 POST /password-requests/create - PUBLIC ENDPOINT');
+    
+    const body = await c.req.json();
+    const { name, email, role } = body;
+    
+    console.log(`📥 Request body:`, { name, email, role });
+    
+    if (!name || !email || !role) {
+      console.error('❌ Missing required fields');
+      return c.json({ 
+        code: 400,
+        error: 'Faltan campos requeridos',
+        required: ['name', 'email', 'role']
+      }, 400);
+    }
+    
+    if (!['swimmer', 'coach'].includes(role)) {
+      console.error('❌ Invalid role:', role);
+      return c.json({ 
+        code: 400,
+        error: 'Rol inválido. Debe ser "swimmer" o "coach"'
+      }, 400);
+    }
+    
+    // Generate unique ID
+    const id = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`🆔 Generated ID: ${id}`);
+    
+    // Create password request object
+    const passwordRequest = {
+      id,
+      name,
+      email,
+      role,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    
+    console.log(`💾 Saving password request:`, passwordRequest);
+    
+    // Get existing requests
+    const existingRequests = await kv.get('password-requests:list') || [];
+    console.log(`📊 Existing requests count: ${existingRequests.length}`);
+    
+    // Add new request
+    const updatedRequests = [...existingRequests, passwordRequest];
+    
+    // Save to KV store
+    await kv.set('password-requests:list', updatedRequests);
+    console.log(`✅ Password request saved successfully`);
+    
+    return c.json({ 
+      success: true,
+      request: passwordRequest,
+      message: 'Solicitud creada exitosamente'
+    });
+  } catch (error) {
+    console.error('❌ Error creating password request:', error);
+    return c.json({ 
+      code: 500,
+      error: 'Error al crear solicitud',
+      details: String(error)
+    }, 500);
+  }
+});
+
 // ==================== HELPER FUNCTIONS ====================
 
 /**
@@ -1091,107 +1175,6 @@ app.get("/make-server-4909a0bc/debug/test-controls", async (c) => {
 });
 
 // ==================== PASSWORD REQUESTS ROUTES ====================
-
-// TEST ENDPOINT - Verificar que el código nuevo está desplegado
-app.get("/make-server-4909a0bc/test-public", async (c) => {
-  return c.json({ 
-    success: true, 
-    message: "✅ Código nuevo desplegado correctamente!",
-    timestamp: new Date().toISOString(),
-    version: "2.0-public-endpoint"
-  });
-});
-
-// Create a new password request - PUBLIC ENDPOINT (NO AUTH)
-// Using explicit /create path to avoid any routing conflicts
-app.post("/make-server-4909a0bc/password-requests/create", async (c) => {
-  try {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📝 POST /password-requests/create - PUBLIC ENDPOINT');
-    
-    const body = await c.req.json();
-    const { name, email, role } = body;
-    
-    console.log('📋 Datos recibidos:', { name, email, role });
-    
-    if (!name || !email || !role) {
-      console.error('❌ Validación falló: Campos faltantes');
-      return c.json({ error: 'Nombre, email y rol son requeridos' }, 400);
-    }
-    
-    // Validar email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      console.error('❌ Validación falló: Email inválido:', email);
-      return c.json({ error: 'Email inválido' }, 400);
-    }
-    
-    // Validar rol
-    if (!['swimmer', 'coach'].includes(role)) {
-      console.error('❌ Validación falló: Rol inválido:', role);
-      return c.json({ error: 'Rol inválido. Debe ser "swimmer" o "coach"' }, 400);
-    }
-    
-    console.log('✅ Validaciones pasadas, obteniendo solicitudes existentes...');
-    
-    const requests = await kv.get("password-requests:list") || [];
-    console.log(`📦 Solicitudes existentes: ${Array.isArray(requests) ? requests.length : 0}`);
-    
-    // Verificar si ya existe una solicitud pendiente para este email
-    const existingRequest = requests.find((r: any) => 
-      r.email === email && r.status === 'pending'
-    );
-    
-    if (existingRequest) {
-      console.warn('⚠️ Ya existe solicitud pendiente para:', email);
-      return c.json({ 
-        error: 'Ya existe una solicitud pendiente para este correo electrónico' 
-      }, 400);
-    }
-    
-    console.log('🔨 Creando nueva solicitud...');
-    
-    // Crear nueva solicitud
-    const newRequest = {
-      id: `pr_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      name,
-      email,
-      role,
-      requestedAt: new Date().toISOString(),
-      status: 'pending',
-    };
-    
-    console.log('📦 Nueva solicitud creada:', newRequest);
-    
-    requests.push(newRequest);
-    
-    console.log('💾 Guardando en KV store...');
-    await kv.set("password-requests:list", requests);
-    
-    console.log('✅ Solicitud guardada exitosamente:', newRequest.id);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    return c.json({ 
-      success: true,
-      request: newRequest,
-      message: 'Solicitud enviada exitosamente. El administrador la revisará pronto.'
-    }, 201);
-  } catch (error) {
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error("❌ Error creating password request:", error);
-    console.error("Error type:", error instanceof Error ? error.constructor.name : typeof error);
-    console.error("Error message:", error instanceof Error ? error.message : String(error));
-    if (error instanceof Error && error.stack) {
-      console.error("Stack trace:", error.stack);
-    }
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    return c.json({ 
-      error: error instanceof Error ? error.message : "Error al crear solicitud de contraseña",
-      details: String(error) 
-    }, 500);
-  }
-});
 
 // Get all password requests (admin only)
 app.get("/make-server-4909a0bc/password-requests", authMiddleware, async (c) => {
