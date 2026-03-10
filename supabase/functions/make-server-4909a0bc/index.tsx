@@ -1092,6 +1092,16 @@ app.get("/make-server-4909a0bc/debug/test-controls", async (c) => {
 
 // ==================== PASSWORD REQUESTS ROUTES ====================
 
+// TEST ENDPOINT - Verificar que el código nuevo está desplegado
+app.get("/make-server-4909a0bc/test-public", async (c) => {
+  return c.json({ 
+    success: true, 
+    message: "✅ Código nuevo desplegado correctamente!",
+    timestamp: new Date().toISOString(),
+    version: "2.0-public-endpoint"
+  });
+});
+
 // Create a new password request - PUBLIC ENDPOINT (NO AUTH)
 // Using explicit /create path to avoid any routing conflicts
 app.post("/make-server-4909a0bc/password-requests/create", async (c) => {
