@@ -1,3 +1,7 @@
+// ==================== VERSION 3.0 - DEPLOYED 2026-03-10 ====================
+// PUBLIC ENDPOINTS MOVED BEFORE AUTH MIDDLEWARE
+// Last deploy: 2026-03-10 - FORCE REDEPLOY VERSION
+
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
@@ -238,6 +242,24 @@ app.get("/make-server-4909a0bc/test-public", async (c) => {
     timestamp: new Date().toISOString(),
     version: "3.0-public-endpoints-before-auth",
     deployedAt: "2026-03-10"
+  });
+});
+
+// NUEVO TEST ENDPOINT CON NOMBRE DIFERENTE - Sin caché
+app.get("/make-server-4909a0bc/health-check-v3", async (c) => {
+  return c.json({ 
+    success: true, 
+    status: "healthy",
+    message: "✅ Version 3.0 activa!",
+    timestamp: new Date().toISOString(),
+    version: "3.0",
+    endpoints: {
+      public: [
+        "/make-server-4909a0bc/test-public",
+        "/make-server-4909a0bc/health-check-v3",
+        "/make-server-4909a0bc/password-requests/create"
+      ]
+    }
   });
 });
 

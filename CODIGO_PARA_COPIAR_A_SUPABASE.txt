@@ -1,0 +1,76 @@
+==============================================================================
+INSTRUCCIONES PARA COPIAR ESTE CÓDIGO A SUPABASE
+==============================================================================
+
+IMPORTANTE: Este es el código CORRECTO del servidor. Debes copiarlo MANUALMENTE
+al Dashboard de Supabase porque el deploy automático no está funcionando.
+
+PASOS:
+
+1. Abre este archivo en Figma Make:
+   /supabase/functions/make-server-4909a0bc/index.tsx
+
+2. Selecciona TODO el contenido (Ctrl/Cmd + A)
+
+3. Copia (Ctrl/Cmd + C)
+
+4. Abre el Dashboard de Supabase:
+   https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/functions/make-server-4909a0bc/code
+
+5. Selecciona TODO el código que está ahí (Ctrl/Cmd + A)
+
+6. Pega el código nuevo (Ctrl/Cmd + V)
+
+7. Click en "Deploy" (botón verde arriba a la derecha)
+
+8. Espera 60 segundos
+
+9. Verifica que el código nuevo está activo abriendo esta URL:
+   https://vrclozhgaacehojbnpuo.supabase.co/functions/v1/make-server-4909a0bc/health-check-v3
+
+   ✅ SI VES ESTO, EL CÓDIGO NUEVO ESTÁ ACTIVO:
+   {
+     "success": true,
+     "status": "healthy",
+     "message": "✅ Version 3.0 activa!",
+     ...
+   }
+
+   ❌ SI VES ESTO, EL CÓDIGO VIEJO SIGUE ACTIVO:
+   {"code":401,"message":"Missing authorization header"}
+
+
+==============================================================================
+¿POR QUÉ ESTÁ PASANDO ESTO?
+==============================================================================
+
+El código que tienes en Figma Make es CORRECTO. Los endpoints públicos están
+ANTES del middleware de autenticación.
+
+El problema es que Supabase NO está ejecutando el código actualizado.
+
+Posibles causas:
+1. Hay DOS funciones (server y make-server-4909a0bc) y estás editando una
+   pero la app está llamando a la otra
+2. El deploy está fallando silenciosamente
+3. Hay un problema de caché en Supabase
+4. Las variables de entorno no están configuradas
+
+==============================================================================
+SOLUCIÓN ALTERNATIVA: VERIFICAR SI HAY DOS FUNCIONES
+==============================================================================
+
+1. Ve a: https://supabase.com/dashboard/project/vrclozhgaacehojbnpuo/functions
+
+2. ¿Cuántas funciones ves?
+   - Si ves UNA sola (make-server-4909a0bc): El problema es el deploy
+   - Si ves DOS (server Y make-server-4909a0bc): Necesitas actualizar AMBAS
+
+3. Si ves DOS funciones, copia el código a AMBAS y haz deploy de AMBAS
+
+4. Luego verifica cuál está activa probando estas URLs:
+
+   https://vrclozhgaacehojbnpuo.supabase.co/functions/v1/server/health-check-v3
+   https://vrclozhgaacehojbnpuo.supabase.co/functions/v1/make-server-4909a0bc/health-check-v3
+
+==============================================================================

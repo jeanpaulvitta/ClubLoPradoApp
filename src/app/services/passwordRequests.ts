@@ -18,15 +18,45 @@ export interface PasswordRequest {
 
 // ==================== HELPER: GET AUTH TOKEN ====================
 
+// Cache del token para evitar múltiples llamadas a getSession()
+let cachedToken: string | null = null;
+let tokenExpiry: number = 0;
+
 async function getAuthToken(): Promise<string> {
+  // Si tenemos un token cacheado y no ha expirado, usarlo
+  const now = Date.now();
+  if (cachedToken && tokenExpiry > now) {
+    console.log('🔑 Usando token cacheado');
+    return cachedToken;
+  }
+  
+  console.log('🔑 Obteniendo nuevo token de sesión...');
   const { supabase } = await import('./supabaseClient');
   const { data: sessionData, error } = await supabase.auth.getSession();
   
-  if (error || !sessionData.session) {
+  if (error) {
+    console.error('❌ Error obteniendo sesión:', error);
     throw new Error('No hay sesión activa. Por favor, inicia sesión.');
   }
   
-  return sessionData.session.access_token;
+  if (!sessionData.session) {
+    console.error('❌ No hay sesión activa');
+    throw new Error('No hay sesión activa. Por favor, inicia sesión.');
+  }
+  
+  // Cachear el token por 50 minutos (los tokens de Supabase duran 1 hora)
+  cachedToken = sessionData.session.access_token;
+  tokenExpiry = now + (50 * 60 * 1000);
+  
+  console.log('✅ Token obtenido y cacheado');
+  return cachedToken;
+}
+
+// Función para limpiar el caché cuando el usuario cierra sesión
+export function clearTokenCache() {
+  cachedToken = null;
+  tokenExpiry = 0;
+  console.log('🗑️ Token cache cleared');
 }
 
 // ==================== PASSWORD REQUESTS API ====================
@@ -36,24 +66,51 @@ async function getAuthToken(): Promise<string> {
  */
 export async function getPasswordRequests(): Promise<PasswordRequest[]> {
   try {
-    const token = await getAuthToken();
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📋 Obteniendo solicitudes de contraseña...');
     
-    const response = await fetch(`${API_URL}/password-requests`, {
+    const token = await getAuthToken();
+    console.log('✅ Token obtenido');
+    
+    const url = `${API_URL}/password-requests`;
+    console.log('🌐 URL:', url);
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
     
+    console.log('📡 Respuesta:', response.status, response.statusText);
+    
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Error al obtener solicitudes');
+      const errorText = await response.text();
+      console.error('❌ Respuesta de error (texto):', errorText);
+      
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { error: errorText };
+      }
+      
+      console.error('❌ Error del servidor:', errorData);
+      throw new Error(errorData.error || errorData.message || 'Error al obtener solicitudes');
     }
     
-    const { requests } = await response.json();
+    const data = await response.json();
+    console.log('✅ Datos recibidos:', data);
+    
+    const requests = data.requests || [];
+    console.log(`✅ ${requests.length} solicitudes obtenidas`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     return requests;
   } catch (error) {
-    console.error('Error en getPasswordRequests:', error);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('❌ Error en getPasswordRequests:', error);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     throw error;
   }
 }

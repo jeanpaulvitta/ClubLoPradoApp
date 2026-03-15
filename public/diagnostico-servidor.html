@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagnóstico del Servidor - Club Natación Lo Prado</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Monaco', 'Courier New', monospace;
+      background: #1a1a1a;
+      color: #00ff00;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      color: #00ff00;
+      margin-bottom: 20px;
+      text-align: center;
+      font-size: 24px;
+    }
+    
+    .test-section {
+      background: #2a2a2a;
+      border: 2px solid #00ff00;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .test-section h2 {
+      color: #ffff00;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    
+    .test-result {
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 12px;
+    }
+    
+    .success {
+      border-left: 4px solid #00ff00;
+      color: #00ff00;
+    }
+    
+    .error {
+      border-left: 4px solid #ff0000;
+      color: #ff6666;
+    }
+    
+    .warning {
+      border-left: 4px solid #ffff00;
+      color: #ffff00;
+    }
+    
+    .info {
+      border-left: 4px solid #00aaff;
+      color: #00aaff;
+    }
+    
+    button {
+      background: #00ff00;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    
+    button:hover {
+      background: #00dd00;
+    }
+    
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #00ff00;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 0.6s linear infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .status-ok { background: #00ff00; }
+    .status-error { background: #ff0000; }
+    .status-unknown { background: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 DIAGNÓSTICO DEL SERVIDOR</h1>
+    
+    <div class="test-section">
+      <h2>Estado del Sistema</h2>
+      <div style="margin-bottom: 15px;">
+        <div>
+          <span class="status-indicator" id="status-server"></span>
+          <strong>Servidor Principal:</strong> <span id="text-server">No verificado</span>
+        </div>
+        <div>
+          <span class="status-indicator" id="status-version"></span>
+          <strong>Versión del Código:</strong> <span id="text-version">No verificado</span>
+        </div>
+        <div>
+          <span class="status-indicator" id="status-public"></span>
+          <strong>Endpoints Públicos:</strong> <span id="text-public">No verificado</span>
+        </div>
+      </div>
+      <button onclick="runAllTests()">🚀 Ejecutar Todas las Pruebas</button>
+      <button onclick="clearResults()">🗑️ Limpiar Resultados</button>
+    </div>
+    
+    <div class="test-section">
+      <h2>Test 1: Health Check (Código Nuevo)</h2>
+      <button onclick="testHealthCheck()">▶️ Ejecutar Test</button>
+      <div id="result-health" class="test-result info" style="display:none;"></div>
+    </div>
+    
+    <div class="test-section">
+      <h2>Test 2: Test Public Endpoint</h2>
+      <button onclick="testPublicEndpoint()">▶️ Ejecutar Test</button>
+      <div id="result-public" class="test-result info" style="display:none;"></div>
+    </div>
+    
+    <div class="test-section">
+      <h2>Test 3: Create Password Request (Endpoint Público)</h2>
+      <button onclick="testCreateRequest()">▶️ Ejecutar Test</button>
+      <div id="result-create" class="test-result info" style="display:none;"></div>
+    </div>
+    
+    <div class="test-section">
+      <h2>Test 4: Verificar Función Alternativa (/server)</h2>
+      <button onclick="testAlternativeFunction()">▶️ Ejecutar Test</button>
+      <div id="result-alt" class="test-result info" style="display:none;"></div>
+    </div>
+    
+    <div class="test-section">
+      <h2>📋 Diagnóstico Final</h2>
+      <div id="diagnosis" class="test-result info" style="display:none;"></div>
+    </div>
+  </div>
+  
+  <script>
+    const PROJECT_ID = 'vrclozhgaacehojbnpuo';
+    const API_URL = `https://${PROJECT_ID}.supabase.co/functions/v1`;
+    
+    function clearResults() {
+      document.querySelectorAll('.test-result').forEach(el => {
+        el.style.display = 'none';
+        el.innerHTML = '';
+      });
+      document.getElementById('status-server').className = 'status-indicator status-unknown';
+      document.getElementById('status-version').className = 'status-indicator status-unknown';
+      document.getElementById('status-public').className = 'status-indicator status-unknown';
+      document.getElementById('text-server').textContent = 'No verificado';
+      document.getElementById('text-version').textContent = 'No verificado';
+      document.getElementById('text-public').textContent = 'No verificado';
+    }
+    
+    async function testHealthCheck() {
+      const resultDiv = document.getElementById('result-health');
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<span class="loading"></span>Probando health-check-v3...';
+      resultDiv.className = 'test-result info';
+      
+      try {
+        const response = await fetch(`${API_URL}/make-server-4909a0bc/health-check-v3`);
+        const data = await response.json();
+        
+        let result = `Status: ${response.status} ${response.statusText}\n\n`;
+        result += `Response:\n${JSON.stringify(data, null, 2)}`;
+        
+        if (response.ok && data.version === '3.0') {
+          resultDiv.className = 'test-result success';
+          result = '✅ CÓDIGO NUEVO ACTIVO!\n\n' + result;
+          document.getElementById('status-version').className = 'status-indicator status-ok';
+          document.getElementById('text-version').textContent = 'v3.0 (Actualizado)';
+        } else if (response.status === 401) {
+          resultDiv.className = 'test-result error';
+          result = '❌ CÓDIGO VIEJO ACTIVO - Error 401\n\n' + result;
+          document.getElementById('status-version').className = 'status-indicator status-error';
+          document.getElementById('text-version').textContent = 'Código viejo (Error 401)';
+        } else {
+          resultDiv.className = 'test-result warning';
+          result = '⚠️ Respuesta inesperada\n\n' + result;
+          document.getElementById('status-version').className = 'status-indicator status-error';
+          document.getElementById('text-version').textContent = 'Desconocida';
+        }
+        
+        resultDiv.innerHTML = result;
+      } catch (error) {
+        resultDiv.className = 'test-result error';
+        resultDiv.innerHTML = `❌ ERROR DE RED:\n\n${error.message}\n\nEl servidor no responde o hay un problema de CORS.`;
+        document.getElementById('status-server').className = 'status-indicator status-error';
+        document.getElementById('text-server').textContent = 'No responde';
+      }
+    }
+    
+    async function testPublicEndpoint() {
+      const resultDiv = document.getElementById('result-public');
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<span class="loading"></span>Probando test-public...';
+      resultDiv.className = 'test-result info';
+      
+      try {
+        const response = await fetch(`${API_URL}/make-server-4909a0bc/test-public`);
+        const data = await response.json();
+        
+        let result = `Status: ${response.status} ${response.statusText}\n\n`;
+        result += `Response:\n${JSON.stringify(data, null, 2)}`;
+        
+        if (response.ok && data.success) {
+          resultDiv.className = 'test-result success';
+          result = '✅ ENDPOINT PÚBLICO FUNCIONA!\n\n' + result;
+          document.getElementById('status-public').className = 'status-indicator status-ok';
+          document.getElementById('text-public').textContent = 'Funcionando correctamente';
+        } else if (response.status === 401) {
+          resultDiv.className = 'test-result error';
+          result = '❌ ERROR 401 - Endpoint público bloqueado por auth middleware\n\n' + result;
+          document.getElementById('status-public').className = 'status-indicator status-error';
+          document.getElementById('text-public').textContent = 'Bloqueados (código viejo)';
+        } else {
+          resultDiv.className = 'test-result warning';
+          result = '⚠️ Respuesta inesperada\n\n' + result;
+        }
+        
+        resultDiv.innerHTML = result;
+      } catch (error) {
+        resultDiv.className = 'test-result error';
+        resultDiv.innerHTML = `❌ ERROR DE RED:\n\n${error.message}`;
+      }
+    }
+    
+    async function testCreateRequest() {
+      const resultDiv = document.getElementById('result-create');
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<span class="loading"></span>Probando crear solicitud...';
+      resultDiv.className = 'test-result info';
+      
+      try {
+        const testData = {
+          name: 'Test Diagnóstico',
+          email: `test-${Date.now()}@example.com`,
+          role: 'swimmer'
+        };
+        
+        const response = await fetch(`${API_URL}/make-server-4909a0bc/password-requests/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(testData)
+        });
+        
+        const data = await response.json();
+        
+        let result = `Status: ${response.status} ${response.statusText}\n\n`;
+        result += `Request:\n${JSON.stringify(testData, null, 2)}\n\n`;
+        result += `Response:\n${JSON.stringify(data, null, 2)}`;
+        
+        if (response.ok && data.success) {
+          resultDiv.className = 'test-result success';
+          result = '✅ SOLICITUD CREADA EXITOSAMENTE!\n\n' + result;
+          document.getElementById('status-public').className = 'status-indicator status-ok';
+          document.getElementById('text-public').textContent = 'Funcionando correctamente';
+        } else if (response.status === 401) {
+          resultDiv.className = 'test-result error';
+          result = '❌ ERROR 401 - Endpoint público bloqueado\n\nEsto confirma que el CÓDIGO VIEJO sigue activo en Supabase.\n\n' + result;
+          document.getElementById('status-public').className = 'status-indicator status-error';
+          document.getElementById('text-public').textContent = 'Bloqueados (código viejo)';
+        } else {
+          resultDiv.className = 'test-result warning';
+          result = '⚠️ Error al crear solicitud\n\n' + result;
+        }
+        
+        resultDiv.innerHTML = result;
+      } catch (error) {
+        resultDiv.className = 'test-result error';
+        resultDiv.innerHTML = `❌ ERROR DE RED:\n\n${error.message}`;
+      }
+    }
+    
+    async function testAlternativeFunction() {
+      const resultDiv = document.getElementById('result-alt');
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<span class="loading"></span>Probando función /server...';
+      resultDiv.className = 'test-result info';
+      
+      try {
+        const response = await fetch(`${API_URL}/server/health-check-v3`);
+        const data = await response.json();
+        
+        let result = `Status: ${response.status} ${response.statusText}\n\n`;
+        result += `Response:\n${JSON.stringify(data, null, 2)}`;
+        
+        if (response.ok && data.version === '3.0') {
+          resultDiv.className = 'test-result success';
+          result = '✅ FUNCIÓN /server EXISTE Y TIENE CÓDIGO NUEVO!\n\n⚠️ IMPORTANTE: Tu app está llamando a /make-server-4909a0bc pero /server también existe.\n\n' + result;
+        } else if (response.status === 404) {
+          resultDiv.className = 'test-result info';
+          result = 'ℹ️ Función /server no existe (esto es normal)\n\n' + result;
+        } else if (response.status === 401) {
+          resultDiv.className = 'test-result warning';
+          result = '⚠️ Función /server existe pero tiene código viejo\n\n' + result;
+        } else {
+          resultDiv.className = 'test-result warning';
+          result = '⚠️ Función /server existe pero respuesta inesperada\n\n' + result;
+        }
+        
+        resultDiv.innerHTML = result;
+      } catch (error) {
+        resultDiv.className = 'test-result info';
+        resultDiv.innerHTML = `ℹ️ Función /server no existe o no responde:\n\n${error.message}\n\n(Esto es normal si solo tienes make-server-4909a0bc)`;
+      }
+    }
+    
+    async function runAllTests() {
+      clearResults();
+      document.getElementById('text-server').textContent = 'Verificando...';
+      document.getElementById('text-version').textContent = 'Verificando...';
+      document.getElementById('text-public').textContent = 'Verificando...';
+      
+      await testHealthCheck();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await testPublicEndpoint();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await testCreateRequest();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await testAlternativeFunction();
+      
+      showDiagnosis();
+    }
+    
+    function showDiagnosis() {
+      const diagnosisDiv = document.getElementById('diagnosis');
+      diagnosisDiv.style.display = 'block';
+      
+      const serverStatus = document.getElementById('text-server').textContent;
+      const versionStatus = document.getElementById('text-version').textContent;
+      const publicStatus = document.getElementById('text-public').textContent;
+      
+      let diagnosis = '═══════════════════════════════════════════════════\n';
+      diagnosis += '               DIAGNÓSTICO FINAL\n';
+      diagnosis += '═══════════════════════════════════════════════════\n\n';
+      
+      if (versionStatus === 'v3.0 (Actualizado)' && publicStatus === 'Funcionando correctamente') {
+        diagnosis += '✅ TODO FUNCIONA CORRECTAMENTE\n\n';
+        diagnosis += 'El código nuevo está activo y los endpoints públicos funcionan.\n';
+        diagnosis += 'La aplicación debería funcionar sin problemas.\n\n';
+        diagnosis += 'SIGUIENTE PASO:\n';
+        diagnosis += '- Recarga la aplicación (Ctrl/Cmd + Shift + R)\n';
+        diagnosis += '- Prueba crear una solicitud de contraseña\n';
+        diagnosisDiv.className = 'test-result success';
+      } else if (publicStatus.includes('código viejo')) {
+        diagnosis += '❌ CÓDIGO VIEJO SIGUE ACTIVO EN SUPABASE\n\n';
+        diagnosis += 'PROBLEMA:\n';
+        diagnosis += 'El código que tienes en Figma Make es correcto, pero Supabase\n';
+        diagnosis += 'está ejecutando código viejo donde el middleware de autenticación\n';
+        diagnosis += 'se ejecuta ANTES de los endpoints públicos.\n\n';
+        diagnosis += 'SOLUCIÓN:\n';
+        diagnosis += '1. Abre /CODIGO_PARA_COPIAR_A_SUPABASE.txt\n';
+        diagnosis += '2. Sigue las instrucciones para copiar el código manualmente\n';
+        diagnosis += '3. Vuelve a ejecutar este diagnóstico para verificar\n\n';
+        diagnosis += 'ALTERNATIVA:\n';
+        diagnosis += 'Si tienes acceso a CLI de Supabase:\n';
+        diagnosis += '  cd tu-proyecto\n';
+        diagnosis += '  supabase functions deploy make-server-4909a0bc\n';
+        diagnosisDiv.className = 'test-result error';
+      } else {
+        diagnosis += '⚠️ ESTADO DESCONOCIDO\n\n';
+        diagnosis += 'No se pudo determinar el estado del servidor.\n';
+        diagnosis += 'Revisa los resultados de cada test arriba.\n';
+        diagnosisDiv.className = 'test-result warning';
+      }
+      
+      diagnosis += '\n═══════════════════════════════════════════════════\n';
+      
+      diagnosisDiv.innerHTML = diagnosis;
+    }
+    
+    // Auto-ejecutar al cargar
+    window.addEventListener('load', () => {
+      console.log('🔍 Página de diagnóstico cargada');
+      console.log('Click en "Ejecutar Todas las Pruebas" para comenzar');
+    });
+  </script>
+</body>
+</html>

@@ -218,6 +218,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
+      // Limpiar caché de tokens de passwordRequests
+      const { clearTokenCache } = await import('../services/passwordRequests');
+      clearTokenCache();
+      
       await authApi.logout();
       setUser(null);
     } catch (error) {
