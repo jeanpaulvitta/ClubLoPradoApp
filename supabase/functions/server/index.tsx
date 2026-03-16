@@ -1,7 +1,7 @@
-// ==================== VERSION 3.1 - DEPLOYED 2026-03-15 ====================
+// ==================== VERSION 3.4 - DEPLOYED 2026-03-15 ====================
 // PUBLIC ENDPOINTS MOVED BEFORE AUTH MIDDLEWARE
-// FIXED: Removed updated_at field from kv_store.tsx
-// Last deploy: 2026-03-15 - FORCE CACHE CLEAR
+// WORKAROUND: Delete+Insert to bypass updated_at trigger
+// Last deploy: 2026-03-15 14:30 - TRIGGER BYPASS
 
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";

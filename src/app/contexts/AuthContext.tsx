@@ -136,8 +136,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         
         setUser(userData);
-      } else if (event === 'SIGNED_OUT') {
-        // Usuario cerró sesión
+      } else if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
+        // Usuario cerró sesión o token expiró sin poder refrescar
+        console.log('🚪 Sesión cerrada o expirada');
         authApi.clearSession();
         setUser(null);
       } else if (event === 'TOKEN_REFRESHED' && session) {

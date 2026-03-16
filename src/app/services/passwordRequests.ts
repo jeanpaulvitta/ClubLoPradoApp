@@ -35,13 +35,29 @@ async function getAuthToken(): Promise<string> {
   const { data: sessionData, error } = await supabase.auth.getSession();
   
   if (error) {
-    console.error('❌ Error obteniendo sesión:', error);
+    console.log('ℹ️ Error obteniendo sesión:', error.message);
+    // Limpiar caché de token
+    cachedToken = null;
+    tokenExpiry = 0;
     throw new Error('No hay sesión activa. Por favor, inicia sesión.');
   }
   
   if (!sessionData.session) {
-    console.error('❌ No hay sesión activa');
+    console.log('ℹ️ No hay sesión activa');
+    // Limpiar caché de token
+    cachedToken = null;
+    tokenExpiry = 0;
     throw new Error('No hay sesión activa. Por favor, inicia sesión.');
+  }
+  
+  // Verificar que el token sea válido (no esté expirado)
+  const expiresAt = sessionData.session.expires_at;
+  if (expiresAt && expiresAt * 1000 < now) {
+    console.log('ℹ️ Token expirado');
+    // Limpiar caché de token
+    cachedToken = null;
+    tokenExpiry = 0;
+    throw new Error('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
   }
   
   // Cachear el token por 50 minutos (los tokens de Supabase duran 1 hora)
@@ -66,14 +82,12 @@ export function clearTokenCache() {
  */
 export async function getPasswordRequests(): Promise<PasswordRequest[]> {
   try {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📋 Obteniendo solicitudes de contraseña...');
     
     const token = await getAuthToken();
     console.log('✅ Token obtenido');
     
     const url = `${API_URL}/password-requests`;
-    console.log('🌐 URL:', url);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -86,7 +100,6 @@ export async function getPasswordRequests(): Promise<PasswordRequest[]> {
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Respuesta de error (texto):', errorText);
       
       let errorData;
       try {
@@ -95,22 +108,40 @@ export async function getPasswordRequests(): Promise<PasswordRequest[]> {
         errorData = { error: errorText };
       }
       
-      console.error('❌ Error del servidor:', errorData);
+      // Detectar si es un error de sesión/autenticación
+      const isAuthError = errorData.message?.includes('JWT') || 
+                          errorData.error?.includes('JWT') ||
+                          errorData.code === 401;
+      
+      if (isAuthError) {
+        // Error de sesión - log silencioso
+        console.log('ℹ️ Sin sesión activa para cargar solicitudes');
+        throw new Error('No hay sesión activa. Por favor, inicia sesión.');
+      }
+      
+      // Error real - loguear detalles
+      console.error('❌ Respuesta de error:', errorData);
       throw new Error(errorData.error || errorData.message || 'Error al obtener solicitudes');
     }
     
     const data = await response.json();
-    console.log('✅ Datos recibidos:', data);
-    
     const requests = data.requests || [];
     console.log(`✅ ${requests.length} solicitudes obtenidas`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     return requests;
   } catch (error) {
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('❌ Error en getPasswordRequests:', error);
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    const errorMessage = error instanceof Error ? error.message : '';
+    
+    // Detectar si es un error de sesión
+    const isSessionError = errorMessage.includes('No hay sesión') || 
+                           errorMessage.includes('sesión ha expirado') ||
+                           errorMessage.includes('inicia sesión');
+    
+    if (!isSessionError) {
+      // Solo loguear errores reales, no de sesión
+      console.error('❌ Error en getPasswordRequests:', error);
+    }
+    
     throw error;
   }
 }

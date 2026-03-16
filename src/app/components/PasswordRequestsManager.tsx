@@ -84,10 +84,17 @@ export function PasswordRequestsManager() {
   const { user, createUserAccount } = auth;
 
   useEffect(() => {
-    loadRequests();
+    // Solo cargar solicitudes si el usuario está autenticado
+    if (user) {
+      loadRequests();
+    } else {
+      console.log('⏸️ Usuario no autenticado, no se cargan solicitudes');
+      setRequests([]);
+    }
+    
     checkServerConfig();
     loadProjectId();
-  }, []);
+  }, [user]); // Dependencia: volver a ejecutar cuando cambie el usuario
 
   const loadProjectId = async () => {
     try {
@@ -282,6 +289,14 @@ export function PasswordRequestsManager() {
   };
 
   const loadRequests = async () => {
+    // Verificar si hay usuario autenticado antes de intentar cargar
+    if (!user) {
+      console.log('⏸️ No hay usuario autenticado, saltando carga de solicitudes');
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       console.log('📋 Cargando solicitudes de contraseña desde Supabase...');
@@ -291,13 +306,19 @@ export function PasswordRequestsManager() {
       console.log(`✅ ${allRequests.length} solicitudes cargadas`);
       setRequests(allRequests);
     } catch (error) {
-      console.error('Error cargando solicitudes:', error);
-      
       const errorMessage = error instanceof Error ? error.message : 'Error al cargar solicitudes';
       
-      // Solo mostrar toast si es un error real, no si es "no hay sesión"
-      if (!errorMessage.includes('No hay sesión')) {
+      // Solo loguear y mostrar toast si es un error real, no si es "no hay sesión"
+      const isSessionError = errorMessage.includes('No hay sesión') || 
+                             errorMessage.includes('sesión ha expirado') ||
+                             errorMessage.includes('inicia sesión');
+      
+      if (!isSessionError) {
+        console.error('Error cargando solicitudes:', error);
         toast.error(errorMessage);
+      } else {
+        // Es un error de sesión, solo log silencioso
+        console.log('ℹ️ No se pudieron cargar solicitudes (sesión no activa)');
       }
       
       // Mostrar array vacío si hay error

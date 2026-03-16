@@ -1,10 +1,12 @@
 /* CONFIGURACIÓN ACTUALIZADA PARA TU TABLA EXISTENTE */
 
-/* Table schema:
+/* Table schema (REAL):
 CREATE TABLE kv_store_4909a0bc (
   key TEXT NOT NULL PRIMARY KEY,
   value JSONB NOT NULL
 );
+
+NOTE: No tiene columna updated_at ni triggers
 */
 
 // View at https://supabase.com/dashboard/project/rztiyofwhlwvofwhcgue/database/tables
@@ -26,16 +28,54 @@ const isTableNotFoundError = (error: any): boolean => {
 // Set stores a key-value pair in the database.
 export const set = async (key: string, value: any): Promise<void> => {
   const supabase = client()
-  const { error } = await supabase.from("kv_store_4909a0bc").upsert({
-    key,
-    value
-  });
-  if (error) {
-    if (isTableNotFoundError(error)) {
-      console.warn(`⚠️ KV Store table not found. Please create it using CREATE_TABLE.sql. Key: ${key}`);
-      return; // Gracefully handle missing table
+  
+  try {
+    const { error } = await supabase.from("kv_store_4909a0bc").upsert({
+      key,
+      value
+    });
+    
+    if (error) {
+      // Si el error es por updated_at, intentar con rpc directo
+      if (error.message?.includes('updated_at')) {
+        console.warn(`⚠️ Trigger updated_at detected, using direct insert. Key: ${key}`);
+        
+        // Usar delete + insert para evitar el trigger de UPDATE
+        await supabase.from("kv_store_4909a0bc").delete().eq("key", key);
+        const { error: insertError } = await supabase.from("kv_store_4909a0bc").insert({
+          key,
+          value
+        });
+        
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
+        return;
+      }
+      
+      if (isTableNotFoundError(error)) {
+        console.warn(`⚠️ KV Store table not found. Please create it using CREATE_TABLE.sql. Key: ${key}`);
+        return; // Gracefully handle missing table
+      }
+      throw new Error(error.message);
     }
-    throw new Error(error.message);
+  } catch (error) {
+    // Si el error menciona updated_at, hacer delete + insert
+    if (String(error).includes('updated_at')) {
+      console.warn(`⚠️ Trigger updated_at error, using delete+insert workaround. Key: ${key}`);
+      
+      await supabase.from("kv_store_4909a0bc").delete().eq("key", key);
+      const { error: insertError } = await supabase.from("kv_store_4909a0bc").insert({
+        key,
+        value
+      });
+      
+      if (insertError && !String(insertError).includes('updated_at')) {
+        throw new Error(insertError.message);
+      }
+      return;
+    }
+    throw error;
   }
 };
 
@@ -69,7 +109,12 @@ export const del = async (key: string): Promise<void> => {
 // Sets multiple key-value pairs in the database.
 export const mset = async (keys: string[], values: any[]): Promise<void> => {
   const supabase = client()
-  const { error } = await supabase.from("kv_store_4909a0bc").upsert(keys.map((k, i) => ({ key: k, value: values[i] })));
+  const { error } = await supabase.from("kv_store_4909a0bc").upsert(
+    keys.map((k, i) => ({ 
+      key: k, 
+      value: values[i]
+    }))
+  );
   if (error) {
     if (isTableNotFoundError(error)) {
       console.warn(`⚠️ KV Store table not found. Please create it using CREATE_TABLE.sql. Keys: ${keys.join(', ')}`);

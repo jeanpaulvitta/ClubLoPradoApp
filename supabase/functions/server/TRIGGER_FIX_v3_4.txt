@@ -1,0 +1,39 @@
+VERSIÓN 3.4 - TRIGGER BYPASS WORKAROUND
+DEPLOYED: 2026-03-15 14:30
+
+PROBLEMA DETECTADO:
+- La tabla kv_store_4909a0bc tiene un TRIGGER de PostgreSQL
+- El trigger intenta actualizar un campo "updated_at" que NO existe
+- Error: "record 'new' has no field 'updated_at'"
+
+SOLUCIÓN IMPLEMENTADA:
+- Cuando se detecta error de updated_at en kv.set()
+- Se hace DELETE del key existente
+- Luego INSERT del nuevo valor
+- Esto evita el trigger de UPDATE que causa el error
+
+ARCHIVOS MODIFICADOS:
+- /supabase/functions/server/kv_store.tsx
+- /supabase/functions/make-server-4909a0bc/kv_store.tsx
+
+CÓDIGO:
+```typescript
+try {
+  // Intentar upsert normal
+  const { error } = await supabase.from("kv_store_4909a0bc").upsert({ key, value });
+  
+  if (error?.message?.includes('updated_at')) {
+    // WORKAROUND: Delete + Insert para evitar trigger de UPDATE
+    await supabase.from("kv_store_4909a0bc").delete().eq("key", key);
+    await supabase.from("kv_store_4909a0bc").insert({ key, value });
+  }
+} catch (error) {
+  if (String(error).includes('updated_at')) {
+    // Mismo workaround en catch
+  }
+}
+```
+
+RESULTADO ESPERADO:
+- Las solicitudes de contraseña ahora deberían guardarse correctamente
+- El trigger de UPDATE se evita usando DELETE + INSERT
