@@ -23,11 +23,13 @@ import {
   Users,
   Activity,
   Target,
+  Download,
 } from "lucide-react";
 import type { Swimmer, Competition, SwimmerCompetition } from "../data/swimmers";
 import type { AttendanceRecord } from "./AttendanceManager";
 import type { Holiday } from "../data/holidays";
 import { getTrainingGroupFromBirthDate } from "../utils/swimmerUtils";
+import { generateCalendarPDF } from "../utils/calendarPdfGenerator";
 
 interface Session {
   id: string;
@@ -99,6 +101,12 @@ export function IntegratedCalendar({
     if (!currentUser?.dateOfBirth) return null;
     return getTrainingGroupFromBirthDate(currentUser.dateOfBirth);
   }, [currentUser]);
+
+  // Función para descargar el calendario en PDF
+  const handleDownloadPDF = () => {
+    const group = currentUserGroup === 1 ? "group1" : "group2";
+    generateCalendarPDF(competitions, group);
+  };
 
   // Generar días del calendario
   const calendarDays = useMemo(() => {
@@ -242,33 +250,46 @@ export function IntegratedCalendar({
           </p>
         </div>
 
-        {/* Filtros de vista */}
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {/* Botón de descarga PDF */}
           <Button
-            variant={viewMode === "all" ? "default" : "outline"}
+            variant="outline"
             size="sm"
-            onClick={() => setViewMode("all")}
+            onClick={handleDownloadPDF}
+            className="gap-2"
           >
-            Todo
+            <Download className="w-4 h-4" />
+            Descargar PDF
           </Button>
-          <Button
-            variant={viewMode === "workouts" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("workouts")}
-            className="gap-1"
-          >
-            <Waves className="w-4 h-4" />
-            Entrenamientos
-          </Button>
-          <Button
-            variant={viewMode === "competitions" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("competitions")}
-            className="gap-1"
-          >
-            <Trophy className="w-4 h-4" />
-            Competencias
-          </Button>
+
+          {/* Filtros de vista */}
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("all")}
+            >
+              Todo
+            </Button>
+            <Button
+              variant={viewMode === "workouts" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("workouts")}
+              className="gap-1"
+            >
+              <Waves className="w-4 h-4" />
+              Entrenamientos
+            </Button>
+            <Button
+              variant={viewMode === "competitions" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("competitions")}
+              className="gap-1"
+            >
+              <Trophy className="w-4 h-4" />
+              Competencias
+            </Button>
+          </div>
         </div>
       </div>
 

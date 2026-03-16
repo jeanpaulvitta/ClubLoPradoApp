@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Users, Calendar, Target, Trophy, Info } from "lucide-react";
+import { Button } from "./ui/button";
+import { Users, Calendar, Target, Trophy, Info, Download } from "lucide-react";
+import { generateBloquesOnlyPDF } from "../utils/calendarPdfGenerator";
 
 interface SeasonStructureInfoProps {
   selectedGroup: "group1" | "group2";
@@ -66,13 +68,28 @@ export function SeasonStructureInfo({ selectedGroup }: SeasonStructureInfoProps)
     { num: 10, weeks: 4, name: "Pico Competitivo", competition: "Nacionales Verano 2027", date: "9 Ene - 7 Feb" }
   ];
 
+  const handleDownloadBloquesPDF = () => {
+    generateBloquesOnlyPDF(selectedGroup);
+  };
+
   return (
     <Card className="bg-gradient-to-br from-gray-50 to-white border-2 border-red-200">
       <CardHeader className="pb-4">
-        <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-base sm:text-lg">
-          <Info className="w-5 h-5 text-red-600 flex-shrink-0" />
-          <span className="break-words">Información del {currentInfo.name}</span>
-        </CardTitle>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-base sm:text-lg">
+            <Info className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="break-words">Información del {currentInfo.name}</span>
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadBloquesPDF}
+            className="gap-2 flex-shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            Descargar Bloques PDF
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4 sm:space-y-6">
         {/* Descripción */}
