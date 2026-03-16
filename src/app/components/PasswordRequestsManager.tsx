@@ -149,8 +149,6 @@ export function PasswordRequestsManager() {
           console.error('⚠️ ERROR 401: PROBLEMA DE AUTENTICACIÓN');
           console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           console.error('');
-          console.error('🔍 DIAGNÓSTICO:');
-          console.error('');
           
           // Analizar el mensaje de error específico
           if (errorDetails.includes('Missing authorization header')) {
@@ -220,7 +218,6 @@ export function PasswordRequestsManager() {
           console.error('');
           console.error('⚠️ Las variables están SET pero con valores INCORRECTOS');
           console.error('');
-          console.error('📊 Diagnóstico:');
           if (data.validationErrors) {
             data.validationErrors.forEach((err: string) => console.error('  ' + err));
           }
@@ -832,7 +829,7 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
                   </p>
                   
                   <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3 my-3">
-                    <p className="font-bold text-yellow-900 mb-2">🔍 Diagnóstico del Servidor:</p>
+                    <p className="font-bold text-yellow-900 mb-2">Estado del Servidor:</p>
                     <div className="space-y-1 text-sm font-mono bg-white p-2 rounded border border-yellow-200">
                       <div className="flex justify-between">
                         <span>SUPABASE_URL:</span>
@@ -1095,7 +1092,7 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-blue-900">
-                  {serverConfigured === true ? '✅ Servidor Configurado' : '🧪 Prueba de Diagnóstico'}
+                  {serverConfigured === true ? '✅ Servidor Configurado' : '⚙️ Verificación del Servidor'}
                 </p>
                 <p className="text-xs text-blue-700 mt-1">
                   {serverConfigured === true 

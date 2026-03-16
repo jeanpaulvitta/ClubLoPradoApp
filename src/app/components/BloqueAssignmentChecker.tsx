@@ -90,7 +90,7 @@ export function BloqueAssignmentChecker({ workouts, onAutoFix }: BloqueAssignmen
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Eye className="w-5 h-5" />
-            Diagnóstico de Asignación de Bloques
+            Verificación de Asignación de Bloques
           </DialogTitle>
           <DialogDescription>
             Verifica y corrige la asignación automática de bloques según las semanas de entrenamiento
