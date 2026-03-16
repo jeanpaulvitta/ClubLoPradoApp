@@ -1,0 +1,4 @@
+FORCE REBUILD VERSION 3.1
+DEPLOYED: 2026-03-15
+FIXED: Removed updated_at field completely
+Cache cleared

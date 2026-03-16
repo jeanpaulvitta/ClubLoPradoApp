@@ -123,14 +123,17 @@ export async function createPasswordRequest(
   email: string,
   role: 'swimmer' | 'coach'
 ): Promise<PasswordRequest> {
-  try {
     console.log('📝 Creando solicitud de acceso:', { name, email, role });
     
-    // Using explicit /create endpoint to avoid any routing conflicts with auth middleware
-    const response = await fetch(`${API_URL}/password-requests/create`, {
+    // Usar la ruta PUBLIC que está confirmada en el servidor
+    const publicAccessUrl = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc/password-requests/create`;
+    console.log('🌐 URL:', publicAccessUrl);
+    
+    const response = await fetch(publicAccessUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${publicAnonKey}`, // ✅ Incluir auth header
       },
       body: JSON.stringify({ name, email, role }),
     });
@@ -150,13 +153,6 @@ export async function createPasswordRequest(
     console.log('✅ Solicitud creada exitosamente:', request.id);
     
     return request;
-  } catch (error) {
-    console.error('❌ Error en createPasswordRequest:', error);
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error('Error desconocido al crear solicitud');
-  }
 }
 
 /**

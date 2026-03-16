@@ -3,6 +3,7 @@ import { createPasswordRequest } from '../services/passwordRequests';
 import { toast } from 'sonner';
 import { ServerConfigGuide } from './ServerConfigGuide';
 import { SystemDiagnostics } from './SystemDiagnostics';
+import { DiagnosticTool } from './DiagnosticTool';
 import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
 import { Button } from './ui/button';
@@ -23,6 +24,7 @@ export function LoginPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showServerGuide, setShowServerGuide] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showDiagnosticTool, setShowDiagnosticTool] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -286,14 +288,24 @@ export function LoginPage() {
         <div className="text-center mt-8 text-gray-400 text-sm">
           <p>© 2026 Club Natación Lo Prado</p>
           <p className="mt-1 text-gray-500">Haz que todo sea posible</p>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-4 text-gray-400 hover:text-gray-200"
-            onClick={() => setShowDiagnostics(!showDiagnostics)}
-          >
-            {showDiagnostics ? '✕ Cerrar' : '🔧'} Diagnóstico del Sistema
-          </Button>
+          <div className="flex justify-center gap-3 mt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-400 hover:text-gray-200"
+              onClick={() => setShowDiagnostics(!showDiagnostics)}
+            >
+              {showDiagnostics ? '✕ Cerrar' : '🔧'} Diagnóstico
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-yellow-400 hover:text-yellow-200 font-semibold"
+              onClick={() => setShowDiagnosticTool(!showDiagnosticTool)}
+            >
+              {showDiagnosticTool ? '✕ Cerrar' : '🔍'} Test Avanzado
+            </Button>
+          </div>
         </div>
 
         {/* Server Configuration Guide (solo si hay errores de backend) */}
@@ -308,6 +320,11 @@ export function LoginPage() {
           <div className="mt-8">
             <SystemDiagnostics />
           </div>
+        )}
+
+        {/* Diagnostic Tool (MODAL) */}
+        {showDiagnosticTool && (
+          <DiagnosticTool onClose={() => setShowDiagnosticTool(false)} />
         )}
       </div>
     </div>

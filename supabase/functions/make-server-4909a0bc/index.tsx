@@ -1,6 +1,7 @@
-// ==================== VERSION 3.0 - DEPLOYED 2026-03-10 ====================
-// PUBLIC ENDPOINTS MOVED BEFORE AUTH MIDDLEWARE
-// Last deploy: 2026-03-10 - FORCE REDEPLOY VERSION
+// ==================== VERSION 3.1 - DEPLOYED 2026-03-15 ====================
+// PUBLIC ENDPOINTS MOVED BEFORE AUTH MIDDLEWARE  
+// FIXED: Removed updated_at field from kv_store.tsx
+// Last deploy: 2026-03-15 - FORCE CACHE CLEAR
 
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
@@ -263,6 +264,92 @@ app.get("/make-server-4909a0bc/health-check-v3", async (c) => {
   });
 });
 
+// ==================== WORKAROUND: RUTAS SIN PREFIJO PARA EVITAR CACHÉ ====================
+// Estas rutas NO tienen el prefijo /make-server-4909a0bc/ para evitar el caché de Supabase
+
+// Health check sin prefijo
+app.get("/health-v4", async (c) => {
+  return c.json({ 
+    success: true, 
+    status: "healthy",
+    message: "✅ Version 4.0 - Cache Bypass!",
+    timestamp: new Date().toISOString(),
+    version: "4.0-no-prefix"
+  });
+});
+
+// Create password request sin prefijo - ENDPOINT PÚBLICO
+app.post("/request-access", async (c) => {
+  try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📝 POST /request-access - PUBLIC ENDPOINT (NO PREFIX)');
+    
+    const body = await c.req.json();
+    const { name, email, role } = body;
+    
+    console.log(`📥 Request body:`, { name, email, role });
+    
+    if (!name || !email || !role) {
+      console.error('❌ Missing required fields');
+      return c.json({ 
+        code: 400,
+        error: 'Faltan campos requeridos',
+        required: ['name', 'email', 'role']
+      }, 400);
+    }
+    
+    if (!['swimmer', 'coach'].includes(role)) {
+      console.error('❌ Invalid role:', role);
+      return c.json({ 
+        code: 400,
+        error: 'Rol inválido. Debe ser "swimmer" o "coach"'
+      }, 400);
+    }
+    
+    // Generate unique ID
+    const id = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`🆔 Generated ID: ${id}`);
+    
+    const now = new Date().toISOString();
+    
+    // Create password request object
+    const passwordRequest = {
+      id,
+      name,
+      email,
+      role,
+      status: 'pending',
+      createdAt: now
+    };
+    
+    console.log(`💾 Saving password request:`, passwordRequest);
+    
+    // Get existing requests
+    const existingRequests = await kv.get('password-requests:list') || [];
+    console.log(`📊 Existing requests count: ${existingRequests.length}`);
+    
+    // Add new request
+    const updatedRequests = [...existingRequests, passwordRequest];
+    
+    // Save to KV store
+    await kv.set('password-requests:list', updatedRequests);
+    console.log(`✅ Password request saved successfully`);
+    
+    return c.json({ 
+      success: true,
+      request: passwordRequest,
+      message: 'Solicitud creada exitosamente'
+    });
+  } catch (error) {
+    console.error('❌ Error creating password request:', error);
+    return c.json({ 
+      code: 500,
+      error: 'Error al crear solicitud',
+      details: String(error)
+    }, 500);
+  }
+});
+
 // Create a new password request - PUBLIC ENDPOINT (NO AUTH)
 app.post("/make-server-4909a0bc/password-requests/create", async (c) => {
   try {
@@ -295,6 +382,8 @@ app.post("/make-server-4909a0bc/password-requests/create", async (c) => {
     const id = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     console.log(`🆔 Generated ID: ${id}`);
     
+    const now = new Date().toISOString();
+    
     // Create password request object
     const passwordRequest = {
       id,
@@ -302,7 +391,7 @@ app.post("/make-server-4909a0bc/password-requests/create", async (c) => {
       email,
       role,
       status: 'pending',
-      createdAt: new Date().toISOString()
+      createdAt: now
     };
     
     console.log(`💾 Saving password request:`, passwordRequest);
