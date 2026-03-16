@@ -69,11 +69,18 @@ export function EditCompetitionDialog({
   // Cargar datos de la competencia cuando cambia
   useEffect(() => {
     if (competition) {
+      // Extraer solo la parte de fecha (YYYY-MM-DD) si viene con hora
+      const extractDate = (dateString: string) => {
+        if (!dateString) return "";
+        // Si la fecha incluye "T" (ISO format), extraer solo YYYY-MM-DD
+        return dateString.split("T")[0];
+      };
+
       setFormData({
         name: competition.name,
         week: competition.week,
-        startDate: competition.startDate,
-        endDate: competition.endDate || "",
+        startDate: extractDate(competition.startDate),
+        endDate: extractDate(competition.endDate || ""),
         schedule: competition.schedule || "",
         cost: competition.cost || "",
         location: competition.location,
@@ -94,7 +101,16 @@ export function EditCompetitionDialog({
       return;
     }
 
-    onEditCompetition(competition.id, formData);
+    // Normalizar fechas para evitar problemas de zona horaria
+    // Agregar "T12:00:00" para que se interprete como mediodía y no medianoche UTC
+    const normalizedStartDate = formData.startDate ? `${formData.startDate}T12:00:00` : "";
+    const normalizedEndDate = formData.endDate ? `${formData.endDate}T12:00:00` : "";
+
+    onEditCompetition(competition.id, {
+      ...formData,
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
+    });
     onOpenChange(false);
   };
 

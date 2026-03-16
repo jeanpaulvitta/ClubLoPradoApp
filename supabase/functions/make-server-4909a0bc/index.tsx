@@ -1494,20 +1494,35 @@ app.get("/make-server-4909a0bc/swimmers", async (c) => {
 // Add a new swimmer
 app.post("/make-server-4909a0bc/swimmers", async (c) => {
   try {
+    console.log("📥 Received request to add swimmer");
     const newSwimmer = await c.req.json();
+    console.log("📦 Swimmer data received:", JSON.stringify(newSwimmer, null, 2));
+    
     const swimmers = await kv.get("swimmers:list") || [];
+    console.log(`📊 Current swimmers count: ${swimmers.length}`);
     
     // Generate unique ID
     const id = `s${Date.now()}`;
-    const swimmerWithId = { ...newSwimmer, id };
+    const swimmerWithId = { 
+      ...newSwimmer, 
+      id,
+      personalBests: newSwimmer.personalBests || [],
+      personalBestsHistory: newSwimmer.personalBestsHistory || [],
+      goals: newSwimmer.goals || []
+    };
+    
+    console.log("✅ Swimmer with ID:", id);
     
     // Add to list
     const updatedSwimmers = [...swimmers, swimmerWithId];
     await kv.set("swimmers:list", updatedSwimmers);
     
+    console.log("💾 Swimmer saved successfully");
+    
     return c.json({ swimmer: swimmerWithId }, 201);
   } catch (error) {
-    console.error("Error adding swimmer:", error);
+    console.error("❌ Error adding swimmer:", error);
+    console.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack trace");
     return c.json({ error: "Failed to add swimmer", details: String(error) }, 500);
   }
 });

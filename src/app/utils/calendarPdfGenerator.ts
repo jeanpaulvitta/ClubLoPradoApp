@@ -102,8 +102,8 @@ export function generateCalendarPDF(
     margin: { left: 20, right: 20 },
   });
 
-  // @ts-ignore - autoTable añade finalY al doc
-  yPosition = doc.lastAutoTable.finalY + 15;
+  // @ts-ignore
+  yPosition = doc.lastAutoTable.finalY + 12;
 
   // Verificar si necesitamos una nueva página
   if (yPosition > pageHeight - 60) {
@@ -178,12 +178,12 @@ export function generateCalendarPDF(
         fillColor: [254, 252, 232], // Yellow-50
       },
       columnStyles: {
-        0: { cellWidth: 55, fontStyle: "bold" },
-        1: { cellWidth: 40, halign: "center" },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 20, halign: "center" },
-        4: { cellWidth: 25, halign: "center" },
-        5: { cellWidth: 'auto', halign: "center" },
+        0: { cellWidth: 48, fontStyle: "bold" },
+        1: { cellWidth: 35, halign: "center" },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 16, halign: "center" },
+        4: { cellWidth: 20, halign: "center" },
+        5: { cellWidth: 30, halign: "center" },
       },
       margin: { left: 20, right: 20 },
     });
@@ -337,7 +337,7 @@ export function generateBloquesOnlyPDF(selectedGroup: "group1" | "group2" = "gro
       3: { cellWidth: 40, halign: "center" },
       4: { cellWidth: 'auto' },
     },
-    margin: { left: 15, right: 15 },
+    margin: { left: 20, right: 20 },
   });
 
   // Footer

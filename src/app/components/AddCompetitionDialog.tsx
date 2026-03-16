@@ -74,8 +74,15 @@ export function AddCompetitionDialog({
       return;
     }
 
+    // Normalizar fechas para evitar problemas de zona horaria
+    // Agregar "T12:00:00" para que se interprete como mediodía y no medianoche UTC
+    const normalizedStartDate = formData.startDate ? `${formData.startDate}T12:00:00` : "";
+    const normalizedEndDate = formData.endDate ? `${formData.endDate}T12:00:00` : "";
+
     onAddCompetition({
       ...formData,
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
       week: weekNumber,
     });
 

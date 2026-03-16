@@ -194,14 +194,28 @@ export async function fetchSwimmers(): Promise<Swimmer[]> {
 
 export async function addSwimmer(swimmer: Omit<Swimmer, 'id'>): Promise<Swimmer> {
   try {
+    console.log('🔄 Attempting to add swimmer:', swimmer);
     const response = await fetch(`${API_BASE_URL}/swimmers`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey en lugar de token de usuario
       body: JSON.stringify(swimmer),
     });
+    
+    console.log('📡 Response status:', response.status, response.statusText);
+    
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Failed to add swimmer: ${error.error || response.statusText}`);
+      let errorDetails = 'Unknown error';
+      try {
+        const error = await response.json();
+        errorDetails = error.details || error.error || response.statusText;
+        console.error('❌ Server error details:', error);
+      } catch (parseError) {
+        console.error('❌ Could not parse error response:', parseError);
+        const textError = await response.text();
+        console.error('❌ Raw error response:', textError);
+        errorDetails = textError || response.statusText;
+      }
+      throw new Error(`Failed to add swimmer: ${errorDetails}`);
     }
     const data = await response.json();
     console.log('✅ Swimmer added to Supabase:', data.swimmer);
@@ -217,7 +231,7 @@ export async function updateSwimmer(id: string, swimmer: Omit<Swimmer, 'id'>): P
   try {
     const response = await fetch(`${API_BASE_URL}/swimmers/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(swimmer),
     });
     if (!response.ok) {
@@ -238,7 +252,7 @@ export async function deleteSwimmer(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/swimmers/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
     });
     if (!response.ok) {
       const error = await response.json();
@@ -293,11 +307,11 @@ export async function fetchAttendance(): Promise<AttendanceRecord[]> {
   }
 }
 
-export async function addAttendanceRecord(record: Omit<AttendanceRecord, 'id'>): Promise<AttendanceRecord> {
+export async function addAttendance(record: Omit<AttendanceRecord, 'id'>): Promise<AttendanceRecord> {
   try {
     const response = await fetch(`${API_BASE_URL}/attendance`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(record),
     });
     if (!response.ok) {
@@ -313,11 +327,11 @@ export async function addAttendanceRecord(record: Omit<AttendanceRecord, 'id'>):
   }
 }
 
-export async function updateAttendanceRecord(id: string, record: Omit<AttendanceRecord, 'id'>): Promise<AttendanceRecord> {
+export async function updateAttendance(id: string, record: Omit<AttendanceRecord, 'id'>): Promise<AttendanceRecord> {
   try {
     const response = await fetch(`${API_BASE_URL}/attendance/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(record),
     });
     if (!response.ok) {
@@ -333,11 +347,11 @@ export async function updateAttendanceRecord(id: string, record: Omit<Attendance
   }
 }
 
-export async function deleteAttendanceRecord(id: string): Promise<void> {
+export async function deleteAttendance(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/attendance/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
     });
     if (!response.ok) {
       const error = await response.json();
@@ -494,11 +508,11 @@ export async function uploadCompetitionPDF(competitionId: string, file: File): P
 }
 
 // Delete PDF from competition
-export async function deleteCompetitionPDF(competitionId: string): Promise<Competition> {
+export async function deleteCompetitionPdf(competitionId: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/competitions/${competitionId}/pdf`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
     });
     
     if (!response.ok) {
@@ -546,7 +560,7 @@ export async function addSwimmerCompetition(participation: Omit<SwimmerCompetiti
   try {
     const response = await fetch(`${API_BASE_URL}/swimmer-competitions`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(participation),
     });
     if (!response.ok) {
@@ -566,7 +580,7 @@ export async function updateSwimmerCompetition(id: string, participation: Omit<S
   try {
     const response = await fetch(`${API_BASE_URL}/swimmer-competitions/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(participation),
     });
     if (!response.ok) {
@@ -586,7 +600,7 @@ export async function deleteSwimmerCompetition(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/swimmer-competitions/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
     });
     if (!response.ok) {
       const error = await response.json();
@@ -604,12 +618,12 @@ export async function deleteSwimmerCompetition(id: string): Promise<void> {
 export async function updateCompetitionResults(
   swimmerId: string,
   competitionId: string,
-  events: { event: string; time?: string; position?: number; points?: number }[]
-): Promise<{ participation: SwimmerCompetition; swimmer: Swimmer }> {
+  events: { event: string; time?: string; position?: number; points?: number; }[]
+): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/competition-results`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify({ swimmerId, competitionId, events }),
     });
     if (!response.ok) {
@@ -618,7 +632,6 @@ export async function updateCompetitionResults(
     }
     const data = await response.json();
     console.log('✅ Competition results updated:', data);
-    return data;
   } catch (error) {
     console.error('❌ Error updating competition results:', error);
     throw error;
@@ -789,7 +802,7 @@ export async function addHoliday(holiday: Omit<Holiday, 'id'>): Promise<Holiday>
   try {
     const response = await fetch(`${API_BASE_URL}/holidays`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(holiday),
     });
     if (!response.ok) {
@@ -809,7 +822,7 @@ export async function updateHoliday(id: string, holiday: Omit<Holiday, 'id'>): P
   try {
     const response = await fetch(`${API_BASE_URL}/holidays/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(holiday),
     });
     if (!response.ok) {
@@ -829,7 +842,7 @@ export async function deleteHoliday(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/holidays/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
     });
     if (!response.ok) {
       const error = await response.json();
@@ -866,7 +879,7 @@ export async function addTestControl(testControl: Omit<TestControl, 'id'>): Prom
   try {
     const response = await fetch(`${API_BASE_URL}/test-controls`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(testControl),
     });
     if (!response.ok) {
@@ -886,7 +899,7 @@ export async function updateTestControl(id: string, testControl: Omit<TestContro
   try {
     const response = await fetch(`${API_BASE_URL}/test-controls/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(testControl),
     });
     if (!response.ok) {
@@ -907,7 +920,7 @@ export async function deleteTestControl(id: string): Promise<void> {
     // Use a longer timeout for delete operations (30 seconds)
     const response = await fetchWithTimeout(`${API_BASE_URL}/test-controls/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
     }, 30000);
     if (!response.ok) {
       const error = await response.json();
@@ -948,7 +961,7 @@ export async function addTestResult(testResult: Omit<TestResult, 'id'>): Promise
   try {
     const response = await fetch(`${API_BASE_URL}/test-results`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(testResult),
     });
     if (!response.ok) {
@@ -968,7 +981,7 @@ export async function updateTestResult(id: string, testResult: Omit<TestResult, 
   try {
     const response = await fetch(`${API_BASE_URL}/test-results/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
       body: JSON.stringify(testResult),
     });
     if (!response.ok) {
@@ -988,7 +1001,7 @@ export async function deleteTestResult(id: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/test-results/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getPublicHeaders(), // Usar publicAnonKey
     });
     if (!response.ok) {
       const error = await response.json();

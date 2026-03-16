@@ -35,7 +35,6 @@ export function AddSwimmerDialog({ onAddSwimmer }: AddSwimmerDialogProps) {
     email: "",
     rut: "",
     gender: "Masculino" as "Masculino" | "Femenino" | "Otro",
-    schedule: "7am" as "7am" | "8am" | "9pm",
     dateOfBirth: "",
     joinDate: new Date().toISOString().split("T")[0],
     profileImage: undefined as string | undefined,
@@ -73,11 +72,13 @@ export function AddSwimmerDialog({ onAddSwimmer }: AddSwimmerDialogProps) {
       email: formData.email,
       rut: formData.rut,
       gender: formData.gender,
-      schedule: formData.schedule,
+      schedule: "7am", // Valor por defecto
       dateOfBirth: formData.dateOfBirth,
       joinDate: formData.joinDate,
       profileImage: formData.profileImage,
       personalBests: [], // Inicializar con array vacío
+      personalBestsHistory: [], // Inicializar con array vacío
+      goals: [], // Inicializar con array vacío
     });
 
     // Resetear formulario
@@ -86,7 +87,6 @@ export function AddSwimmerDialog({ onAddSwimmer }: AddSwimmerDialogProps) {
       email: "",
       rut: "",
       gender: "Masculino",
-      schedule: "7am",
       dateOfBirth: "",
       joinDate: new Date().toISOString().split("T")[0],
       profileImage: undefined,
@@ -200,43 +200,20 @@ export function AddSwimmerDialog({ onAddSwimmer }: AddSwimmerDialogProps) {
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="dateOfBirth">
-                Fecha de Nacimiento <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="dateOfBirth"
-                type="date"
-                max={new Date().toISOString().split("T")[0]}
-                value={formData.dateOfBirth}
-                onChange={(e) =>
-                  setFormData({ ...formData, dateOfBirth: e.target.value })
-                }
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="schedule">
-                Horario <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={formData.schedule}
-                onValueChange={(value: "7am" | "8am" | "9pm") =>
-                  setFormData({ ...formData, schedule: value })
-                }
-              >
-                <SelectTrigger id="schedule">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7am">7:00 AM</SelectItem>
-                  <SelectItem value="8am">8:00 AM</SelectItem>
-                  <SelectItem value="9pm">9:00 PM</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="dateOfBirth">
+              Fecha de Nacimiento <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="dateOfBirth"
+              type="date"
+              max={new Date().toISOString().split("T")[0]}
+              value={formData.dateOfBirth}
+              onChange={(e) =>
+                setFormData({ ...formData, dateOfBirth: e.target.value })
+              }
+              required
+            />
           </div>
 
           {/* Mostrar edad y categoría calculadas */}
