@@ -1,5 +1,5 @@
-// Main application component with authentication
-// Version: 3.4.1 - JWT errors completely silenced (2026-03-15)
+// Main application component with authentication  
+// Version: 3.4.2 - JWT errors silenced in testAuth too (2026-03-15)
 import React, { useState, useEffect, useMemo } from "react";
 import jsPDF from "jspdf";
 import { Toaster } from "@/app/components/ui/sonner";

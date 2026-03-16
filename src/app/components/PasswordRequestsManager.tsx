@@ -678,6 +678,14 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
 
   const testAuth = async () => {
     console.log('🧪 Iniciando prueba de autenticación...');
+    
+    // Verificar que haya un usuario antes de probar
+    if (!user) {
+      console.log('ℹ️ No hay usuario autenticado. Inicia sesión primero.');
+      toast.info('Por favor, inicia sesión antes de probar la autenticación.');
+      return;
+    }
+    
     try {
       const { projectId, publicAnonKey } = await import('../../../utils/supabase/info');
       const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-4909a0bc`;
@@ -690,7 +698,7 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.error('❌ Error obteniendo sesión:', sessionError);
+        console.log('ℹ️ Error obteniendo sesión:', sessionError.message);
         toast.error('Error al obtener sesión: ' + sessionError.message);
         return;
       }
@@ -753,7 +761,15 @@ Tu solicitud de acceso al sistema del Club Natación Lo Prado ha sido aprobada.
       
       if (!testResponse.ok) {
         const errorData = await testResponse.json();
-        console.error('❌ Error de autenticación:', errorData);
+        
+        // Detectar si es error de autenticación (401/JWT)
+        const isAuthError = errorData.code === 401 || errorData.message?.includes('JWT');
+        
+        if (isAuthError) {
+          console.log('ℹ️ Error de autenticación (JWT):', errorData);
+        } else {
+          console.error('❌ Error de autenticación:', errorData);
+        }
         
         if (errorData.message === 'Invalid JWT') {
           toast.error('⚠️ Error de autenticación JWT. Revisa /SOLUCION_INVALID_JWT.md', {
