@@ -18,16 +18,12 @@ import { PWAInstaller } from "@/app/components/PWAInstaller";
 import { AddSwimmerDialog } from "@/app/components/AddSwimmerDialog";
 import { SwimmerListItem } from "@/app/components/SwimmerListItem";
 import { SwimmerDetailsDialog } from "@/app/components/SwimmerDetailsDialog";
-import { SwimmersStats } from "@/app/components/SwimmersStats";
 import { CompetitionManager } from "@/app/components/CompetitionManager";
 import { CompetitionResults } from "@/app/components/CompetitionResults";
 import { WorkoutManager } from "@/app/components/WorkoutManager";
 import { HolidayManager } from "@/app/components/HolidayManager";
 import { TrashManager } from "@/app/components/TrashManager";
 
-import { TrainingVolumeBloqueCharts } from "@/app/components/TrainingVolumeBloqueCharts";
-import { TrainingStats } from "@/app/components/TrainingStats";
-import { VolumeTrendSync } from "@/app/components/VolumeTrendSync";
 import { IntegratedCalendar } from "@/app/components/IntegratedCalendar";
 import { TeamRecordsBoard } from "@/app/components/TeamRecordsBoard";
 import { AchievementsBoard } from "@/app/components/AchievementsBoard";
@@ -125,7 +121,6 @@ function MainApp() {
   
   // Estados para mostrar/ocultar información de estructura
   const [showStructureInfo, setShowStructureInfo] = useState(false);
-  const [showTrainingStats, setShowTrainingStats] = useState(false);
   
   // Estado para el diálogo de bloque seleccionado
   const [selectedBloque, setSelectedBloque] = useState<string | null>(null);
@@ -1350,7 +1345,7 @@ function MainApp() {
                 </div>
               )}
               
-              {/* Tarjetas simples de bloques con estadísticas */}
+              {/* Tarjetas de bloques */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                 {mesocicloStats.map((mesociclo) => {
                   const Icon = mesociclo.icon;
@@ -1481,29 +1476,6 @@ function MainApp() {
 
                     return (
                       <div className="space-y-4 mt-4">
-                        {/* Estadísticas del bloque */}
-                        <Card className="bg-gradient-to-r from-blue-50 to-purple-50">
-                          <CardContent className="pt-4">
-                            <div className="grid grid-cols-3 gap-4 text-center">
-                              <div>
-                                <p className="text-sm text-gray-600">Entrenamientos</p>
-                                <p className="text-2xl font-bold">{bloqueWorkouts.length}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-600">Distancia Total</p>
-                                <p className="text-2xl font-bold">
-                                  {(bloqueWorkouts.reduce((sum, w) => sum + w.distance, 0) / 1000).toFixed(1)} km
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-600">Promedio/Sesión</p>
-                                <p className="text-2xl font-bold">
-                                  {Math.round(bloqueWorkouts.reduce((sum, w) => sum + w.distance, 0) / bloqueWorkouts.length)}m
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
 
                         {/* Lista de entrenamientos agrupados por fecha */}
                         <div className="space-y-3">
@@ -1728,7 +1700,7 @@ function MainApp() {
                     </p>
                     <div className="flex items-center gap-2 text-xs text-gray-600">
                       <CalendarDays className="w-4 h-4 text-red-600" />
-                      <span>Los bloques de arriba muestran estadísticas de entrenamientos creados</span>
+                      <span>Los bloques de arriba muestran los entrenamientos creados por bloque</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -1761,39 +1733,6 @@ function MainApp() {
               </div>
             )}
 
-            {/* Botón para ver estadísticas de entrenamiento */}
-            <div className="mb-6">
-              <Button
-                variant={showTrainingStats ? "default" : "outline"}
-                onClick={() => setShowTrainingStats(!showTrainingStats)}
-                className="w-full gap-2 h-auto py-3 justify-between bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 border-green-300 text-green-900"
-              >
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm font-semibold">Ver Estadísticas de Entrenamiento</span>
-                </div>
-                {showTrainingStats ? (
-                  <ChevronUp className="w-4 h-4 flex-shrink-0" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 flex-shrink-0" />
-                )}
-              </Button>
-            </div>
-
-            {/* Estadísticas de Entrenamiento */}
-            {showTrainingStats && (
-              <div className="space-y-6 animate-in slide-in-from-top duration-300">
-                <div>
-                  <h2 className="text-2xl font-bold mb-4">Sincronización de Tendencia de Volumen</h2>
-                  <VolumeTrendSync workouts={workouts} />
-                </div>
-
-                <div>
-                  <h2 className="text-2xl font-bold mb-4">Análisis de Volumen de Entrenamiento por Bloques</h2>
-                  <TrainingVolumeBloqueCharts sessions={allSessions} />
-                </div>
-              </div>
-            )}
           </TabsContent>
 
           {/* SECCIÓN 2: PREPARACIÓN FÍSICA */}
@@ -1898,9 +1837,6 @@ function MainApp() {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Estadísticas */}
-              <SwimmersStats swimmers={filteredSwimmers} />
 
               {/* Lista de nadadores */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">

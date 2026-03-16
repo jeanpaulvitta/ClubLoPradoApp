@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { 
   Activity, 
   Users,
@@ -14,8 +16,34 @@ import {
   Lightbulb,
   Calendar,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Download,
+  FileText
 } from "lucide-react";
+import { generatePhysicalPrepPDF } from "../utils/physicalPrepPDFGenerator";
+
+interface Swimmer {
+  id: string;
+  name: string;
+  group?: number | string;
+}
+
+interface TestControl {
+  id: string;
+  name: string;
+  date: string;
+  description?: string;
+  mesociclo?: string;
+}
+
+interface TestResult {
+  id: string;
+  testId: string;
+  swimmerId: string;
+  testItemId: string;
+  time: string;
+  date: string;
+}
 
 interface WeeklySession {
   name: string;
@@ -40,8 +68,31 @@ interface TrainingBlock {
   group2: BlockExercise;
 }
 
-export function PhysicalPreparation() {
+interface PhysicalPreparationProps {
+  testControls: TestControl[];
+  testResults: TestResult[];
+  swimmers: Swimmer[];
+  onAddTestControl: (testControl: TestControl) => void;
+  onEditTestControl: (testControl: TestControl) => void;
+  onDeleteTestControl: (id: string) => void;
+  onAddTestResult: (testResult: TestResult) => void;
+  onEditTestResult: (testResult: TestResult) => void;
+  onDeleteTestResult: (id: string) => void;
+}
+
+export function PhysicalPreparation({
+  testControls,
+  testResults,
+  swimmers,
+  onAddTestControl,
+  onEditTestControl,
+  onDeleteTestControl,
+  onAddTestResult,
+  onEditTestResult,
+  onDeleteTestResult
+}: PhysicalPreparationProps) {
   const [selectedGroup, setSelectedGroup] = useState<"group1" | "group2">("group1");
+  const [selectedBlock, setSelectedBlock] = useState<string>("all");
   const [expandedSessions, setExpandedSessions] = useState<{ [key: string]: boolean }>({});
 
   const toggleSession = (blockId: string) => {
@@ -747,6 +798,11 @@ export function PhysicalPreparation() {
     }
   ];
 
+  // Filtrar bloques según selección
+  const filteredBlocks = selectedBlock === "all" 
+    ? trainingBlocks 
+    : trainingBlocks.filter(block => String(block.number) === selectedBlock);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -782,6 +838,63 @@ export function PhysicalPreparation() {
         </CardContent>
       </Card>
 
+      {/* Filtros y descarga PDF */}
+      <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+            {/* Selector de Bloque */}
+            <div className="flex-1 w-full sm:w-auto">
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                Filtrar por Bloque
+              </label>
+              <Select value={selectedBlock} onValueChange={setSelectedBlock}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Seleccionar bloque" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los Bloques</SelectItem>
+                  {trainingBlocks.map((block) => (
+                    <SelectItem key={block.number} value={String(block.number)}>
+                      Bloque {block.number}: {block.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Botón Descargar PDF */}
+            <Button
+              onClick={() => {
+                const blockNumber = selectedBlock === "all" ? undefined : parseInt(selectedBlock);
+                generatePhysicalPrepPDF(
+                  trainingBlocks,
+                  selectedGroup,
+                  blockNumber,
+                  testControls,
+                  testResults,
+                  swimmers
+                );
+              }}
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+            >
+              <Download className="w-4 h-4" />
+              Descargar PDF
+            </Button>
+          </div>
+
+          {/* Indicador de filtro activo */}
+          {selectedBlock !== "all" && (
+            <div className="mt-4 flex items-center gap-2 text-sm text-green-800 bg-white rounded-lg p-3 border border-green-300">
+              <FileText className="w-4 h-4 flex-shrink-0" />
+              <span>
+                Mostrando solo: <strong>Bloque {selectedBlock}</strong> para{" "}
+                <strong>{selectedGroup === "group1" ? "Grupo 1 - Menores" : "Grupo 2 - Mayores"}</strong>
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Tabs por Grupo */}
       <Card>
         <CardContent className="pt-6">
@@ -810,7 +923,7 @@ export function PhysicalPreparation() {
                 </p>
               </div>
 
-              {trainingBlocks.map((block) => {
+              {filteredBlocks.map((block) => {
                 const blockId = `group1-${block.number}`;
                 const isExpanded = expandedSessions[blockId];
                 
@@ -928,7 +1041,7 @@ export function PhysicalPreparation() {
                 </p>
               </div>
 
-              {trainingBlocks.map((block) => {
+              {filteredBlocks.map((block) => {
                 const blockId = `group2-${block.number}`;
                 const isExpanded = expandedSessions[blockId];
                 

@@ -107,6 +107,77 @@ export function WorkoutManager({
     return total;
   };
 
+  // Función para calcular el tiempo estimado del entrenamiento
+  const calculateEstimatedTime = () => {
+    // Ritmos base por intensidad (segundos por 100m)
+    const paceByIntensity: Record<string, number> = {
+      "Baja": 120,      // 2:00 por 100m (ritmo suave)
+      "Media": 105,     // 1:45 por 100m (ritmo moderado)
+      "Alta": 90,       // 1:30 por 100m (ritmo fuerte)
+      "Muy alta": 75    // 1:15 por 100m (ritmo intenso)
+    };
+
+    const baseTime = paceByIntensity[formData.intensity] || 105;
+    
+    // Calcular tiempo nadando (en minutos)
+    const warmupMeters = extractMeters(formData.warmup);
+    const warmupTime = (warmupMeters / 100) * (baseTime + 15) / 60; // Más lento para calentamiento
+    
+    let mainSetTime = 0;
+    formData.mainSet.forEach(set => {
+      const setMeters = extractMeters(set);
+      const restTime = extractRestTime(set);
+      const swimTime = (setMeters / 100) * baseTime / 60;
+      mainSetTime += swimTime + restTime;
+    });
+    
+    const cooldownMeters = extractMeters(formData.cooldown);
+    const cooldownTime = (cooldownMeters / 100) * (baseTime + 20) / 60; // Más lento para enfriamiento
+    
+    // Sumar tiempos + tiempo de transición (3-5 minutos entre secciones)
+    const totalTime = warmupTime + mainSetTime + cooldownTime + 5;
+    
+    return Math.round(totalTime);
+  };
+
+  // Función auxiliar para extraer tiempo de descanso de una serie (en minutos)
+  const extractRestTime = (text: string): number => {
+    if (!text) return 0;
+    
+    // Buscar descanso en segundos (ej: "descanso 20s", "rec 30s", "@ 1:30")
+    const secondsMatch = text.match(/(?:descanso|rec|rest|@)\s*(\d+)\s*s/i);
+    if (secondsMatch) {
+      const seconds = parseInt(secondsMatch[1]);
+      
+      // Calcular número de repeticiones para multiplicar el descanso
+      const seriesMatch = text.match(/(\d+)\s*[x×]/i);
+      const repetitions = seriesMatch ? parseInt(seriesMatch[1]) : 1;
+      
+      return (seconds * repetitions) / 60; // Convertir a minutos
+    }
+    
+    // Buscar descanso en minutos (ej: "descanso 2min", "rec 1:30")
+    const minutesMatch = text.match(/(?:descanso|rec|rest|@)\s*(\d+)(?::(\d+))?\s*m/i);
+    if (minutesMatch) {
+      const minutes = parseInt(minutesMatch[1]);
+      const seconds = minutesMatch[2] ? parseInt(minutesMatch[2]) : 0;
+      
+      const seriesMatch = text.match(/(\d+)\s*[x×]/i);
+      const repetitions = seriesMatch ? parseInt(seriesMatch[1]) : 1;
+      
+      return (minutes + seconds / 60) * repetitions;
+    }
+    
+    // Si hay series pero no se especifica descanso, asumir 15 segundos por repetición
+    const seriesMatch = text.match(/(\d+)\s*[x×]/i);
+    if (seriesMatch) {
+      const repetitions = parseInt(seriesMatch[1]);
+      return (repetitions * 15) / 60; // 15 segundos de descanso por repetición
+    }
+    
+    return 0;
+  };
+
   // Función auxiliar para extraer metros de una cadena de texto
   const extractMeters = (text: string): number => {
     if (!text) return 0;
@@ -472,6 +543,37 @@ export function WorkoutManager({
                       <p>• Series principales: {formData.mainSet.reduce((sum, set) => sum + extractMeters(set), 0)}m</p>
                       <p>• Enfriamiento: {extractMeters(formData.cooldown)}m</p>
                       <p className="font-semibold pt-1 border-t border-green-300">Total: {calculateTotalDistance()}m</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Información del cálculo de tiempo */}
+                {calculateEstimatedTime() > 0 && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Calculator className="w-4 h-4 text-blue-600" />
+                        <p className="text-sm font-semibold text-blue-800">Tiempo Estimado de Sesión</p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs bg-white hover:bg-blue-100"
+                        onClick={() => {
+                          const estimatedTime = calculateEstimatedTime();
+                          setFormData({ ...formData, duration: estimatedTime });
+                        }}
+                      >
+                        Aplicar tiempo estimado
+                      </Button>
+                    </div>
+                    <div className="text-xs text-blue-700 space-y-1">
+                      <p>• Basado en intensidad: <strong>{formData.intensity}</strong></p>
+                      <p>• Incluye tiempo de nado + descansos + transiciones</p>
+                      <p className="font-semibold pt-1 border-t border-blue-300 text-base">
+                        ⏱️ Tiempo Total Estimado: <span className="text-blue-900">{calculateEstimatedTime()} minutos</span>
+                      </p>
                     </div>
                   </div>
                 )}
