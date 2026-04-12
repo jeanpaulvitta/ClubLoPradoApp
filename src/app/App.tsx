@@ -1,5 +1,5 @@
-// Main application component with authentication  
-// Version: 3.4.2 - JWT errors silenced in testAuth too (2026-03-15)
+// Main application component with authentication
+// Version: 1.2.7 - Vista en columnas por bloques en gestor de entrenamientos (2026-04-12)
 import React, { useState, useEffect, useMemo } from "react";
 import jsPDF from "jspdf";
 import { Toaster } from "@/app/components/ui/sonner";
@@ -26,7 +26,6 @@ import { TrashManager } from "@/app/components/TrashManager";
 
 import { IntegratedCalendar } from "@/app/components/IntegratedCalendar";
 import { TeamRecordsBoard } from "@/app/components/TeamRecordsBoard";
-import { AchievementsBoard } from "@/app/components/AchievementsBoard";
 import { AttendanceManager } from "@/app/components/AttendanceManager";
 import { TestControlManager } from "@/app/components/TestControlManager";
 import { PasswordRequestsManager } from "@/app/components/PasswordRequestsManager";
@@ -37,18 +36,17 @@ import { GroupFilterSelector } from "@/app/components/GroupFilterSelector";
 import { SeasonStructureInfo } from "@/app/components/SeasonStructureInfo";
 import { PhysicalPreparation } from "@/app/components/PhysicalPreparation";
 import { generateAllSwimmersPDF } from "@/app/utils/pdfGenerator";
-import { 
-  Users, 
-  Calendar, 
-  Medal, 
-  Dumbbell, 
-  ClipboardList, 
-  Target, 
-  TrendingUp, 
-  CalendarDays, 
-  Trophy, 
+import {
+  Users,
+  Calendar,
+  Medal,
+  Dumbbell,
+  ClipboardList,
+  Target,
+  TrendingUp,
+  CalendarDays,
+  Trophy,
   Crown,
-  Award,
   Shield,
   Clipboard,
   FileDown,
@@ -63,7 +61,8 @@ import {
   CheckCircle,
   Eye,
   Download,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft
 } from "lucide-react";
 import type { 
   Swimmer, 
@@ -1232,10 +1231,6 @@ function MainApp() {
               <Crown className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Récords</span>
             </TabsTrigger>
-            <TabsTrigger value="logros" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
-              <Award className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Logros</span>
-            </TabsTrigger>
             <TabsTrigger value="asistencia" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
               <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Asistencia</span>
@@ -1427,6 +1422,17 @@ function MainApp() {
             <Dialog open={selectedBloque !== null} onOpenChange={(open) => !open && setSelectedBloque(null)}>
                 <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
                   <DialogHeader>
+                    <div className="mb-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="hover:bg-gray-100"
+                        onClick={() => setSelectedBloque(null)}
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Atrás
+                      </Button>
+                    </div>
                     <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                       {selectedBloque && (() => {
                         const bloque = mesocicloStats.find(m => m.name === selectedBloque);
@@ -1465,89 +1471,81 @@ function MainApp() {
                       );
                     }
 
-                    // Agrupar por fecha
-                    const workoutsByDate: { [key: string]: typeof bloqueWorkouts } = {};
-                    bloqueWorkouts.forEach((workout) => {
-                      if (!workoutsByDate[workout.date]) {
-                        workoutsByDate[workout.date] = [];
-                      }
-                      workoutsByDate[workout.date].push(workout);
-                    });
+                    // Ordenar por fecha
+                    const sortedWorkouts = [...bloqueWorkouts].sort((a, b) =>
+                      a.date.localeCompare(b.date)
+                    );
 
                     return (
-                      <div className="space-y-4 mt-4">
+                      <div className="space-y-3 mt-4">
+                        {/* Resumen del bloque */}
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                          <Card className="bg-blue-50 border-blue-200">
+                            <CardContent className="pt-4 text-center">
+                              <p className="text-2xl font-bold text-blue-700">{bloqueWorkouts.length}</p>
+                              <p className="text-xs text-blue-600">Entrenamientos</p>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-purple-50 border-purple-200">
+                            <CardContent className="pt-4 text-center">
+                              <p className="text-2xl font-bold text-purple-700">
+                                {Math.round(bloqueWorkouts.reduce((sum, w) => sum + w.distance, 0) / bloqueWorkouts.length)}m
+                              </p>
+                              <p className="text-xs text-purple-600">Promedio dist.</p>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-green-50 border-green-200">
+                            <CardContent className="pt-4 text-center">
+                              <p className="text-2xl font-bold text-green-700">
+                                {bloqueWorkouts.reduce((sum, w) => sum + w.distance, 0)}m
+                              </p>
+                              <p className="text-xs text-green-600">Total</p>
+                            </CardContent>
+                          </Card>
+                        </div>
 
-                        {/* Lista de entrenamientos agrupados por fecha */}
-                        <div className="space-y-3">
-                          {Object.entries(workoutsByDate)
-                            .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-                            .map(([date, workouts]) => (
-                              <div key={date} className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
-                                <div className="font-semibold text-lg mb-3 flex items-center gap-2">
-                                  <span>{workouts[0]?.day}</span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {date}
+                        {/* Lista simple de entrenamientos */}
+                        <div className="space-y-2">
+                          {sortedWorkouts.map((workout, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-semibold text-sm">{workout.day}</span>
+                                  <span className="text-xs text-gray-500">{workout.date}</span>
+                                  <Badge className="text-xs h-5">
+                                    {workout.schedule === "AM" ? "🌅" : "🌆"}
                                   </Badge>
                                 </div>
-                                <div className="space-y-2">
-                                  {workouts.map((workout, idx) => (
-                                    <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                                      <div className="flex items-start justify-between mb-2 gap-3">
-                                        <div className="flex items-center gap-2 flex-wrap flex-1">
-                                          {workout.schedule && (
-                                            <Badge className="text-xs bg-blue-100 text-blue-700">
-                                              {workout.schedule === "AM" ? "🌅 AM" : "🌆 PM"}
-                                            </Badge>
-                                          )}
-                                          <Badge className={`text-xs ${
-                                            String(workout.group) === "1" ? "bg-purple-100 text-purple-700" :
-                                            "bg-green-100 text-green-700"
-                                          }`}>
-                                            {String(workout.group) === "1" ? "👶 Grupo 1" : "🏅 Grupo 2"}
-                                          </Badge>
-                                          <Badge variant="outline" className="text-xs">
-                                            {workout.distance}m
-                                          </Badge>
-                                          <Badge variant="outline" className="text-xs">
-                                            {workout.intensity}
-                                          </Badge>
-                                          {workout.focus && (
-                                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
-                                              {workout.focus}
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <div className="flex gap-1 flex-shrink-0">
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-7 px-2"
-                                            onClick={() => setSelectedWorkout(workout)}
-                                          >
-                                            <Eye className="w-3 h-3 mr-1" />
-                                            Ver
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-7 px-2 hover:bg-red-50"
-                                            onClick={() => generateWorkoutPDF(workout)}
-                                          >
-                                            <Download className="w-3 h-3 mr-1" />
-                                            PDF
-                                          </Button>
-                                        </div>
-                                      </div>
-                                      {workout.focus && (
-                                        <p className="text-xs text-gray-500 mt-2">
-                                          🎯 Enfoque: {workout.focus}
-                                        </p>
-                                      )}
-                                    </div>
-                                  ))}
+                                <div className="flex items-center gap-2 text-xs text-gray-600">
+                                  <span className="font-medium text-red-600">{workout.distance}m</span>
+                                  <span>•</span>
+                                  <span>{workout.duration} min</span>
+                                  <span>•</span>
+                                  <span>{workout.intensity}</span>
+                                  {workout.focus && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-yellow-700">🎯 {workout.focus}</span>
+                                    </>
+                                  )}
                                 </div>
                               </div>
-                            ))}
+                              <div className="flex gap-1 flex-shrink-0">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-3"
+                                  onClick={() => setSelectedWorkout(workout)}
+                                >
+                                  <Eye className="w-4 h-4 mr-1" />
+                                  Ver
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     );
@@ -1559,8 +1557,16 @@ function MainApp() {
             <Dialog open={selectedWorkout !== null} onOpenChange={(open) => !open && setSelectedWorkout(null)}>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center justify-between">
-                    <span>Entrenamiento Completo</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="hover:bg-gray-100"
+                      onClick={() => setSelectedWorkout(null)}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Atrás
+                    </Button>
                     {selectedWorkout && (
                       <Button
                         size="sm"
@@ -1572,7 +1578,8 @@ function MainApp() {
                         Descargar PDF
                       </Button>
                     )}
-                  </DialogTitle>
+                  </div>
+                  <DialogTitle>Entrenamiento Completo</DialogTitle>
                   <DialogDescription>
                     Detalle completo del plan de entrenamiento
                   </DialogDescription>
@@ -1949,20 +1956,7 @@ function MainApp() {
             </div>
           </TabsContent>
 
-          {/* SECCIÓN 8: LOGROS Y MEDALLAS */}
-          <TabsContent value="logros" className="space-y-8">
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Logros y Medallas</h2>
-              <AchievementsBoard
-                swimmers={swimmers}
-                swimmerCompetitions={swimmerCompetitions}
-                competitions={competitions}
-                attendanceRecords={attendanceRecords}
-              />
-            </div>
-          </TabsContent>
-
-          {/* SECCIÓN 9: ASISTENCIA */}
+          {/* SECCIÓN 8: ASISTENCIA */}
           <TabsContent value="asistencia" className="space-y-8">
             <div>
               <h2 className="text-2xl font-bold mb-4">Control de Asistencia</h2>
@@ -1970,7 +1964,7 @@ function MainApp() {
             </div>
           </TabsContent>
 
-          {/* SECCIÓN 10: GESTIÓN DE USUARIOS (Solo Admin) */}
+          {/* SECCIÓN 9: GESTIÓN DE USUARIOS (Solo Admin) */}
           {user?.role === "admin" && (
             <TabsContent value="usuarios" className="space-y-6">
               <div className="space-y-6">

@@ -813,65 +813,114 @@ export function WorkoutManager({
             </p>
           </div>
         ) : (
-          <div className="max-h-96 overflow-y-auto space-y-2">
-            {Object.entries(workoutsByMesocicloAndGroup).map(([key, workouts]) => (
-              <div key={key} className="mb-4">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-blue-500 text-white">
-                    {key.split('-')[0]}
-                  </Badge>
-                  <Badge className="bg-gray-500 text-white">
-                    Grupo {key.split('-')[1]}
-                  </Badge>
-                </div>
-                <div className="space-y-2">
-                  {workouts.map((workout) => (
-                    <div
-                      key={workout.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <div className="font-semibold flex items-center gap-2 flex-wrap">
-                          <span>{workout.day} · {workout.date}</span>
-                          {workout.schedule && (
-                            <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
-                              {workout.schedule === "AM" ? "🌅 AM" : "🌆 PM"}
-                            </span>
-                          )}
-                          {workout.group && (
-                            <span className={`text-xs px-2 py-1 rounded ${
-                              workout.group === 1 ? "bg-purple-100 text-purple-700" :
-                              "bg-green-100 text-green-700"
-                            }`}>
-                              {workout.group === 1 ? "👶 Grupo 1" : "🏅 Grupo 2"}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {workout.mesociclo} • {workout.distance}m • {workout.intensity}
-                        </div>
+          <div className="overflow-x-auto pb-4">
+            <div className="flex gap-4 min-w-max">
+              {/* Agrupar por mesociclo */}
+              {Array.from(new Set(filteredWorkouts.map(w => w.mesociclo))).sort((a, b) => {
+                const numA = parseInt(a.match(/\d+/)?.[0] || '0');
+                const numB = parseInt(b.match(/\d+/)?.[0] || '0');
+                return numA - numB;
+              }).map(mesociclo => {
+                const bloqueWorkouts = filteredWorkouts.filter(w => w.mesociclo === mesociclo);
+                const bloqueNumber = parseInt(mesociclo.match(/\d+/)?.[0] || '0');
+
+                // Colores por bloque
+                const bloqueColors: Record<number, { bg: string; border: string; header: string }> = {
+                  1: { bg: 'bg-red-50', border: 'border-red-200', header: 'bg-red-500' },
+                  2: { bg: 'bg-orange-50', border: 'border-orange-200', header: 'bg-orange-500' },
+                  3: { bg: 'bg-yellow-50', border: 'border-yellow-200', header: 'bg-yellow-500' },
+                  4: { bg: 'bg-green-50', border: 'border-green-200', header: 'bg-green-500' },
+                  5: { bg: 'bg-teal-50', border: 'border-teal-200', header: 'bg-teal-500' },
+                  6: { bg: 'bg-cyan-50', border: 'border-cyan-200', header: 'bg-cyan-500' },
+                  7: { bg: 'bg-blue-50', border: 'border-blue-200', header: 'bg-blue-500' },
+                  8: { bg: 'bg-indigo-50', border: 'border-indigo-200', header: 'bg-indigo-500' },
+                  9: { bg: 'bg-purple-50', border: 'border-purple-200', header: 'bg-purple-500' },
+                  10: { bg: 'bg-pink-50', border: 'border-pink-200', header: 'bg-pink-500' }
+                };
+
+                const colors = bloqueColors[bloqueNumber] || { bg: 'bg-gray-50', border: 'border-gray-200', header: 'bg-gray-500' };
+
+                return (
+                  <div key={mesociclo} className="flex-shrink-0 w-80">
+                    <div className={`${colors.bg} border ${colors.border} rounded-lg h-full flex flex-col`}>
+                      {/* Header de la columna */}
+                      <div className={`${colors.header} text-white px-4 py-3 rounded-t-lg`}>
+                        <h3 className="font-bold text-sm">{mesociclo}</h3>
+                        <p className="text-xs opacity-90">{bloqueWorkouts.length} entrenamientos</p>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(workout)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => workout.id && handleDelete(workout.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </Button>
+
+                      {/* Lista de entrenamientos */}
+                      <div className="p-3 space-y-2 overflow-y-auto max-h-96 flex-1">
+                        {bloqueWorkouts.sort((a, b) => a.date.localeCompare(b.date)).map((workout) => (
+                          <div
+                            key={workout.id}
+                            className="bg-white p-3 rounded-lg border border-gray-200 hover:shadow-md transition-all"
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-sm truncate">
+                                    {workout.day}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {workout.date}
+                                  </div>
+                                </div>
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0"
+                                    onClick={() => handleEdit(workout)}
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0"
+                                    onClick={() => workout.id && handleDelete(workout.id)}
+                                  >
+                                    <Trash2 className="w-3 h-3 text-red-600" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-1">
+                                {workout.schedule && (
+                                  <Badge className="text-xs h-5 bg-blue-100 text-blue-700 border-blue-200">
+                                    {workout.schedule === "AM" ? "🌅" : "🌆"}
+                                  </Badge>
+                                )}
+                                {workout.group && (
+                                  <Badge className={`text-xs h-5 ${
+                                    workout.group === 1 ? "bg-purple-100 text-purple-700 border-purple-200" :
+                                    "bg-green-100 text-green-700 border-green-200"
+                                  }`}>
+                                    G{workout.group}
+                                  </Badge>
+                                )}
+                              </div>
+
+                              <div className="text-xs text-gray-600 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span>Distancia:</span>
+                                  <span className="font-semibold text-red-600">{workout.distance}m</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span>Intensidad:</span>
+                                  <span className="font-semibold">{workout.intensity}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </CardContent>
