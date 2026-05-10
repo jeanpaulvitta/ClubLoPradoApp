@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAttendance } from "../hooks/useAppData";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -53,8 +55,28 @@ interface AttendanceManagerProps {
 
 export function AttendanceManager({ swimmers = [], sessions = [] }: AttendanceManagerProps) {
   const { user } = useAuth();
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Asistencia con caché (filtrada por los últimos 90 días)
+  const { data: rawAttendance = [], isLoading: loading } = useAttendance();
+
+  // Mapear formato de API al formato interno del componente
+  const attendanceRecords: AttendanceRecord[] = useMemo(() =>
+    rawAttendance
+      .filter(record => record && record.id && record.swimmerId && record.sessionId)
+      .map(record => ({
+        id: record.id,
+        sessionId: record.sessionId,
+        sessionDate: record.date,
+        sessionType: "workout" as const,
+        swimmerId: record.swimmerId,
+        status: record.status === "present" ? "presente" : record.status === "absent" ? "ausente" : "justificado" as "presente" | "ausente" | "justificado",
+        notes: record.notes,
+        timestamp: Date.now()
+      })),
+    [rawAttendance]
+  );
+
   const [selectedSession, setSelectedSession] = useState<string>("");
   const [filterSchedule, setFilterSchedule] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -64,38 +86,6 @@ export function AttendanceManager({ swimmers = [], sessions = [] }: AttendanceMa
 
   // Determinar si el usuario puede registrar asistencia
   const canRegisterAttendance = user?.role === 'admin' || user?.role === 'coach';
-
-  // Cargar registros de asistencia al montar
-  useEffect(() => {
-    loadAttendance();
-  }, []);
-
-  const loadAttendance = async () => {
-    try {
-      setLoading(true);
-      const records = await api.fetchAttendance();
-      // Mapear los registros de la API al formato del componente
-      // Filtrar registros que no tengan los campos requeridos
-      const mappedRecords: AttendanceRecord[] = records
-        .filter(record => record && record.id && record.swimmerId && record.sessionId)
-        .map(record => ({
-          id: record.id,
-          sessionId: record.sessionId,
-          sessionDate: record.date,
-          sessionType: "workout" as const, // Por defecto, se puede mejorar
-          swimmerId: record.swimmerId,
-          status: record.status === "present" ? "presente" : record.status === "absent" ? "ausente" : "justificado",
-          notes: record.notes,
-          timestamp: Date.now()
-        }));
-      setAttendanceRecords(mappedRecords);
-      console.log("✅ Asistencias cargadas desde Supabase:", mappedRecords);
-    } catch (error) {
-      console.error("❌ Error cargando asistencias:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSwimmerClick = (swimmer: Swimmer) => {
     setSelectedSwimmer(swimmer);
@@ -116,20 +106,17 @@ export function AttendanceManager({ swimmers = [], sessions = [] }: AttendanceMa
 
     try {
       console.log("🗑️ Attempting to delete attendance record with ID:", recordId);
-      console.log("📋 Current attendance records:", attendanceRecords.map(r => ({ id: r.id, swimmer: r.swimmerId })));
-      
       await api.deleteAttendanceRecord(recordId);
-      setAttendanceRecords(attendanceRecords.filter(r => r.id !== recordId));
+      queryClient.invalidateQueries({ queryKey: ['attendance'] });
       console.log("✅ Registro de asistencia eliminado");
     } catch (error: any) {
       console.error("❌ Error eliminando registro:", error);
-      // Solo mostrar alerta si no es un error de "no encontrado"
       if (!error.message?.includes("not found") && !error.message?.includes("already deleted")) {
         alert("Error al eliminar el registro de asistencia.");
       } else {
-        // Si el registro no se encontró, eliminarlo del estado local de todos modos
-        setAttendanceRecords(attendanceRecords.filter(r => r.id !== recordId));
-        console.log("✅ Registro eliminado del estado local");
+        // Si no se encontró en el servidor, refrescar el caché de todos modos
+        queryClient.invalidateQueries({ queryKey: ['attendance'] });
+        console.log("✅ Caché de asistencia actualizado");
       }
     }
   };
@@ -168,17 +155,10 @@ export function AttendanceManager({ swimmers = [], sessions = [] }: AttendanceMa
           notes
         });
 
-        const newRecords = [...attendanceRecords];
-        newRecords[existingIndex] = {
-          ...existingRecord,
-          status,
-          notes,
-          timestamp: Date.now()
-        };
-        setAttendanceRecords(newRecords);
+        queryClient.invalidateQueries({ queryKey: ['attendance'] });
       } else {
         // Crear nuevo registro
-        const apiRecord = await api.addAttendanceRecord({
+        await api.addAttendanceRecord({
           swimmerId,
           sessionId: selectedSession,
           date: session.date,
@@ -188,18 +168,7 @@ export function AttendanceManager({ swimmers = [], sessions = [] }: AttendanceMa
           notes
         });
 
-        const record: AttendanceRecord = {
-          id: apiRecord.id,
-          sessionId: selectedSession,
-          sessionDate: session.date,
-          sessionType: session.type,
-          swimmerId,
-          status,
-          notes,
-          timestamp: Date.now()
-        };
-
-        setAttendanceRecords([...attendanceRecords, record]);
+        queryClient.invalidateQueries({ queryKey: ['attendance'] });
       }
 
       console.log("✅ Asistencia guardada en Supabase");

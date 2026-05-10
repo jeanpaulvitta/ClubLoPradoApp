@@ -279,10 +279,13 @@ export interface AttendanceRecord {
   notes?: string;
 }
 
-export async function fetchAttendance(): Promise<AttendanceRecord[]> {
+export async function fetchAttendance(fromDate?: string): Promise<AttendanceRecord[]> {
   try {
     // Usar publicAnonKey para GET (no requiere autenticación de usuario)
-    const response = await fetch(`${API_BASE_URL}/attendance`, { headers: getPublicHeaders() });
+    const url = fromDate
+      ? `${API_BASE_URL}/attendance?fromDate=${fromDate}`
+      : `${API_BASE_URL}/attendance`;
+    const response = await fetch(url, { headers: getPublicHeaders() });
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Attendance fetch error response:', errorText);
@@ -363,6 +366,11 @@ export async function deleteAttendance(id: string): Promise<void> {
     throw error;
   }
 }
+
+// Aliases para compatibilidad con AttendanceManager
+export const addAttendanceRecord = addAttendance;
+export const updateAttendanceRecord = updateAttendance;
+export const deleteAttendanceRecord = deleteAttendance;
 
 // ==================== COMPETITIONS API ====================
 

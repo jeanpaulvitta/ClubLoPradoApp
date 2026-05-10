@@ -1,6 +1,16 @@
 // Main application component with authentication
 // Version: 1.2.7 - Vista en columnas por bloques en gestor de entrenamientos (2026-04-12)
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useSwimmers,
+  useCompetitions,
+  useSwimmerCompetitions,
+  useWorkouts,
+  useHolidays,
+  useTestControls,
+  useTestResults,
+} from "@/app/hooks/useAppData";
 import jsPDF from "jspdf";
 import { Toaster } from "@/app/components/ui/sonner";
 import { Button } from "@/app/components/ui/button";
@@ -96,16 +106,18 @@ function timeToSeconds(time: string): number {
 
 function MainApp() {
   const { user } = useAuth(); // Obtener usuario autenticado
-  const [swimmers, setSwimmers] = useState<Swimmer[]>([]);
-  const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const [swimmerCompetitions, setSwimmerCompetitions] = useState<SwimmerCompetition[]>([]);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [testControls, setTestControls] = useState<TestControl[]>([]);
-  const [testResults, setTestResults] = useState<TestResult[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // Datos con caché via React Query (reduce invocaciones a la Edge Function)
+  const { data: swimmers = [] } = useSwimmers();
+  // attendanceRecords siempre fue vacío en App.tsx (AttendanceManager maneja su propio estado)
+  const attendanceRecords: AttendanceRecord[] = [];
+  const { data: competitions = [] } = useCompetitions();
+  const { data: swimmerCompetitions = [] } = useSwimmerCompetitions();
+  const { data: workouts = [] } = useWorkouts();
+  const { data: holidays = [] } = useHolidays();
+  const { data: testControls = [] } = useTestControls();
+  const { data: testResults = [] } = useTestResults();
   const [activeSection, setActiveSection] = useState<string>("entrenamientos");
   const [selectedSwimmer, setSelectedSwimmer] = useState<Swimmer | null>(null);
   const [swimmerDialogOpen, setSwimmerDialogOpen] = useState(false);
@@ -132,13 +144,9 @@ function MainApp() {
     ? swimmers.find(s => s.id === user.swimmerId) 
     : null;
 
-  // Cargar datos desde el servidor al montar el componente
-  useEffect(() => {
-    loadData();
-  }, []);
-
   // Log configuration info on mount
-  useEffect(() => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  React.useEffect(() => {
     console.log('📱 Club Natación Lo Prado - Sistema de Gestión');
     console.log('🔧 Versión: 2.0.4');
     console.log('');
@@ -167,98 +175,11 @@ function MainApp() {
     console.log('');
   }, []);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Cargar datos con manejo de errores individual
-      const results = await Promise.allSettled([
-        api.fetchSwimmers(),
-        api.fetchCompetitions(),
-        api.fetchSwimmerCompetitions(),
-        api.fetchWorkouts(),
-        api.fetchHolidays(),
-        api.fetchTestControls(),
-        api.fetchTestResults(),
-      ]);
-
-      // Extraer datos exitosos o usar arrays vacíos en caso de error
-      const swimmersData = results[0].status === 'fulfilled' ? results[0].value : [];
-      const competitionsData = results[1].status === 'fulfilled' ? results[1].value : [];
-      const participationsData = results[2].status === 'fulfilled' ? results[2].value : [];
-      const workoutsData = results[3].status === 'fulfilled' ? results[3].value : [];
-      const holidaysData = results[4].status === 'fulfilled' ? results[4].value : [];
-      const testControlsData = results[5].status === 'fulfilled' ? results[5].value : [];
-      const testResultsData = results[6].status === 'fulfilled' ? results[6].value : [];
-
-      // Log de errores si los hay (sin detener la carga)
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          const names = ['swimmers', 'competitions', 'participations', 'workouts', 'holidays', 'test-controls', 'test-results'];
-          console.warn(`⚠️ Error loading ${names[index]}:`, result.reason);
-        }
-      });
-      
-      setSwimmers(swimmersData);
-      setCompetitions(competitionsData);
-      setSwimmerCompetitions(participationsData);
-      
-      // Cargar entrenamientos - usar los que vienen de la BD
-      console.log('📊 Entrenamientos cargados desde BD:', workoutsData.length);
-      if (workoutsData.length > 0) {
-        console.log('📋 Muestra de entrenamientos:', workoutsData.slice(0, 3).map(w => ({
-          id: w.id,
-          week: w.week,
-          bloque: w.bloque,
-          mesociclo: w.mesociclo,
-          day: w.day,
-          group: w.group,
-          distance: w.distance
-        })));
-        
-        // Verificar estadísticas de distancia
-        const totalDist = workoutsData.reduce((sum: number, w: any) => sum + (w.distance || 0), 0);
-        console.log('📏 Distancia total de entrenamientos:', totalDist, 'm');
-        console.log('📏 Promedio por entrenamiento:', Math.round(totalDist / workoutsData.length), 'm');
-      }
-      setWorkouts(workoutsData);
-      
-      // Cargar días feriados
-      console.log('📊 Días feriados cargados desde BD:', holidaysData.length);
-      setHolidays(holidaysData);
-      
-      // Cargar controles de prueba
-      console.log('📊 Controles de prueba cargados desde BD:', testControlsData.length);
-      setTestControls(testControlsData);
-      
-      // Cargar resultados de prueba
-      console.log('📊 Resultados de prueba cargados desde BD:', testResultsData.length);
-      setTestResults(testResultsData);
-      
-      console.log("✅ Datos cargados desde Supabase:", {
-        swimmers: swimmersData.length,
-        competitions: competitionsData.length,
-        participations: participationsData.length,
-        workouts: workoutsData.length,
-        holidays: holidaysData.length,
-        testControls: testControlsData.length,
-        testResults: testResultsData.length,
-      });
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Error desconocido";
-      setError(errorMsg);
-      console.error("❌ Error cargando datos:", errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Funciones para gestionar nadadores
   const handleAddSwimmer = async (newSwimmer: Omit<Swimmer, "id">) => {
     try {
       const swimmer = await api.addSwimmer(newSwimmer);
-      setSwimmers([...swimmers, swimmer]);
+      queryClient.setQueryData<Swimmer[]>(['swimmers'], (old = []) => [...old, swimmer]);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
       alert(`Error al agregar nadador: ${errorMsg}`);
@@ -269,7 +190,7 @@ function MainApp() {
   const handleEditSwimmer = async (id: string, updatedSwimmer: Omit<Swimmer, "id">) => {
     try {
       const swimmer = await api.updateSwimmer(id, updatedSwimmer);
-      setSwimmers(swimmers.map(s => s.id === id ? swimmer : s));
+      queryClient.setQueryData<Swimmer[]>(['swimmers'], (old = []) => old.map(s => s.id === id ? swimmer : s));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
       alert(`Error al actualizar nadador: ${errorMsg}`);
@@ -281,7 +202,7 @@ function MainApp() {
     if (confirm("¿Estás seguro de que deseas eliminar este nadador?")) {
       try {
         await api.deleteSwimmer(id);
-        setSwimmers(swimmers.filter(s => s.id !== id));
+        queryClient.setQueryData<Swimmer[]>(['swimmers'], (old = []) => old.filter(s => s.id !== id));
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Error desconocido";
         alert(`Error al eliminar nadador: ${errorMsg}`);
@@ -312,9 +233,10 @@ function MainApp() {
       };
       await api.updateSwimmer(swimmerId, updatedSwimmer);
       
-      // Actualizar la lista de nadadores
-      const updatedSwimmers = swimmers.map(s => s.id === swimmerId ? { ...s, personalBests, personalBestsHistory: updatedHistory } : s);
-      setSwimmers(updatedSwimmers);
+      // Actualizar la lista de nadadores en caché
+      queryClient.setQueryData<Swimmer[]>(['swimmers'], (old = []) =>
+        old.map(s => s.id === swimmerId ? { ...s, personalBests, personalBestsHistory: updatedHistory } : s)
+      );
       
       // Actualizar el nadador seleccionado si es el mismo
       if (selectedSwimmer && selectedSwimmer.id === swimmerId) {
@@ -341,9 +263,10 @@ function MainApp() {
       };
       await api.updateSwimmer(swimmerId, updatedSwimmer);
       
-      // Actualizar la lista de nadadores
-      const updatedSwimmers = swimmers.map(s => s.id === swimmerId ? { ...s, goals } : s);
-      setSwimmers(updatedSwimmers);
+      // Actualizar la lista de nadadores en caché
+      queryClient.setQueryData<Swimmer[]>(['swimmers'], (old = []) =>
+        old.map(s => s.id === swimmerId ? { ...s, goals } : s)
+      );
       
       // Actualizar el nadador seleccionado si es el mismo
       if (selectedSwimmer && selectedSwimmer.id === swimmerId) {
@@ -363,7 +286,7 @@ function MainApp() {
   const handleAddCompetition = async (newCompetition: Omit<Competition, "id">) => {
     try {
       const competition = await api.addCompetition(newCompetition);
-      setCompetitions([...competitions, competition]);
+      queryClient.setQueryData<Competition[]>(['competitions'], (old = []) => [...old, competition]);
       console.log("✅ Competencia agregada:", competition);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -375,7 +298,7 @@ function MainApp() {
   const handleEditCompetition = async (id: string, updatedCompetition: Omit<Competition, "id">) => {
     try {
       const competition = await api.updateCompetition(id, updatedCompetition);
-      setCompetitions(competitions.map(c => c.id === id ? competition : c));
+      queryClient.setQueryData<Competition[]>(['competitions'], (old = []) => old.map(c => c.id === id ? competition : c));
       console.log("✅ Competencia actualizada:", competition);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -387,9 +310,9 @@ function MainApp() {
   const handleDeleteCompetition = async (id: string) => {
     try {
       await api.deleteCompetition(id);
-      setCompetitions(competitions.filter(c => c.id !== id));
-      // También eliminar participaciones relacionadas
-      setSwimmerCompetitions(swimmerCompetitions.filter(sc => sc.competitionId !== id));
+      queryClient.setQueryData<Competition[]>(['competitions'], (old = []) => old.filter(c => c.id !== id));
+      // También eliminar participaciones relacionadas del caché
+      queryClient.setQueryData<SwimmerCompetition[]>(['swimmer-competitions'], (old = []) => old.filter(sc => sc.competitionId !== id));
       console.log("✅ Competencia eliminada:", id);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -413,8 +336,8 @@ function MainApp() {
         // Actualizar participación existente
         const updated = { ...existing, participates };
         await api.updateSwimmerCompetition(existing.id, updated);
-        setSwimmerCompetitions(
-          swimmerCompetitions.map(sc => sc.id === existing.id ? updated : sc)
+        queryClient.setQueryData<SwimmerCompetition[]>(['swimmer-competitions'], (old = []) =>
+          old.map(sc => sc.id === existing.id ? updated : sc)
         );
       } else {
         // Crear nueva participación
@@ -425,7 +348,7 @@ function MainApp() {
           events: [],
         };
         const created = await api.addSwimmerCompetition(newParticipation);
-        setSwimmerCompetitions([...swimmerCompetitions, created]);
+        queryClient.setQueryData<SwimmerCompetition[]>(['swimmer-competitions'], (old = []) => [...old, created]);
       }
 
       console.log(`✅ Participación ${participates ? 'marcada' : 'desmarcada'}:`, {
@@ -456,24 +379,21 @@ function MainApp() {
         events
       );
 
-      // Actualizar estado local con la participación actualizada
-      const existingIndex = swimmerCompetitions.findIndex(
-        sc => sc.id === result.participation.id
-      );
-
-      if (existingIndex !== -1) {
-        const updated = [...swimmerCompetitions];
-        updated[existingIndex] = result.participation;
-        setSwimmerCompetitions(updated);
-      } else {
-        setSwimmerCompetitions([...swimmerCompetitions, result.participation]);
-      }
+      // Actualizar caché con la participación actualizada
+      queryClient.setQueryData<SwimmerCompetition[]>(['swimmer-competitions'], (old = []) => {
+        const existingIndex = old.findIndex(sc => sc.id === result.participation.id);
+        if (existingIndex !== -1) {
+          const updated = [...old];
+          updated[existingIndex] = result.participation;
+          return updated;
+        }
+        return [...old, result.participation];
+      });
 
       // Actualizar el nadador con las marcas personales actualizadas
-      const updatedSwimmers = swimmers.map(s => 
-        s.id === currentSwimmer.id ? result.swimmer : s
+      queryClient.setQueryData<Swimmer[]>(['swimmers'], (old = []) =>
+        old.map(s => s.id === currentSwimmer.id ? result.swimmer : s)
       );
-      setSwimmers(updatedSwimmers);
 
       alert("✅ Resultados guardados exitosamente. Tus marcas personales se han actualizado automáticamente.");
       console.log("✅ Resultados de competencia guardados:", result);
@@ -488,7 +408,7 @@ function MainApp() {
   const handleAddWorkout = async (workout: Omit<Workout, "id">) => {
     try {
       const newWorkout = await api.addWorkout(workout);
-      setWorkouts([...workouts, newWorkout]);
+      queryClient.setQueryData<Workout[]>(['workouts'], (old = []) => [...old, newWorkout]);
       console.log("✅ Entrenamiento agregado:", newWorkout);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -500,7 +420,7 @@ function MainApp() {
   const handleEditWorkout = async (id: string, workout: Omit<Workout, "id">) => {
     try {
       const updated = await api.updateWorkout(id, workout);
-      setWorkouts(workouts.map(w => w.id === id ? updated : w));
+      queryClient.setQueryData<Workout[]>(['workouts'], (old = []) => old.map(w => w.id === id ? updated : w));
       console.log("✅ Entrenamiento actualizado:", updated);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -526,7 +446,7 @@ function MainApp() {
   const handleDeleteWorkout = async (id: string) => {
     try {
       await api.deleteWorkout(id);
-      setWorkouts(workouts.filter(w => w.id !== id));
+      queryClient.setQueryData<Workout[]>(['workouts'], (old = []) => old.filter(w => w.id !== id));
       console.log("✅ Entrenamiento eliminado:", id);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -540,7 +460,7 @@ function MainApp() {
   const handleAddHoliday = async (holiday: Omit<Holiday, 'id'>) => {
     try {
       const newHoliday = await api.addHoliday(holiday);
-      setHolidays([...holidays, newHoliday]);
+      queryClient.setQueryData<Holiday[]>(['holidays'], (old = []) => [...old, newHoliday]);
       console.log("✅ Día feriado agregado:", newHoliday);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -552,7 +472,7 @@ function MainApp() {
   const handleEditHoliday = async (id: string, holiday: Omit<Holiday, 'id'>) => {
     try {
       const updatedHoliday = await api.updateHoliday(id, holiday);
-      setHolidays(holidays.map(h => h.id === id ? updatedHoliday : h));
+      queryClient.setQueryData<Holiday[]>(['holidays'], (old = []) => old.map(h => h.id === id ? updatedHoliday : h));
       console.log("✅ Día feriado actualizado:", updatedHoliday);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -564,7 +484,7 @@ function MainApp() {
   const handleDeleteHoliday = async (id: string) => {
     try {
       await api.deleteHoliday(id);
-      setHolidays(holidays.filter(h => h.id !== id));
+      queryClient.setQueryData<Holiday[]>(['holidays'], (old = []) => old.filter(h => h.id !== id));
       console.log("✅ Día feriado eliminado:", id);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -578,10 +498,7 @@ function MainApp() {
   const handleAddTestControl = async (testControl: TestControl) => {
     try {
       console.log('✅ App: Test control added from child component:', testControl.id);
-      
-      // Solo actualizar el estado con el test control ya creado
-      setTestControls(prev => [...prev, testControl]);
-      
+      queryClient.setQueryData<TestControl[]>(['test-controls'], (old = []) => [...old, testControl]);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
       alert(`Error al agregar test control: ${errorMsg}`);
@@ -592,7 +509,7 @@ function MainApp() {
   const handleEditTestControl = async (id: string, testControl: TestControl) => {
     try {
       const updatedTestControl = await api.updateTestControl(id, testControl);
-      setTestControls(testControls.map(tc => tc.id === id ? updatedTestControl : tc));
+      queryClient.setQueryData<TestControl[]>(['test-controls'], (old = []) => old.map(tc => tc.id === id ? updatedTestControl : tc));
       console.log("✅ Test control actualizado:", updatedTestControl);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -604,7 +521,7 @@ function MainApp() {
   const handleDeleteTestControl = async (id: string) => {
     try {
       await api.deleteTestControl(id);
-      setTestControls(testControls.filter(tc => tc.id !== id));
+      queryClient.setQueryData<TestControl[]>(['test-controls'], (old = []) => old.filter(tc => tc.id !== id));
       console.log("✅ Test control eliminado:", id);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -616,7 +533,7 @@ function MainApp() {
   const handleAddTestResult = async (testResult: Omit<TestResult, 'id'>) => {
     try {
       const newTestResult = await api.addTestResult(testResult);
-      setTestResults([...testResults, newTestResult]);
+      queryClient.setQueryData<TestResult[]>(['test-results'], (old = []) => [...old, newTestResult]);
       console.log("✅ Resultado de test agregado:", newTestResult);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -628,7 +545,7 @@ function MainApp() {
   const handleEditTestResult = async (id: string, testResult: Omit<TestResult, 'id'>) => {
     try {
       const updated = await api.updateTestResult(id, testResult);
-      setTestResults(testResults.map(tr => tr.id === id ? updated : tr));
+      queryClient.setQueryData<TestResult[]>(['test-results'], (old = []) => old.map(tr => tr.id === id ? updated : tr));
       console.log("✅ Resultado de test actualizado:", updated);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -640,7 +557,7 @@ function MainApp() {
   const handleDeleteTestResult = async (id: string) => {
     try {
       await api.deleteTestResult(id);
-      setTestResults(testResults.filter(tr => tr.id !== id));
+      queryClient.setQueryData<TestResult[]>(['test-results'], (old = []) => old.filter(tr => tr.id !== id));
       console.log("✅ Resultado de test eliminado:", id);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error desconocido";

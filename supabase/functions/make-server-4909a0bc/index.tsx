@@ -1581,12 +1581,14 @@ app.delete("/make-server-4909a0bc/swimmers/:id", async (c) => {
 // Get all attendance records
 app.get("/make-server-4909a0bc/attendance", async (c) => {
   try {
+    const fromDate = c.req.query('fromDate'); // filtro opcional: YYYY-MM-DD
     const records = await kv.getByPrefix("attendance:");
     const attendanceList = records
       ? records
           .filter((item: any) => item.key !== "attendance:list")
           .map((item: any) => item.value)
           .filter((record: any) => record && record.id && record.swimmerId && record.sessionId) // Filtrar registros inválidos
+          .filter((record: any) => !fromDate || !record.date || record.date >= fromDate) // Filtrar por fecha
       : [];
     return c.json({ attendance: attendanceList });
   } catch (error) {
