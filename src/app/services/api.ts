@@ -1021,3 +1021,29 @@ export async function deleteTestResult(id: string): Promise<void> {
     throw error;
   }
 }
+
+export async function fetchRecords(): Promise<any> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/records`, {
+      headers: getPublicHeaders(),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    return data.records;
+  } catch (error) {
+    console.error('❌ Error fetching records:', error);
+    return null;
+  }
+}
+
+export async function saveRecords(records: any): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/records`, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify(records),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Failed to save records: ${error.error || response.statusText}`);
+  }
+}

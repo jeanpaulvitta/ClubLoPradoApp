@@ -78,3 +78,11 @@ export function useAttendance(fromDate?: string) {
     gcTime: 10 * 60 * 1000,
   });
 }
+
+export function useRecords() {
+  return useQuery<any>({
+    queryKey: ['records'],
+    queryFn: api.fetchRecords,
+    staleTime: 30 * 60 * 1000,
+  });
+}

@@ -2778,6 +2778,29 @@ app.delete("/make-server-4909a0bc/workouts/:id/permanent", async (c) => {
   }
 });
 
+// Get national records
+app.get("/make-server-4909a0bc/records", async (c) => {
+  try {
+    const records = await kv.get("records:national");
+    return c.json({ records: records || null });
+  } catch (error) {
+    console.error("Error fetching records:", error);
+    return c.json({ error: "Failed to fetch records", details: String(error) }, 500);
+  }
+});
+
+// Save national records
+app.put("/make-server-4909a0bc/records", async (c) => {
+  try {
+    const records = await c.req.json();
+    await kv.set("records:national", records);
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error saving records:", error);
+    return c.json({ error: "Failed to save records", details: String(error) }, 500);
+  }
+});
+
 // Initialize storage buckets on startup
 console.log('🚀 Starting server initialization...');
 await initializeStorage();

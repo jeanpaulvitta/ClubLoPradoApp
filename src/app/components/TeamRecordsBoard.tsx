@@ -1,10 +1,15 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Trophy, Waves, Users, Edit2, Save, X, Filter } from "lucide-react";
+import { Trophy, Waves, Users, Edit2, Save, X, Filter, FileText } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { useRecords } from "../hooks/useAppData";
+import { saveRecords } from "../services/api";
 
 interface TeamRecordsBoardProps {
   swimmers?: any[];
@@ -52,8 +57,8 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
     setEditForm(null);
   };
 
-  // Estructura de datos para récords nacionales
-  const nationalRecords: Record<PoolType, Record<AgeCategory, Record<Gender, Record<string, NationalRecord>>>> = {
+  // Estructura de datos para récords nacionales (valores por defecto)
+  const defaultData: Record<PoolType, Record<AgeCategory, Record<Gender, Record<string, NationalRecord>>>> = {
     corta: {
       "11-12": {
         femenino: {
@@ -2495,6 +2500,10 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
     }
   };
 
+  const queryClient = useQueryClient();
+  const { data: storedRecords } = useRecords();
+  const nationalRecords = (storedRecords ?? defaultData) as typeof defaultData;
+
   const getPoolTypeLabel = (pool: PoolType) => {
     return pool === "corta" ? "Piscina Corta (25m)" : "Piscina Larga (50m)";
   };
@@ -2535,14 +2544,65 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
   };
 
   // Guardar récord editado
-  const handleSaveRecord = () => {
-    if (editingRecord && editForm) {
-      // Aquí actualizamos el récord en la estructura de datos
-      nationalRecords[selectedPool][selectedCategory][selectedGender][editingRecord] = editForm;
-      setEditingRecord(null);
-      setEditForm(null);
-      alert(`✅ Récord de ${editingRecord} actualizado exitosamente!`);
+  const handleSaveRecord = async () => {
+    if (!editingRecord || !editForm) return;
+    const updated = {
+      ...nationalRecords,
+      [selectedPool]: {
+        ...nationalRecords[selectedPool],
+        [selectedCategory]: {
+          ...nationalRecords[selectedPool][selectedCategory],
+          [selectedGender]: {
+            ...nationalRecords[selectedPool][selectedCategory][selectedGender],
+            [editingRecord]: editForm,
+          },
+        },
+      },
+    };
+    queryClient.setQueryData(['records'], updated);
+    setEditingRecord(null);
+    setEditForm(null);
+    try {
+      await saveRecords(updated);
+    } catch (e) {
+      console.error('Error guardando récord:', e);
     }
+  };
+
+  const generateRecordsPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Club Lo Prado - Récords Nacionales", pageWidth / 2, 18, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      `${getPoolTypeLabel(selectedPool)} • ${getCategoryLabel(selectedCategory)} • ${getGenderLabel(selectedGender)}`,
+      pageWidth / 2,
+      28,
+      { align: "center" }
+    );
+
+    const currentRecords = nationalRecords[selectedPool][selectedCategory][selectedGender];
+    let entries = Object.entries(currentRecords);
+    if (selectedEvent !== "all") {
+      entries = entries.filter(([ev]) => ev === selectedEvent);
+    }
+
+    autoTable(doc, {
+      head: [["Prueba", "Tiempo", "Atleta", "Fecha", "Lugar"]],
+      body: entries.map(([, r]) => [r.event, r.time, r.holder, r.date, r.location]),
+      startY: 36,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [234, 179, 8], textColor: 0 },
+      alternateRowStyles: { fillColor: [254, 252, 232] },
+    });
+
+    const filename = `Records_${selectedPool}_${selectedCategory}_${selectedGender}.pdf`;
+    doc.save(filename);
   };
 
   const renderRecordsTable = () => {
@@ -2882,7 +2942,7 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
       {/* Información de Selección Actual */}
       <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
         <CardContent className="py-4">
-          <div className="flex items-center justify-center gap-4 text-center flex-wrap">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <p className="text-sm text-gray-600 mb-1">Mostrando récords para:</p>
               <p className="text-lg font-bold text-gray-800">
@@ -2900,6 +2960,13 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
                 </p>
               )}
             </div>
+            <Button
+              onClick={generateRecordsPDF}
+              className="bg-red-600 hover:bg-red-700 text-white shrink-0"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Generar PDF
+            </Button>
           </div>
         </CardContent>
       </Card>
