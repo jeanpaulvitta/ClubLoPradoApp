@@ -2605,10 +2605,13 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
       alternateRowStyles: { fillColor: [254, 252, 232] },
     });
 
-    // Tabla récord más reciente y más antiguo
-    const allEntries = entries.map(([, r]) => r).filter((r) => r.date);
-    if (allEntries.length > 0) {
-      const sorted = [...allEntries].sort((a, b) => a.date.localeCompare(b.date));
+    // Separar pruebas individuales de relevos
+    const individualEntries = entries.map(([, r]) => r).filter((r) => r.date && !r.event.startsWith("4x"));
+    const relayEntries = entries.map(([, r]) => r).filter((r) => r.event.startsWith("4x"));
+
+    // Tabla récord más reciente y más antiguo (solo pruebas individuales)
+    if (individualEntries.length > 0) {
+      const sorted = [...individualEntries].sort((a, b) => a.date.localeCompare(b.date));
       const oldest = sorted[0];
       const newest = sorted[sorted.length - 1];
 
@@ -2617,7 +2620,7 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("Récord más reciente y más antiguo", pageWidth / 2, afterMainTable, { align: "center" });
+      doc.text("Récord más reciente y más antiguo (pruebas individuales)", pageWidth / 2, afterMainTable, { align: "center" });
 
       autoTable(doc, {
         head: [["", "Prueba", "Tiempo", "Atleta", "Fecha", "Lugar"]],
@@ -2630,6 +2633,25 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
         headStyles: { fillColor: [99, 102, 241], textColor: 255 },
         bodyStyles: { fillColor: [238, 242, 255] },
         columnStyles: { 0: { fontStyle: "bold" } },
+      });
+    }
+
+    // Tabla de relevos
+    if (relayEntries.length > 0) {
+      const afterPrevTable = (doc as any).lastAutoTable.finalY + 10;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0);
+      doc.text("Relevos", pageWidth / 2, afterPrevTable, { align: "center" });
+
+      autoTable(doc, {
+        head: [["Prueba", "Tiempo", "Atleta", "Fecha", "Lugar"]],
+        body: relayEntries.map((r) => [r.event, r.time, r.holder, r.date, r.location]),
+        startY: afterPrevTable + 5,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [16, 185, 129], textColor: 255 },
+        alternateRowStyles: { fillColor: [236, 253, 245] },
       });
     }
 
