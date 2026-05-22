@@ -2655,6 +2655,41 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
       });
     }
 
+    // Tabla: atleta con más récords
+    const holderCount: Record<string, { count: number; events: string[] }> = {};
+    for (const [, r] of entries) {
+      const name = r.holder.trim();
+      if (!holderCount[name]) holderCount[name] = { count: 0, events: [] };
+      holderCount[name].count++;
+      holderCount[name].events.push(r.event);
+    }
+    const topHolders = Object.entries(holderCount)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 5);
+
+    if (topHolders.length > 0) {
+      const afterPrevTable = (doc as any).lastAutoTable.finalY + 10;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0);
+      doc.text("Atletas con más récords nacionales", pageWidth / 2, afterPrevTable, { align: "center" });
+
+      autoTable(doc, {
+        head: [["Atleta", "N° Récords", "Pruebas"]],
+        body: topHolders.map(([name, data]) => [
+          name,
+          String(data.count),
+          data.events.join(", "),
+        ]),
+        startY: afterPrevTable + 5,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [220, 38, 38], textColor: 255 },
+        alternateRowStyles: { fillColor: [254, 242, 242] },
+        columnStyles: { 1: { halign: "center", fontStyle: "bold" } },
+      });
+    }
+
     // Pie de página
     doc.setFontSize(8);
     doc.setFont("helvetica", "italic");
