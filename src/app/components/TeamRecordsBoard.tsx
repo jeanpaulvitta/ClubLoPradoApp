@@ -2572,17 +2572,20 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
   const generateRecordsPDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    doc.setFontSize(18);
+    // Título principal
+    doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text("Club Lo Prado - Récords Nacionales", pageWidth / 2, 18, { align: "center" });
+    doc.text("Récords Nacionales - Chile", pageWidth / 2, 18, { align: "center" });
 
-    doc.setFontSize(12);
+    // Subtítulo con filtros actuales
+    doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.text(
       `${getPoolTypeLabel(selectedPool)} • ${getCategoryLabel(selectedCategory)} • ${getGenderLabel(selectedGender)}`,
       pageWidth / 2,
-      28,
+      27,
       { align: "center" }
     );
 
@@ -2592,14 +2595,49 @@ export function TeamRecordsBoard({ swimmers }: TeamRecordsBoardProps) {
       entries = entries.filter(([ev]) => ev === selectedEvent);
     }
 
+    // Tabla principal de récords
     autoTable(doc, {
       head: [["Prueba", "Tiempo", "Atleta", "Fecha", "Lugar"]],
       body: entries.map(([, r]) => [r.event, r.time, r.holder, r.date, r.location]),
-      startY: 36,
+      startY: 34,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [234, 179, 8], textColor: 0 },
       alternateRowStyles: { fillColor: [254, 252, 232] },
     });
+
+    // Tabla récord más reciente y más antiguo
+    const allEntries = entries.map(([, r]) => r).filter((r) => r.date);
+    if (allEntries.length > 0) {
+      const sorted = [...allEntries].sort((a, b) => a.date.localeCompare(b.date));
+      const oldest = sorted[0];
+      const newest = sorted[sorted.length - 1];
+
+      const afterMainTable = (doc as any).lastAutoTable.finalY + 10;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0);
+      doc.text("Récord más reciente y más antiguo", pageWidth / 2, afterMainTable, { align: "center" });
+
+      autoTable(doc, {
+        head: [["", "Prueba", "Tiempo", "Atleta", "Fecha", "Lugar"]],
+        body: [
+          ["Más reciente", newest.event, newest.time, newest.holder, newest.date, newest.location],
+          ["Más antiguo", oldest.event, oldest.time, oldest.holder, oldest.date, oldest.location],
+        ],
+        startY: afterMainTable + 5,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [99, 102, 241], textColor: 255 },
+        bodyStyles: { fillColor: [238, 242, 255] },
+        columnStyles: { 0: { fontStyle: "bold" } },
+      });
+    }
+
+    // Pie de página
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(120);
+    doc.text("Récords Nacionales -- Vitta, Jean Paul", pageWidth / 2, pageHeight - 8, { align: "center" });
 
     const filename = `Records_${selectedPool}_${selectedCategory}_${selectedGender}.pdf`;
     doc.save(filename);
