@@ -43,6 +43,8 @@ import { MinimumTimesChecker } from "@/app/components/MinimumTimesChecker";
 import { SwimmerMinimumTimesView } from "@/app/components/SwimmerMinimumTimesView";
 import { MinimumTimesReference } from "@/app/components/MinimumTimesReference";
 import { GroupFilterSelector } from "@/app/components/GroupFilterSelector";
+import { CategoryFilterSelector } from "@/app/components/CategoryFilterSelector";
+import { ImportSwimmersDialog } from "@/app/components/ImportSwimmersDialog";
 import { SeasonStructureInfo } from "@/app/components/SeasonStructureInfo";
 import { PhysicalPreparation } from "@/app/components/PhysicalPreparation";
 import { generateAllSwimmersPDF } from "@/app/utils/pdfGenerator";
@@ -124,8 +126,11 @@ function MainApp() {
   
   // Estados para filtros de nadadores
   const [filterGender, setFilterGender] = useState<string>("all");
-  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterGroup, setFilterGroup] = useState<"all" | 1 | 2>("all");
+
+  // Estado para dialog de importación Excel
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   
   // Estado para seleccionar qué estructura de temporada ver
   const [selectedSeasonGroup, setSelectedSeasonGroup] = useState<"group1" | "group2">("group1");
@@ -185,6 +190,13 @@ function MainApp() {
       alert(`Error al agregar nadador: ${errorMsg}`);
       console.error("❌ Error al agregar nadador:", err);
     }
+  };
+
+  // Handler para importación masiva: propaga el error para que el dialog lo maneje por fila
+  const handleImportSwimmer = async (newSwimmer: Omit<Swimmer, "id">): Promise<Swimmer> => {
+    const swimmer = await api.addSwimmer(newSwimmer);
+    queryClient.setQueryData<Swimmer[]>(['swimmers'], (old = []) => [...old, swimmer]);
+    return swimmer;
   };
 
   const handleEditSwimmer = async (id: string, updatedSwimmer: Omit<Swimmer, "id">) => {
@@ -785,15 +797,15 @@ function MainApp() {
       if (filterGender !== "all" && swimmer.gender !== filterGender) {
         return false;
       }
-      
-      // Filtro por categoría
-      if (filterCategory !== "all") {
+
+      // Filtro por categorías (multi-select)
+      if (filterCategories.length > 0) {
         const category = calculateCategoryFromBirthDate(swimmer.dateOfBirth);
-        if (category !== filterCategory) {
+        if (!filterCategories.includes(category)) {
           return false;
         }
       }
-      
+
       // Filtro por grupo de entrenamiento
       if (filterGroup !== "all") {
         const swimmerGroup = getTrainingGroupFromBirthDate(swimmer.dateOfBirth);
@@ -801,23 +813,12 @@ function MainApp() {
           return false;
         }
       }
-      
+
       return true;
     });
   };
 
-  // Obtener todas las categorías únicas de los nadadores
-  const getUniqueCategories = () => {
-    const categories = new Set<string>();
-    swimmers.forEach((swimmer) => {
-      const category = calculateCategoryFromBirthDate(swimmer.dateOfBirth);
-      categories.add(category);
-    });
-    return Array.from(categories).sort();
-  };
-
   const filteredSwimmers = getFilteredSwimmers();
-  const uniqueCategories = getUniqueCategories();
 
   // Agrupar sesiones por semana
   const groupSessionsByWeek = () => {
@@ -1696,8 +1697,17 @@ function MainApp() {
                   <p className="text-gray-600">{filteredSwimmers.length} nadadores registrados</p>
                 </div>
                 {(user?.role === "admin" || user?.role === "coach") && (
-                  <div className="flex gap-2 w-full sm:w-auto">
+                  <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <AddSwimmerDialog onAddSwimmer={handleAddSwimmer} />
+                    <Button
+                      variant="outline"
+                      onClick={() => setImportDialogOpen(true)}
+                      className="gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span className="hidden sm:inline">Importar Excel</span>
+                      <span className="sm:hidden">Excel</span>
+                    </Button>
                     <Button
                       variant="outline"
                       onClick={async () => {
@@ -1720,9 +1730,9 @@ function MainApp() {
 
               {/* Filtros */}
               <Card className="mb-6">
-                <CardContent className="pt-6">
+                <CardContent className="pt-6 space-y-4">
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1">
+                    <div className="sm:w-48">
                       <label className="text-sm font-medium mb-2 block">Género</label>
                       <Select value={filterGender} onValueChange={setFilterGender}>
                         <SelectTrigger>
@@ -1730,34 +1740,26 @@ function MainApp() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="M">Masculino</SelectItem>
-                          <SelectItem value="F">Femenino</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-sm font-medium mb-2 block">Categoría</label>
-                      <Select value={filterCategory} onValueChange={setFilterCategory}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todas</SelectItem>
-                          {uniqueCategories.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="Masculino">Masculino</SelectItem>
+                          <SelectItem value="Femenino">Femenino</SelectItem>
+                          <SelectItem value="Otro">Otro</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="flex-1">
                       <label className="text-sm font-medium mb-2 block">Grupo</label>
                       <GroupFilterSelector
-                        value={filterGroup}
-                        onChange={setFilterGroup}
+                        selectedGroup={filterGroup}
+                        onGroupChange={setFilterGroup}
                       />
                     </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Categoría</label>
+                    <CategoryFilterSelector
+                      value={filterCategories}
+                      onChange={setFilterCategories}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -1793,6 +1795,14 @@ function MainApp() {
                 />
               )}
             </div>
+
+            {/* Dialog importación Excel */}
+            <ImportSwimmersDialog
+              open={importDialogOpen}
+              onOpenChange={setImportDialogOpen}
+              existingSwimmers={swimmers}
+              onImport={handleImportSwimmer}
+            />
 
             {/* Vista de Tiempos Mínimos */}
             {currentSwimmer && (
