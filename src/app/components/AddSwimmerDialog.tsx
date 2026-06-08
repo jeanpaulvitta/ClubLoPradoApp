@@ -23,6 +23,24 @@ import type { Swimmer } from "../data/swimmers";
 import { calculateAge, calculateCategoryFromBirthDate } from "../utils/swimmerUtils";
 import { ProfileImagePicker } from "./ProfileImagePicker";
 
+const SCHEDULES = [
+  { value: "6am",    label: "6:00 AM" },
+  { value: "6:30am", label: "6:30 AM" },
+  { value: "7am",    label: "7:00 AM" },
+  { value: "7:30am", label: "7:30 AM" },
+  { value: "8am",    label: "8:00 AM" },
+  { value: "8:30am", label: "8:30 AM" },
+  { value: "9am",    label: "9:00 AM" },
+  { value: "10am",   label: "10:00 AM" },
+  { value: "5pm",    label: "5:00 PM" },
+  { value: "6pm",    label: "6:00 PM" },
+  { value: "7pm",    label: "7:00 PM" },
+  { value: "7:30pm", label: "7:30 PM" },
+  { value: "8pm",    label: "8:00 PM" },
+  { value: "9pm",    label: "9:00 PM" },
+  { value: "10pm",   label: "10:00 PM" },
+];
+
 interface AddSwimmerDialogProps {
   onAddSwimmer: (swimmer: Omit<Swimmer, "id">) => void;
 }
@@ -31,13 +49,17 @@ export function AddSwimmerDialog({ onAddSwimmer }: AddSwimmerDialogProps) {
   const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    rut: "",
-    gender: "Masculino" as "Masculino" | "Femenino" | "Otro",
-    dateOfBirth: "",
-    joinDate: new Date().toISOString().split("T")[0],
-    profileImage: undefined as string | undefined,
+    name:          "",
+    email:         "",
+    rut:           "",
+    gender:        "Masculino" as "Masculino" | "Femenino" | "Otro",
+    schedule:      "7am",
+    dateOfBirth:   "",
+    joinDate:      new Date().toISOString().split("T")[0],
+    profileImage:  undefined as string | undefined,
+    phone:         "",
+    guardianName:  "",
+    guardianPhone: "",
   });
 
   // Calcular edad y categoría en tiempo real
@@ -68,28 +90,28 @@ export function AddSwimmerDialog({ onAddSwimmer }: AddSwimmerDialogProps) {
     }
 
     onAddSwimmer({
-      name: formData.name,
-      email: formData.email,
-      rut: formData.rut,
-      gender: formData.gender,
-      schedule: "7am", // Valor por defecto
-      dateOfBirth: formData.dateOfBirth,
-      joinDate: formData.joinDate,
-      profileImage: formData.profileImage,
-      personalBests: [], // Inicializar con array vacío
-      personalBestsHistory: [], // Inicializar con array vacío
-      goals: [], // Inicializar con array vacío
+      name:          formData.name,
+      email:         formData.email,
+      rut:           formData.rut || undefined,
+      gender:        formData.gender,
+      schedule:      formData.schedule,
+      dateOfBirth:   formData.dateOfBirth,
+      joinDate:      formData.joinDate,
+      profileImage:  formData.profileImage,
+      personalBests: [],
+      personalBestsHistory: [],
+      goals:         [],
+      status:        "Activo",
+      phone:         formData.phone || undefined,
+      guardianName:  formData.guardianName || undefined,
+      guardianPhone: formData.guardianPhone || undefined,
     });
 
-    // Resetear formulario
     setFormData({
-      name: "",
-      email: "",
-      rut: "",
-      gender: "Masculino",
-      dateOfBirth: "",
-      joinDate: new Date().toISOString().split("T")[0],
-      profileImage: undefined,
+      name: "", email: "", rut: "",
+      gender: "Masculino", schedule: "7am",
+      dateOfBirth: "", joinDate: new Date().toISOString().split("T")[0],
+      profileImage: undefined, phone: "", guardianName: "", guardianPhone: "",
     });
     setOpen(false);
   };
@@ -233,15 +255,60 @@ export function AddSwimmerDialog({ onAddSwimmer }: AddSwimmerDialogProps) {
           )}
 
           <div className="space-y-2">
+            <Label htmlFor="schedule">Horario de Entrenamiento</Label>
+            <Select
+              value={formData.schedule}
+              onValueChange={v => setFormData({ ...formData, schedule: v })}
+            >
+              <SelectTrigger id="schedule">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SCHEDULES.map(s => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="joinDate">Fecha de Ingreso</Label>
             <Input
               id="joinDate"
               type="date"
               value={formData.joinDate}
-              onChange={(e) =>
-                setFormData({ ...formData, joinDate: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="phone">Teléfono deportista</Label>
+            <Input
+              id="phone"
+              value={formData.phone}
+              onChange={e => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="+56 9 1234 5678"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="guardianName">Nombre apoderado</Label>
+              <Input
+                id="guardianName"
+                value={formData.guardianName}
+                onChange={e => setFormData({ ...formData, guardianName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="guardianPhone">Teléfono apoderado</Label>
+              <Input
+                id="guardianPhone"
+                value={formData.guardianPhone}
+                onChange={e => setFormData({ ...formData, guardianPhone: e.target.value })}
+                placeholder="+56 9 8765 4321"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

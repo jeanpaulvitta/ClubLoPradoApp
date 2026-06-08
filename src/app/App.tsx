@@ -1776,7 +1776,7 @@ function MainApp() {
                       <span className="hidden sm:inline">Importar Excel</span>
                       <span className="sm:hidden">Excel</span>
                     </Button>
-                    <Button variant="outline" size="sm" onClick={async () => { try { await generateAllSwimmersPDF(swimmers); } catch { alert("Error al generar PDF"); } }} className="gap-1.5">
+                    <Button variant="outline" size="sm" onClick={async () => { try { await generateAllSwimmersPDF(filteredSwimmers); } catch { alert("Error al generar PDF"); } }} className="gap-1.5">
                       <FileDown className="w-4 h-4" />
                       <span className="hidden sm:inline">Exportar PDF</span>
                       <span className="sm:hidden">PDF</span>

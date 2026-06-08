@@ -4,7 +4,7 @@ export interface Swimmer {
   email: string;
   rut?: string;
   gender?: "Masculino" | "Femenino" | "Otro";
-  schedule: "7am" | "8am" | "9pm";
+  schedule: string; // e.g. "7am", "8am", "7:30am", "6pm", etc.
   dateOfBirth: string;
   joinDate: string;
   personalBests?: PersonalBest[];

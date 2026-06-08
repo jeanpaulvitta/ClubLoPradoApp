@@ -48,7 +48,7 @@ export function generateSwimmerPDF(
   // Subtítulo con nombre del equipo
   doc.setFontSize(12);
   doc.setTextColor(100, 100, 100);
-  doc.text('Natación Master - Universidad de Chile', pageWidth / 2, yPos, { align: 'center' });
+  doc.text('Club Natación Lo Prado', pageWidth / 2, yPos, { align: 'center' });
   yPos += 15;
 
   // Información personal
@@ -231,8 +231,8 @@ export function generateSwimmerPDF(
 // Generar PDF grupal de todos los nadadores
 export function generateAllSwimmersPDF(
   swimmers: Swimmer[],
-  attendanceRecordsBySwimmer: Map<string, AttendanceRecord[]>,
-  teamRecordsBySwimmer: Map<string, number>
+  attendanceRecordsBySwimmer?: Map<string, AttendanceRecord[]>,
+  teamRecordsBySwimmer?: Map<string, number>
 ): void {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -244,7 +244,7 @@ export function generateAllSwimmersPDF(
 
   doc.setFontSize(12);
   doc.setTextColor(100, 100, 100);
-  doc.text('Natación Master - Universidad de Chile', pageWidth / 2, 30, { align: 'center' });
+  doc.text('Club Natación Lo Prado', pageWidth / 2, 30, { align: 'center' });
 
   doc.setFontSize(10);
   doc.text(`Total de nadadores: ${swimmers.length}`, pageWidth / 2, 40, { align: 'center' });
@@ -253,12 +253,12 @@ export function generateAllSwimmersPDF(
 
   // Tabla resumen de todos los nadadores
   const summaryData = swimmers.map(swimmer => {
-    const attendanceRecords = attendanceRecordsBySwimmer.get(swimmer.id) || [];
+    const attendanceRecords = attendanceRecordsBySwimmer?.get(swimmer.id) || [];
     const totalAttendances = attendanceRecords.filter(r => r.attended).length;
     const totalSessions = attendanceRecords.length;
-    const attendanceRate = totalSessions > 0 ? ((totalAttendances / totalSessions) * 100).toFixed(1) : '0';
+    const attendanceRate = totalSessions > 0 ? ((totalAttendances / totalSessions) * 100).toFixed(1) : '-';
     const totalVolume = attendanceRecords.reduce((sum, r) => sum + r.volumeCompleted, 0);
-    const recordsCount = teamRecordsBySwimmer.get(swimmer.id) || 0;
+    const recordsCount = teamRecordsBySwimmer?.get(swimmer.id) || 0;
 
     return [
       swimmer.name,
@@ -305,12 +305,20 @@ export function generateAllSwimmersPDF(
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
     const personalInfo = [
-      ['Email', swimmer.email],
-      ['RUT', swimmer.rut || '-'],
-      ['Género', swimmer.gender || '-'],
-      ['Edad', `${calculateAge(swimmer.dateOfBirth)} años`],
-      ['Horario', swimmer.schedule],
-      ['Ingreso', formatDate(swimmer.joinDate)],
+      ['RUT',           swimmer.rut || '-'],
+      ['Género',        swimmer.gender || '-'],
+      ['Nacimiento',    `${formatDate(swimmer.dateOfBirth)} (${calculateAge(swimmer.dateOfBirth)} años)`],
+      ['Horario',       swimmer.schedule],
+      ['Estado',        swimmer.status || 'Activo'],
+      ['Ingreso',       formatDate(swimmer.joinDate)],
+      ...(swimmer.phone         ? [['Teléfono',        swimmer.phone]] : []),
+      ...(swimmer.guardianName  ? [['Apoderado',       swimmer.guardianName]] : []),
+      ...(swimmer.guardianPhone ? [['Tel. Apoderado',  swimmer.guardianPhone]] : []),
+      ...(swimmer.school        ? [['Colegio',         swimmer.school]] : []),
+      ...(swimmer.nationality   ? [['Nacionalidad',    swimmer.nationality]] : []),
+      ...(swimmer.commune       ? [['Comuna',          swimmer.commune]] : []),
+      ...(swimmer.address       ? [['Dirección',       swimmer.address]] : []),
+      ...(swimmer.characteristic? [['Característica',  swimmer.characteristic]] : []),
     ];
 
     autoTable(doc, {
@@ -424,7 +432,7 @@ export function generateWorkoutPDF(workout: Workout): void {
   // Subtítulo con nombre del equipo
   doc.setFontSize(12);
   doc.setTextColor(100, 100, 100);
-  doc.text('Natación Master - Universidad de Chile', pageWidth / 2, yPos, { align: 'center' });
+  doc.text('Club Natación Lo Prado', pageWidth / 2, yPos, { align: 'center' });
   yPos += 15;
 
   // Información del entrenamiento
@@ -542,7 +550,7 @@ export function generateChallengePDF(challenge: Challenge): void {
   // Subtítulo con nombre del equipo
   doc.setFontSize(12);
   doc.setTextColor(100, 100, 100);
-  doc.text('Natación Master - Universidad de Chile', pageWidth / 2, yPos, { align: 'center' });
+  doc.text('Club Natación Lo Prado', pageWidth / 2, yPos, { align: 'center' });
   yPos += 15;
 
   // Nombre del desafío
@@ -669,7 +677,7 @@ export function generateTestControlsPDF(
   // Subtítulo con nombre del equipo
   doc.setFontSize(12);
   doc.setTextColor(100, 100, 100);
-  doc.text('Natación Master - Universidad de Chile', pageWidth / 2, yPos, { align: 'center' });
+  doc.text('Club Natación Lo Prado', pageWidth / 2, yPos, { align: 'center' });
   yPos += 15;
 
   // Estadísticas generales
@@ -839,7 +847,7 @@ export function generateSwimmerTestProgressPDF(
   // Subtítulo con nombre del equipo
   doc.setFontSize(12);
   doc.setTextColor(100, 100, 100);
-  doc.text('Natación Master - Universidad de Chile', pageWidth / 2, yPos, { align: 'center' });
+  doc.text('Club Natación Lo Prado', pageWidth / 2, yPos, { align: 'center' });
   yPos += 15;
 
   // Información del nadador
@@ -994,7 +1002,7 @@ export function generateAllSwimmersTestProgressPDF(
   // Subtítulo con nombre del equipo
   doc.setFontSize(12);
   doc.setTextColor(100, 100, 100);
-  doc.text('Natación Master - Universidad de Chile', pageWidth / 2, yPos, { align: 'center' });
+  doc.text('Club Natación Lo Prado', pageWidth / 2, yPos, { align: 'center' });
   yPos += 15;
 
   // Estadísticas generales
@@ -1200,7 +1208,7 @@ export function generateTrainingPacePDF(sessions: TrainingSession[]): void {
   // Subtítulo con nombre del equipo
   doc.setFontSize(12);
   doc.setTextColor(100, 100, 100);
-  doc.text('Natación Master - Universidad de Chile', pageWidth / 2, yPos, { align: 'center' });
+  doc.text('Club Natación Lo Prado', pageWidth / 2, yPos, { align: 'center' });
   yPos += 15;
 
   // Estadísticas Generales

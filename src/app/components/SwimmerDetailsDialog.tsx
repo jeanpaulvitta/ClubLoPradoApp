@@ -3,7 +3,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
   User, Mail, Calendar, Trash2, Cake, Crown, CreditCard,
-  Phone, Building2, MapPin, Users, FileDown, UserCheck,
+  Phone, Building2, MapPin, Users, FileDown, UserCheck, ChevronLeft,
 } from "lucide-react";
 import { SwimmerCompetitionsDialog } from "./SwimmerCompetitionsDialog";
 import { EditSwimmerDialog } from "./EditSwimmerDialog";
@@ -40,17 +40,17 @@ interface SwimmerDetailsDialogProps {
 function DataRow({ label, value, icon: Icon }: { label: string; value?: string | null; icon?: React.ElementType }) {
   if (!value) return null;
   return (
-    <div className="flex items-start gap-2 py-1.5">
-      {Icon && <Icon className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />}
-      <span className="text-xs text-gray-500 shrink-0 w-28">{label}</span>
-      <span className="text-sm font-medium text-gray-800 break-all">{value}</span>
+    <div className="flex items-start gap-1.5 py-1">
+      {Icon && <Icon className="w-3 h-3 text-gray-400 mt-0.5 shrink-0" />}
+      <span className="text-[11px] text-gray-500 shrink-0 w-24">{label}</span>
+      <span className="text-xs font-medium text-gray-800 break-all leading-relaxed">{value}</span>
     </div>
   );
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4 mb-1 border-t border-gray-100 pt-3 first:mt-0 first:border-0 first:pt-0">
+    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-0.5 border-t border-gray-100 pt-2.5 first:mt-0 first:border-0 first:pt-0">
       {children}
     </p>
   );
@@ -245,7 +245,11 @@ export function SwimmerDetailsDialog({
           </div>
 
           {/* ── Action buttons ──────────────────────────────────────────── */}
-          <div className="flex flex-wrap gap-2 pt-4 mt-4 border-t border-gray-100">
+          <div className="flex flex-wrap gap-2 pt-3 mt-3 border-t border-gray-100">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="gap-1 mr-auto">
+              <ChevronLeft className="w-3.5 h-3.5" />
+              Volver
+            </Button>
             {onSavePersonalBests && (
               <PersonalBestsDialog
                 swimmerId={swimmer.id}
