@@ -18,9 +18,12 @@ import {
   XCircle,
   AlertCircle,
   RefreshCw,
+  Download,
+  BookOpen,
 } from "lucide-react";
 import type { Swimmer } from "../data/swimmers";
 import { calculateCategoryFromBirthDate } from "../utils/swimmerUtils";
+import { generateGuiaPDF } from "../utils/generateGuiaPDF";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -400,6 +403,27 @@ export function ImportSwimmersDialog({
         {/* ── UPLOAD ── */}
         {step === "upload" && (
           <div className="space-y-4">
+            {/* Download helpers */}
+            <div className="flex flex-wrap gap-2 pb-1 border-b border-gray-100">
+              <a
+                href="/Plantilla_Atletas.xlsx"
+                download="Plantilla_Atletas.xlsx"
+                className="inline-flex items-center gap-2 text-sm font-medium text-green-700 border border-green-300 rounded-md px-3 py-1.5 hover:bg-green-50 transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Descargar plantilla Excel
+              </a>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => generateGuiaPDF()}
+                className="gap-2 text-blue-700 border-blue-300 hover:bg-blue-50"
+              >
+                <BookOpen className="w-4 h-4" />
+                Descargar guía de columnas (PDF)
+              </Button>
+            </div>
+
             <div
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
