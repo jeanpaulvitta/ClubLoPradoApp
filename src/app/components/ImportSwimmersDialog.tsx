@@ -35,6 +35,17 @@ interface ParsedSwimmer {
   dateOfBirth: string;
   calculatedCategory: string;
   excelCategory?: string;
+  // Extended fields from Excel
+  phone?: string;
+  guardianName?: string;
+  guardianPhone?: string;
+  school?: string;
+  nationality?: string;
+  commune?: string;
+  address?: string;
+  status?: "Activo" | "Inactivo" | "Suspendido" | "Egresado";
+  shortName?: string;
+  characteristic?: string;
 }
 
 interface ParsedRow {
@@ -66,6 +77,22 @@ function normalizeGender(raw: unknown): "Masculino" | "Femenino" | "Otro" {
   if (["M", "MASCULINO", "MALE", "HOMBRE", "H"].includes(val)) return "Masculino";
   if (["F", "FEMENINO", "FEMALE", "MUJER"].includes(val)) return "Femenino";
   return "Otro";
+}
+
+function normalizeStatus(raw: unknown): "Activo" | "Inactivo" | "Suspendido" | "Egresado" | undefined {
+  if (raw == null || String(raw).trim() === "") return undefined;
+  const val = String(raw).trim().toUpperCase();
+  if (val === "ACTIVO") return "Activo";
+  if (val === "INACTIVO") return "Inactivo";
+  if (val === "SUSPENDIDO") return "Suspendido";
+  if (val === "EGRESADO") return "Egresado";
+  return "Activo"; // default
+}
+
+function str(raw: unknown): string | undefined {
+  if (raw == null) return undefined;
+  const s = String(raw).trim();
+  return s || undefined;
 }
 
 // Excel serial date → YYYY-MM-DD
@@ -173,21 +200,25 @@ function parseRow(
   const rutRaw = findColumn(rawRow, ["Rut", "RUT", "RUN"]);
   const generoRaw = findColumn(rawRow, ["Genero", "Género", "GENERO", "GÉNERO", "Sexo", "SEXO"]);
   const fechaNacRaw = findColumn(rawRow, [
-    "Fecha de Nacimiento",
-    "Fecha Nacimiento",
-    "FECHA DE NACIMIENTO",
-    "FECHA_NACIMIENTO",
-    "Fecha nacimiento",
+    "Fecha de Nacimiento", "Fecha Nacimiento",
+    "FECHA DE NACIMIENTO", "FECHA_NACIMIENTO", "Fecha nacimiento",
   ]);
   const emailRaw = findColumn(rawRow, [
-    "Email tutor",
-    "EMAIL TUTOR",
-    "email tutor",
-    "Email",
-    "EMAIL",
-    "Correo",
+    "Email tutor", "EMAIL TUTOR", "email tutor", "Email", "EMAIL", "Correo",
   ]);
   const categoriaRaw = findColumn(rawRow, ["Categoria", "Categoría", "CATEGORIA"]);
+
+  // Extended fields
+  const fonoDeportistaRaw  = findColumn(rawRow, ["Fono deportista", "Fono Deportista", "FONO DEPORTISTA", "Teléfono", "Telefono"]);
+  const nombreApoderadoRaw = findColumn(rawRow, ["Nombre apoderado", "NOMBRE APODERADO", "Apoderado", "Nombre Apoderado"]);
+  const fonoApoderadoRaw   = findColumn(rawRow, ["Fono Apoderado", "FONO APODERADO", "Fono apoderado", "Teléfono Apoderado"]);
+  const colegioRaw         = findColumn(rawRow, ["Colegio", "COLEGIO", "Escuela", "ESCUELA"]);
+  const nacionalidadRaw    = findColumn(rawRow, ["Nacionalidad", "NACIONALIDAD"]);
+  const comunaRaw          = findColumn(rawRow, ["Comuna", "COMUNA"]);
+  const direccionRaw       = findColumn(rawRow, ["Direccion Particular", "Dirección Particular", "Dirección", "Direccion", "DIRECCION"]);
+  const situacionRaw       = findColumn(rawRow, ["Situación", "Situacion", "SITUACION", "Estado", "ESTADO"]);
+  const nombreCortoRaw     = findColumn(rawRow, ["Nombre corto", "NOMBRE CORTO", "NombreCorto"]);
+  const caracteristicaRaw  = findColumn(rawRow, ["CARACTERISTICA", "Característica", "Caracteristica"]);
 
   // Full name
   const parts = [nombre, apellidoP, apellidoM].filter(Boolean);
@@ -264,6 +295,16 @@ function parseRow(
           dateOfBirth: dateOfBirth!,
           calculatedCategory,
           excelCategory,
+          phone:         str(fonoDeportistaRaw),
+          guardianName:  str(nombreApoderadoRaw),
+          guardianPhone: str(fonoApoderadoRaw),
+          school:        str(colegioRaw),
+          nationality:   str(nacionalidadRaw),
+          commune:       str(comunaRaw),
+          address:       str(direccionRaw),
+          status:        normalizeStatus(situacionRaw),
+          shortName:     str(nombreCortoRaw),
+          characteristic: str(caracteristicaRaw),
         }
       : undefined;
 
@@ -386,17 +427,29 @@ export function ImportSwimmersDialog({
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
       try {
+        const s = row.swimmer!;
         await onImport({
-          name: row.swimmer!.name,
-          email: row.swimmer!.email,
-          rut: row.swimmer!.rut,
-          gender: row.swimmer!.gender,
-          dateOfBirth: row.swimmer!.dateOfBirth,
-          schedule: "7am",
-          joinDate: new Date().toISOString().split("T")[0],
+          name:          s.name,
+          email:         s.email,
+          rut:           s.rut,
+          gender:        s.gender,
+          dateOfBirth:   s.dateOfBirth,
+          schedule:      "7am",
+          joinDate:      new Date().toISOString().split("T")[0],
           personalBests: [],
           personalBestsHistory: [],
-          goals: [],
+          goals:         [],
+          // Extended fields
+          status:        s.status ?? "Activo",
+          phone:         s.phone,
+          guardianName:  s.guardianName,
+          guardianPhone: s.guardianPhone,
+          school:        s.school,
+          nationality:   s.nationality,
+          commune:       s.commune,
+          address:       s.address,
+          shortName:     s.shortName,
+          characteristic: s.characteristic,
         });
         results.success++;
       } catch (err) {

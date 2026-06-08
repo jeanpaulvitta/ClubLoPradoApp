@@ -2,15 +2,26 @@ export interface Swimmer {
   id: string;
   name: string;
   email: string;
-  rut?: string; // Formato: 12.345.678-9 - Opcional para compatibilidad con nadadores existentes
-  gender?: "Masculino" | "Femenino" | "Otro"; // Opcional para compatibilidad con nadadores existentes
+  rut?: string;
+  gender?: "Masculino" | "Femenino" | "Otro";
   schedule: "7am" | "8am" | "9pm";
-  dateOfBirth: string; // Formato YYYY-MM-DD
+  dateOfBirth: string;
   joinDate: string;
   personalBests?: PersonalBest[];
-  personalBestsHistory?: PersonalBestHistory[]; // Historial completo de todas las marcas
-  profileImage?: string; // URL de la imagen de perfil (base64 o URL)
-  goals?: SwimmerGoal[]; // Metas y objetivos del nadador
+  personalBestsHistory?: PersonalBestHistory[];
+  profileImage?: string;
+  goals?: SwimmerGoal[];
+  // ── Campos extendidos (importados desde Excel) ────────────────────────────
+  status?: "Activo" | "Inactivo" | "Suspendido" | "Egresado";
+  phone?: string;           // Fono deportista
+  guardianName?: string;    // Nombre apoderado
+  guardianPhone?: string;   // Fono apoderado
+  school?: string;          // Colegio
+  nationality?: string;     // Nacionalidad
+  commune?: string;         // Comuna
+  address?: string;         // Dirección particular
+  shortName?: string;       // Nombre corto para listas
+  characteristic?: string;  // Velocista, Fondista, etc.
 }
 
 export interface PersonalBest {

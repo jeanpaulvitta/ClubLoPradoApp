@@ -78,6 +78,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Timer,
+  Search,
 } from "lucide-react";
 import type { 
   Swimmer, 
@@ -131,6 +132,7 @@ function MainApp() {
   const [filterGender, setFilterGender] = useState<string>("all");
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterGroup, setFilterGroup] = useState<"all" | 1 | 2>("all");
+  const [filterSearch, setFilterSearch] = useState<string>("");
 
   // Estado para dialog de importación Excel
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -865,28 +867,19 @@ function MainApp() {
 
   // Función para filtrar nadadores
   const getFilteredSwimmers = () => {
+    const search = filterSearch.toLowerCase().trim();
     return swimmers.filter((swimmer) => {
-      // Filtro por género
-      if (filterGender !== "all" && swimmer.gender !== filterGender) {
-        return false;
-      }
-
-      // Filtro por categorías (multi-select)
+      if (search && !swimmer.name.toLowerCase().includes(search) &&
+          !(swimmer.rut ?? "").toLowerCase().includes(search)) return false;
+      if (filterGender !== "all" && swimmer.gender !== filterGender) return false;
       if (filterCategories.length > 0) {
         const category = calculateCategoryFromBirthDate(swimmer.dateOfBirth);
-        if (!filterCategories.includes(category)) {
-          return false;
-        }
+        if (!filterCategories.includes(category)) return false;
       }
-
-      // Filtro por grupo de entrenamiento
       if (filterGroup !== "all") {
         const swimmerGroup = getTrainingGroupFromBirthDate(swimmer.dateOfBirth);
-        if (swimmerGroup !== filterGroup) {
-          return false;
-        }
+        if (swimmerGroup !== filterGroup) return false;
       }
-
       return true;
     });
   };
@@ -1768,37 +1761,22 @@ function MainApp() {
           </TabsContent>
 
           {/* SECCIÓN 4: NADADORES */}
-          <TabsContent value="nadadores" className="space-y-8">
-            <div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold">Nadadores del Club</h2>
-                  <p className="text-gray-600">{filteredSwimmers.length} nadadores registrados</p>
-                </div>
+          <TabsContent value="nadadores" className="space-y-0">
+            <Tabs defaultValue="nomina" className="w-full">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                <TabsList>
+                  <TabsTrigger value="nomina">Nómina</TabsTrigger>
+                  <TabsTrigger value="tiempos">Tiempos Mínimos</TabsTrigger>
+                </TabsList>
                 {(user?.role === "admin" || user?.role === "coach") && (
-                  <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                  <div className="flex flex-wrap gap-2">
                     <AddSwimmerDialog onAddSwimmer={handleAddSwimmer} />
-                    <Button
-                      variant="outline"
-                      onClick={() => setImportDialogOpen(true)}
-                      className="gap-2"
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)} className="gap-1.5">
                       <Upload className="w-4 h-4" />
                       <span className="hidden sm:inline">Importar Excel</span>
                       <span className="sm:hidden">Excel</span>
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={async () => {
-                        try {
-                          await generateAllSwimmersPDF(swimmers);
-                        } catch (error) {
-                          console.error('Error generating PDF:', error);
-                          alert('Error al generar el PDF');
-                        }
-                      }}
-                      className="gap-2"
-                    >
+                    <Button variant="outline" size="sm" onClick={async () => { try { await generateAllSwimmersPDF(swimmers); } catch { alert("Error al generar PDF"); } }} className="gap-1.5">
                       <FileDown className="w-4 h-4" />
                       <span className="hidden sm:inline">Exportar PDF</span>
                       <span className="sm:hidden">PDF</span>
@@ -1807,103 +1785,114 @@ function MainApp() {
                 )}
               </div>
 
-              {/* Filtros */}
-              <Card className="mb-6">
-                <CardContent className="pt-6 space-y-4">
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="sm:w-48">
-                      <label className="text-sm font-medium mb-2 block">Género</label>
-                      <Select value={filterGender} onValueChange={setFilterGender}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="Masculino">Masculino</SelectItem>
-                          <SelectItem value="Femenino">Femenino</SelectItem>
-                          <SelectItem value="Otro">Otro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-sm font-medium mb-2 block">Grupo</label>
-                      <GroupFilterSelector
-                        selectedGroup={filterGroup}
-                        onGroupChange={setFilterGroup}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Categoría</label>
-                    <CategoryFilterSelector
-                      value={filterCategories}
-                      onChange={setFilterCategories}
+              {/* ── TAB: NÓMINA ────────────────────────────────────────── */}
+              <TabsContent value="nomina" className="space-y-4 mt-0">
+                {/* Filtros compactos */}
+                <div className="flex flex-wrap gap-2 items-end p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  {/* Búsqueda */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre o RUT…"
+                      value={filterSearch}
+                      onChange={e => setFilterSearch(e.target.value)}
+                      className="pl-8 pr-3 h-9 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-56"
                     />
                   </div>
-                </CardContent>
-              </Card>
+                  {/* Género */}
+                  <Select value={filterGender} onValueChange={setFilterGender}>
+                    <SelectTrigger className="h-9 w-36">
+                      <SelectValue placeholder="Género" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="Masculino">Masculino</SelectItem>
+                      <SelectItem value="Femenino">Femenino</SelectItem>
+                      <SelectItem value="Otro">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {/* Grupo */}
+                  <GroupFilterSelector selectedGroup={filterGroup} onGroupChange={setFilterGroup} />
+                  {/* Conteo + clear */}
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-sm text-gray-500">{filteredSwimmers.length} nadadores</span>
+                    {(filterSearch || filterGender !== "all" || filterCategories.length > 0 || filterGroup !== "all") && (
+                      <button
+                        onClick={() => { setFilterSearch(""); setFilterGender("all"); setFilterCategories([]); setFilterGroup("all"); }}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Limpiar filtros
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {/* Categorías */}
+                <CategoryFilterSelector value={filterCategories} onChange={setFilterCategories} />
 
-              {/* Lista de nadadores */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-                {filteredSwimmers.map((swimmer) => (
-                  <SwimmerListItem
-                    key={swimmer.id}
-                    swimmer={swimmer}
-                    onClick={() => {
-                      setSelectedSwimmer(swimmer);
-                      setSwimmerDialogOpen(true);
-                    }}
+                {/* Grid de nadadores */}
+                {filteredSwimmers.length === 0 ? (
+                  <p className="text-center text-gray-400 py-12">No hay nadadores que coincidan con los filtros</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {filteredSwimmers.map(swimmer => (
+                      <SwimmerListItem
+                        key={swimmer.id}
+                        swimmer={swimmer}
+                        allSwimmers={swimmers}
+                        onClick={() => { setSelectedSwimmer(swimmer); setSwimmerDialogOpen(true); }}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Dialog detalles */}
+                {selectedSwimmer && (
+                  <SwimmerDetailsDialog
+                    swimmer={selectedSwimmer}
+                    open={swimmerDialogOpen}
+                    onOpenChange={setSwimmerDialogOpen}
+                    onEdit={handleEditSwimmer}
+                    onDelete={handleDeleteSwimmer}
+                    onSavePersonalBests={handleSavePersonalBests}
+                    onUpdateGoals={handleUpdateGoals}
+                    competitions={competitions}
+                    swimmerCompetitions={swimmerCompetitions}
+                    canEdit={user?.role === "admin" || user?.role === "coach"}
+                    allSwimmers={swimmers}
+                    attendanceRecords={attendanceRecords}
+                    onToggleCompetitionParticipation={handleToggleCompetitionParticipation}
                   />
-                ))}
-              </div>
+                )}
 
-              {/* Dialog de detalles del nadador */}
-              {selectedSwimmer && (
-                <SwimmerDetailsDialog
-                  swimmer={selectedSwimmer}
-                  open={swimmerDialogOpen}
-                  onOpenChange={setSwimmerDialogOpen}
-                  onEdit={handleEditSwimmer}
-                  onDelete={handleDeleteSwimmer}
-                  onSavePersonalBests={handleSavePersonalBests}
-                  onUpdateGoals={handleUpdateGoals}
-                  competitions={competitions}
-                  swimmerCompetitions={swimmerCompetitions}
-                  canEdit={user?.role === "admin" || user?.role === "coach"}
-                  attendanceRecords={attendanceRecords}
+                {/* Import dialog */}
+                <ImportSwimmersDialog
+                  open={importDialogOpen}
+                  onOpenChange={setImportDialogOpen}
+                  existingSwimmers={swimmers}
+                  onImport={handleImportSwimmer}
                 />
-              )}
-            </div>
+              </TabsContent>
 
-            {/* Dialog importación Excel */}
-            <ImportSwimmersDialog
-              open={importDialogOpen}
-              onOpenChange={setImportDialogOpen}
-              existingSwimmers={swimmers}
-              onImport={handleImportSwimmer}
-            />
-
-            {/* Vista de Tiempos Mínimos */}
-            {currentSwimmer && (
-              <div className="mt-8">
-                <h2 className="text-2xl font-bold mb-4">Mis Tiempos vs Mínimos</h2>
-                <SwimmerMinimumTimesView swimmer={currentSwimmer} />
-              </div>
-            )}
-
-            {/* Tabla de Referencia de Tiempos Mínimos */}
-            {(user?.role === "admin" || user?.role === "coach") && (
-              <div className="mt-8">
-                <MinimumTimesReference />
-              </div>
-            )}
-
-            {/* Verificador de Tiempos Mínimos (Solo Admin/Coach) */}
-            {(user?.role === "admin" || user?.role === "coach") && (
-              <div className="mt-8">
-                <MinimumTimesChecker swimmers={swimmers} />
-              </div>
-            )}
+              {/* ── TAB: TIEMPOS MÍNIMOS ────────────────────────────────── */}
+              <TabsContent value="tiempos" className="space-y-8 mt-0">
+                {currentSwimmer && (
+                  <div>
+                    <h2 className="text-xl font-bold mb-4">Mis Tiempos vs Mínimos</h2>
+                    <SwimmerMinimumTimesView swimmer={currentSwimmer} />
+                  </div>
+                )}
+                {(user?.role === "admin" || user?.role === "coach") && (
+                  <>
+                    <MinimumTimesReference />
+                    <MinimumTimesChecker swimmers={swimmers} />
+                  </>
+                )}
+                {!currentSwimmer && user?.role === "swimmer" && (
+                  <p className="text-gray-400 text-center py-12">No se encontró tu perfil de nadador</p>
+                )}
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           {/* SECCIÓN 5: COMPETENCIAS */}
