@@ -1047,3 +1047,76 @@ export async function saveRecords(records: any): Promise<void> {
     throw new Error(`Failed to save records: ${error.error || response.statusText}`);
   }
 }
+
+// ==================== TOURNAMENT RESULTS IMPORT API ====================
+
+export interface ImportResultRow {
+  rowIndex: number;
+  status: 'imported' | 'skipped' | 'error' | 'no_time';
+  swimmerName: string;
+  event: string;
+  time?: string;
+  isPersonalBest?: boolean;
+  message?: string;
+}
+
+export interface ImportTournamentSummary {
+  total: number;
+  imported: number;
+  skipped: number;
+  errors: number;
+  personalBests: number;
+  competitionId: string;
+  competitionName: string;
+  results: ImportResultRow[];
+}
+
+export interface ImportTournamentPayload {
+  competitionId?: string;          // existing competition to link to
+  competitionName?: string;        // name for new competition (if no competitionId)
+  competitionDate?: string;        // YYYY-MM-DD
+  competitionLocation?: string;
+  results: {
+    swimmerId: string;
+    name: string;
+    rut?: string;
+    event: string;                 // "50 Libre", "100 Espalda", etc.
+    time?: string;                 // normalized "M:SS.ss" or undefined for DQ/NS
+    position?: number;
+    points?: number;
+  }[];
+}
+
+export async function importTournamentResults(
+  payload: ImportTournamentPayload
+): Promise<ImportTournamentSummary> {
+  try {
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/import-tournament-results`,
+      {
+        method: 'POST',
+        headers: getPublicHeaders(),
+        body: JSON.stringify(payload),
+      },
+      30000 // 30s timeout for batch import
+    );
+
+    if (!response.ok) {
+      let errorMessage = '';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.details || errorData.message || JSON.stringify(errorData);
+      } catch {
+        errorMessage = await response.text() || response.statusText;
+      }
+      throw new Error(`Import failed (${response.status}): ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Tournament results imported:', data.summary);
+    return data.summary as ImportTournamentSummary;
+  } catch (error) {
+    console.error('❌ Error importing tournament results:', error);
+    throw error;
+  }
+}

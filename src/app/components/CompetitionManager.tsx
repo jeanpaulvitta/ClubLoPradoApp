@@ -22,10 +22,12 @@ import {
 } from "lucide-react";
 import { AddCompetitionDialog } from "./AddCompetitionDialog";
 import { EditCompetitionDialog } from "./EditCompetitionDialog";
-import type { Competition } from "../data/swimmers";
+import { ImportTournamentResultsDialog } from "./ImportTournamentResultsDialog";
+import type { Competition, Swimmer } from "../data/swimmers";
 
 interface CompetitionManagerProps {
   competitions: Competition[];
+  swimmers?: Swimmer[];
   onAddCompetition: (competition: Omit<Competition, "id">) => void;
   onEditCompetition: (id: string, competition: Omit<Competition, "id">) => void;
   onDeleteCompetition: (id: string) => void;
@@ -34,6 +36,7 @@ interface CompetitionManagerProps {
 
 export function CompetitionManager({
   competitions,
+  swimmers = [],
   onAddCompetition,
   onEditCompetition,
   onDeleteCompetition,
@@ -43,6 +46,7 @@ export function CompetitionManager({
   const [expandedCompetitions, setExpandedCompetitions] = useState<Set<string>>(new Set());
   const [editingCompetition, setEditingCompetition] = useState<Competition | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<"todos" | "menores" | "infantiles" | "juveniles" | "mayores">("todos");
 
   // Definir las categorías por grupo
@@ -155,10 +159,21 @@ export function CompetitionManager({
             Gestiona todas las competencias de la temporada
           </p>
         </div>
-        <AddCompetitionDialog
-          onAddCompetition={onAddCompetition}
-          weekNumber={1}
-        />
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-1"
+          >
+            <Download className="w-4 h-4" />
+            Importar resultados
+          </Button>
+          <AddCompetitionDialog
+            onAddCompetition={onAddCompetition}
+            weekNumber={1}
+          />
+        </div>
       </div>
 
       {/* Filtro de Categorías */}
@@ -531,6 +546,14 @@ export function CompetitionManager({
           onEditCompetition={onEditCompetition}
         />
       )}
+
+      {/* Import Tournament Results Dialog */}
+      <ImportTournamentResultsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        existingSwimmers={swimmers}
+        existingCompetitions={competitions}
+      />
     </div>
   );
 }

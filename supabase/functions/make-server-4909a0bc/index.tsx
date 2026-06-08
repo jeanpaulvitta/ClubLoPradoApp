@@ -2801,6 +2801,261 @@ app.put("/make-server-4909a0bc/records", async (c) => {
   }
 });
 
+// ==================== TOURNAMENT RESULTS IMPORT ====================
+
+/**
+ * POST /make-server-4909a0bc/import-tournament-results
+ *
+ * Batch-imports competition results exported from Team Manager.
+ * For each result row the caller has already resolved the swimmerId client-side.
+ *
+ * Body:
+ * {
+ *   competitionId?: string,       // link to existing competition
+ *   competitionName?: string,     // used when competitionId is absent → create a stub
+ *   competitionDate?: string,     // YYYY-MM-DD
+ *   competitionLocation?: string,
+ *   results: Array<{
+ *     swimmerId: string,
+ *     name: string,
+ *     rut?: string,
+ *     event: string,              // "50 Libre", "100 Espalda", …
+ *     time?: string,              // normalized "M:SS.ss" or absent for DQ/NS/NT
+ *     position?: number,
+ *     points?: number,
+ *   }>
+ * }
+ *
+ * Response: { summary: ImportTournamentSummary }
+ */
+app.post("/make-server-4909a0bc/import-tournament-results", async (c) => {
+  try {
+    const body = await c.req.json();
+    const {
+      competitionId: existingCompetitionId,
+      competitionName,
+      competitionDate,
+      competitionLocation,
+      results,
+    } = body;
+
+    if (!Array.isArray(results) || results.length === 0) {
+      return c.json({ error: "El campo 'results' debe ser un array no vacío." }, 400);
+    }
+
+    // ── Load current state ──────────────────────────────────────────────────
+    const swimmers: any[] = await kv.get("swimmers:list") || [];
+    const participations: any[] = await kv.get("swimmer_competitions:list") || [];
+    const competitions: any[] = await kv.get("competitions:list") || [];
+
+    // ── Resolve or create competition ───────────────────────────────────────
+    let competition: any;
+
+    if (existingCompetitionId) {
+      competition = competitions.find((co: any) => co.id === existingCompetitionId);
+      if (!competition) {
+        return c.json({ error: `Torneo con id '${existingCompetitionId}' no encontrado.` }, 404);
+      }
+    } else {
+      const name = String(competitionName || "Torneo importado").trim();
+      // Reuse existing competition with the same name (case-insensitive) to avoid duplicates
+      const existing = competitions.find(
+        (co: any) => co.name.toLowerCase() === name.toLowerCase()
+      );
+      if (existing) {
+        competition = existing;
+      } else {
+        // Create a minimal stub competition
+        const id = `comp_import_${Date.now()}`;
+        competition = {
+          id,
+          name,
+          startDate: competitionDate || new Date().toISOString().slice(0, 10),
+          endDate: competitionDate || new Date().toISOString().slice(0, 10),
+          location: competitionLocation || "",
+          poolType: "25m",
+          type: "Local",
+          events: [],
+          week: 0,
+          schedule: "",
+          cost: "",
+        };
+        competitions.push(competition);
+        await kv.set("competitions:list", competitions);
+        console.log(`🏊 Created stub competition: ${name} (${id})`);
+      }
+    }
+
+    // ── Process each result row ─────────────────────────────────────────────
+    const resultLog: any[] = [];
+    let importedCount = 0;
+    let errorCount = 0;
+    let personalBestCount = 0;
+
+    const updatedSwimmers = swimmers.map((s: any) => ({ ...s }));
+    const updatedParticipations = [...participations];
+
+    for (const row of results) {
+      const { swimmerId, name, event, time, position, points } = row;
+
+      // Validate swimmer
+      const swimmerIdx = updatedSwimmers.findIndex((s: any) => s.id === swimmerId);
+      if (swimmerIdx === -1) {
+        resultLog.push({
+          status: "error",
+          swimmerName: name,
+          event,
+          message: `Nadador con id '${swimmerId}' no encontrado.`,
+        });
+        errorCount++;
+        continue;
+      }
+
+      // Parse event
+      const parsedEvt = parseEvent(event);
+      if (!parsedEvt) {
+        resultLog.push({
+          status: "error",
+          swimmerName: name,
+          event,
+          message: `Prueba no reconocida: '${event}'.`,
+        });
+        errorCount++;
+        continue;
+      }
+
+      // Rows without a time are registered (for participation record) but
+      // personal bests are not updated.
+      const hasTime = typeof time === "string" && time.trim() !== "";
+
+      // Find or create participation
+      const partIdx = updatedParticipations.findIndex(
+        (p: any) => p.swimmerId === swimmerId && p.competitionId === competition.id
+      );
+
+      const eventEntry: any = { event };
+      if (hasTime) eventEntry.time = time;
+      if (position != null) eventEntry.position = position;
+      if (points != null) eventEntry.points = points;
+
+      if (partIdx === -1) {
+        const id = `sc_import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        updatedParticipations.push({
+          id,
+          swimmerId,
+          competitionId: competition.id,
+          participates: true,
+          events: [eventEntry],
+        });
+      } else {
+        const part = updatedParticipations[partIdx];
+        const existingEvents: any[] = part.events || [];
+        // Replace if same event already exists, otherwise append
+        const evtIdx = existingEvents.findIndex((e: any) => e.event === event);
+        if (evtIdx === -1) {
+          existingEvents.push(eventEntry);
+        } else {
+          existingEvents[evtIdx] = eventEntry;
+        }
+        updatedParticipations[partIdx] = { ...part, events: existingEvents };
+      }
+
+      // Update personal bests (only when there's a valid time)
+      let isPersonalBest = false;
+
+      if (hasTime) {
+        const { distance, style } = parsedEvt;
+        const timeInSec = timeToSeconds(time);
+
+        const swimmer = updatedSwimmers[swimmerIdx];
+        const currentBests: any[] = swimmer.personalBests || [];
+        const currentHistory: any[] = swimmer.personalBestsHistory || [];
+
+        const historyEntry = {
+          id: `pb_import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          distance,
+          style,
+          time,
+          timeInSeconds: timeInSec,
+          date: competition.startDate,
+          location: competition.location || "",
+          isPersonalBest: false,
+        };
+
+        const bestIdx = currentBests.findIndex(
+          (pb: any) => pb.distance === distance && pb.style === style
+        );
+
+        if (bestIdx === -1) {
+          currentBests.push({
+            distance,
+            style,
+            time,
+            date: competition.startDate,
+            location: competition.location || "",
+          });
+          historyEntry.isPersonalBest = true;
+          isPersonalBest = true;
+          personalBestCount++;
+        } else {
+          const currentBestSec = timeToSeconds(currentBests[bestIdx].time);
+          if (timeInSec < currentBestSec) {
+            currentBests[bestIdx] = {
+              distance,
+              style,
+              time,
+              date: competition.startDate,
+              location: competition.location || "",
+            };
+            historyEntry.isPersonalBest = true;
+            isPersonalBest = true;
+            personalBestCount++;
+          }
+        }
+
+        updatedSwimmers[swimmerIdx] = {
+          ...swimmer,
+          personalBests: currentBests,
+          personalBestsHistory: [...currentHistory, historyEntry],
+        };
+      }
+
+      resultLog.push({
+        status: hasTime ? "imported" : "no_time",
+        swimmerName: name,
+        event,
+        time: time || undefined,
+        isPersonalBest,
+      });
+
+      if (hasTime || !hasTime) importedCount++; // count all registered rows
+    }
+
+    // ── Persist changes ─────────────────────────────────────────────────────
+    await kv.set("swimmers:list", updatedSwimmers);
+    await kv.set("swimmer_competitions:list", updatedParticipations);
+
+    const summary = {
+      total: results.length,
+      imported: importedCount,
+      skipped: 0,
+      errors: errorCount,
+      personalBests: personalBestCount,
+      competitionId: competition.id,
+      competitionName: competition.name,
+      results: resultLog,
+    };
+
+    console.log(
+      `✅ Import complete: ${importedCount} rows, ${personalBestCount} personal bests, ${errorCount} errors`
+    );
+    return c.json({ summary });
+  } catch (error) {
+    console.error("Error in import-tournament-results:", error);
+    return c.json({ error: "Failed to import results", details: String(error) }, 500);
+  }
+});
+
 // Initialize storage buckets on startup
 console.log('🚀 Starting server initialization...');
 await initializeStorage();
