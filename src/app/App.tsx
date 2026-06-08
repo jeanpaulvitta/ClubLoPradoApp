@@ -424,37 +424,69 @@ function MainApp() {
     swimmerId: string,
     competitionId: string | null,
     event: string,
-    time: string
+    time: string,
+    location?: string
   ) => {
+    function timeToMs(t: string): number {
+      const m = t.match(/^(\d{1,2}):(\d{2})\.(\d{2})$/);
+      if (!m) return Infinity;
+      return (parseInt(m[1]) * 6000 + parseInt(m[2]) * 100 + parseInt(m[3])) * 10;
+    }
+
+    const swimmer = swimmers.find(s => s.id === swimmerId);
+    if (!swimmer) throw new Error("Nadador no encontrado");
+    const eventMatch = event.match(/^(\d+)m\s+(.+)$/);
+    const today = new Date().toISOString().split("T")[0];
+
     if (competitionId) {
       await api.updateCompetitionResults(swimmerId, competitionId, [{ event, time }]);
-    } else {
-      // Time trial: update personal best directly on the swimmer object
-      const swimmer = swimmers.find(s => s.id === swimmerId);
-      if (!swimmer) throw new Error("Nadador no encontrado");
-      const eventMatch = event.match(/^(\d+)m\s+(.+)$/);
-      if (eventMatch) {
+
+      // If the new time beats the existing PB, stamp the location on the PB record
+      if (eventMatch && location) {
         const distance = parseInt(eventMatch[1]);
         const style = eventMatch[2] as PersonalBest["style"];
-        const today = new Date().toISOString().split("T")[0];
-        const existing = (swimmer.personalBests ?? []).filter(
-          pb => !(pb.distance === distance && pb.style === style)
+        const existingPB = (swimmer.personalBests ?? []).find(
+          pb => pb.distance === distance && pb.style === style
         );
-        const updated: typeof swimmer = {
-          ...swimmer,
-          personalBests: [...existing, { distance, style, time, date: today }],
-        };
-        await api.updateSwimmer(swimmerId, updated);
-        queryClient.setQueryData<Swimmer[]>(["swimmers"], (old = []) =>
-          old.map(s => s.id === swimmerId ? updated : s)
-        );
-        return;
+        if (timeToMs(time) < (existingPB ? timeToMs(existingPB.time) : Infinity)) {
+          const otherPBs = (swimmer.personalBests ?? []).filter(
+            pb => !(pb.distance === distance && pb.style === style)
+          );
+          const updatedSwimmer = {
+            ...swimmer,
+            personalBests: [...otherPBs, { distance, style, time, date: today, location }],
+          };
+          await api.updateSwimmer(swimmerId, updatedSwimmer);
+          queryClient.setQueryData<Swimmer[]>(["swimmers"], (old = []) =>
+            old.map(s => s.id === swimmerId ? updatedSwimmer : s)
+          );
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["swimmers"] });
+        }
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["swimmers"] });
       }
-      throw new Error("Formato de prueba no reconocido");
+      queryClient.invalidateQueries({ queryKey: ["swimmer-competitions"] });
+    } else {
+      // Control de marca: always save latest time (replaces previous for same event)
+      if (!eventMatch) throw new Error("Formato de prueba no reconocido");
+      const distance = parseInt(eventMatch[1]);
+      const style = eventMatch[2] as PersonalBest["style"];
+      const otherPBs = (swimmer.personalBests ?? []).filter(
+        pb => !(pb.distance === distance && pb.style === style)
+      );
+      const updatedSwimmer = {
+        ...swimmer,
+        personalBests: [
+          ...otherPBs,
+          { distance, style, time, date: today, ...(location ? { location } : {}) },
+        ],
+      };
+      await api.updateSwimmer(swimmerId, updatedSwimmer);
+      queryClient.setQueryData<Swimmer[]>(["swimmers"], (old = []) =>
+        old.map(s => s.id === swimmerId ? updatedSwimmer : s)
+      );
     }
-    // Refresh affected queries
-    queryClient.invalidateQueries({ queryKey: ["swimmers"] });
-    queryClient.invalidateQueries({ queryKey: ["swimmer-competitions"] });
   };
 
   // Funciones para gestionar entrenamientos

@@ -43,7 +43,8 @@ interface CronometrarManagerProps {
     swimmerId: string,
     competitionId: string | null,
     event: string,
-    time: string
+    time: string,
+    location?: string
   ) => Promise<void>;
 }
 
@@ -82,6 +83,7 @@ export function CronometrarManager({
   const [phase, setPhase]           = useState<Phase>("setup");
   const [mode, setMode]             = useState<"competition" | "trial">("competition");
   const [selectedCompId, setSelectedCompId] = useState<string>("");
+  const [sessionName, setSessionName] = useState<string>("");  // for trial mode
   const [selectedSwimmerIds, setSelectedSwimmerIds] = useState<Set<string>>(new Set());
   const [eventMap, setEventMap]     = useState<Record<string, string>>({});
   const [lapDist, setLapDist]       = useState<LapDist>(50);
@@ -235,13 +237,20 @@ export function CronometrarManager({
     if (!t) return;
     const parsedMs = displayToMs(t.editingTime);
     const finalTime = parsedMs !== null ? msToDisplay(parsedMs) : msToDisplay(t.elapsed);
+
+    const location =
+      mode === "competition"
+        ? (competition?.name ?? undefined)
+        : (sessionName.trim() || "Control de marca");
+
     setTimers(prev => ({ ...prev, [swimmerId]: { ...prev[swimmerId], saving: true } }));
     try {
       await onSaveResult(
         swimmerId,
         mode === "competition" ? selectedCompId : null,
         t.event,
-        finalTime
+        finalTime,
+        location
       );
       setTimers(prev => ({
         ...prev,
@@ -252,7 +261,7 @@ export function CronometrarManager({
       setTimers(prev => ({ ...prev, [swimmerId]: { ...prev[swimmerId], saving: false } }));
       toast.error("Error al guardar la marca");
     }
-  }, [timers, mode, selectedCompId, onSaveResult]);
+  }, [timers, mode, selectedCompId, competition, sessionName, onSaveResult]);
 
   // ── Setup → Timing ────────────────────────────────────────────────────────────
   const handleStartTiming = () => {
@@ -335,6 +344,20 @@ export function CronometrarManager({
                 </Button>
               </div>
             </div>
+
+            {mode === "trial" && (
+              <div>
+                <Label className="text-sm font-medium mb-2 block">
+                  Nombre del control <span className="text-gray-400 font-normal">(aparece en las marcas del nadador)</span>
+                </Label>
+                <Input
+                  value={sessionName}
+                  onChange={e => setSessionName(e.target.value)}
+                  placeholder="Ej: Control de marca Junio, Torneo Interno…"
+                  className="max-w-md"
+                />
+              </div>
+            )}
 
             {mode === "competition" && (
               <div>
