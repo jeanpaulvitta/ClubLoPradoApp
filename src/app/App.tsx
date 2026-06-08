@@ -47,6 +47,8 @@ import { CategoryFilterSelector } from "@/app/components/CategoryFilterSelector"
 import { ImportSwimmersDialog } from "@/app/components/ImportSwimmersDialog";
 import { SeasonStructureInfo } from "@/app/components/SeasonStructureInfo";
 import { PhysicalPreparation } from "@/app/components/PhysicalPreparation";
+import { ConvocatoriaManager } from "@/app/components/ConvocatoriaManager";
+import { CronometrarManager } from "@/app/components/CronometrarManager";
 import { generateAllSwimmersPDF } from "@/app/utils/pdfGenerator";
 import {
   Users,
@@ -74,7 +76,8 @@ import {
   Eye,
   Download,
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  Timer,
 } from "lucide-react";
 import type { 
   Swimmer, 
@@ -414,6 +417,44 @@ function MainApp() {
       alert(`Error al guardar resultados: ${errorMsg}`);
       console.error("❌ Error al guardar resultados de competencia:", err);
     }
+  };
+
+  // Handler para guardar marcas desde el cronómetro (admin/coach timing any swimmer)
+  const handleSaveTimingResult = async (
+    swimmerId: string,
+    competitionId: string | null,
+    event: string,
+    time: string
+  ) => {
+    if (competitionId) {
+      await api.updateCompetitionResults(swimmerId, competitionId, [{ event, time }]);
+    } else {
+      // Time trial: update personal best directly on the swimmer object
+      const swimmer = swimmers.find(s => s.id === swimmerId);
+      if (!swimmer) throw new Error("Nadador no encontrado");
+      const eventMatch = event.match(/^(\d+)m\s+(.+)$/);
+      if (eventMatch) {
+        const distance = parseInt(eventMatch[1]);
+        const style = eventMatch[2] as PersonalBest["style"];
+        const today = new Date().toISOString().split("T")[0];
+        const existing = (swimmer.personalBests ?? []).filter(
+          pb => !(pb.distance === distance && pb.style === style)
+        );
+        const updated: typeof swimmer = {
+          ...swimmer,
+          personalBests: [...existing, { distance, style, time, date: today }],
+        };
+        await api.updateSwimmer(swimmerId, updated);
+        queryClient.setQueryData<Swimmer[]>(["swimmers"], (old = []) =>
+          old.map(s => s.id === swimmerId ? updated : s)
+        );
+        return;
+      }
+      throw new Error("Formato de prueba no reconocido");
+    }
+    // Refresh affected queries
+    queryClient.invalidateQueries({ queryKey: ["swimmers"] });
+    queryClient.invalidateQueries({ queryKey: ["swimmer-competitions"] });
   };
 
   // Funciones para gestionar entrenamientos
@@ -1140,6 +1181,12 @@ function MainApp() {
               <span className="hidden lg:inline">Competencias</span>
               <span className="lg:hidden">Compet.</span>
             </TabsTrigger>
+            {(user?.role === "admin" || user?.role === "coach") && (
+              <TabsTrigger value="cronometrar" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
+                <Timer className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>Cronometrar</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="test-control" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2 sm:py-3 text-xs sm:text-sm">
               <Clipboard className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden lg:inline">Test Control</span>
@@ -1829,36 +1876,82 @@ function MainApp() {
 
           {/* SECCIÓN 5: COMPETENCIAS */}
           <TabsContent value="competencias" className="space-y-8">
-            {/* Gestión de Competencias (Solo Admin/Coach) */}
-            {(user?.role === "admin" || user?.role === "coach") && (
+            {(user?.role === "admin" || user?.role === "coach") ? (
+              <Tabs defaultValue="gestion" className="w-full">
+                <TabsList className="mb-6">
+                  <TabsTrigger value="gestion">Gestión</TabsTrigger>
+                  <TabsTrigger value="convocatoria">Convocatoria</TabsTrigger>
+                  <TabsTrigger value="resultados">Resultados</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="gestion">
+                  <h2 className="text-2xl font-bold mb-4">Gestión de Competencias</h2>
+                  <CompetitionManager
+                    competitions={competitions}
+                    swimmers={swimmers}
+                    swimmerCompetitions={swimmerCompetitions}
+                    onAddCompetition={handleAddCompetition}
+                    onEditCompetition={handleEditCompetition}
+                    onDeleteCompetition={handleDeleteCompetition}
+                    onToggleParticipation={handleToggleCompetitionParticipation}
+                  />
+                </TabsContent>
+
+                <TabsContent value="convocatoria">
+                  <h2 className="text-2xl font-bold mb-4">Convocatoria de Nadadores</h2>
+                  <p className="text-gray-500 text-sm mb-6">
+                    Selecciona qué nadadores participarán en cada competencia y genera la nómina oficial en PDF.
+                  </p>
+                  <ConvocatoriaManager
+                    competitions={competitions}
+                    swimmers={swimmers}
+                    swimmerCompetitions={swimmerCompetitions}
+                    onToggleParticipation={handleToggleCompetitionParticipation}
+                  />
+                </TabsContent>
+
+                <TabsContent value="resultados">
+                  <h2 className="text-2xl font-bold mb-4">Resultados de Competencias</h2>
+                  <CompetitionResults
+                    competitions={competitions}
+                    swimmers={swimmers}
+                    swimmerCompetitions={swimmerCompetitions}
+                    onUpdateResults={handleUpdateCompetitionResults}
+                    currentSwimmerId={currentSwimmer?.id}
+                  />
+                </TabsContent>
+              </Tabs>
+            ) : (
               <div>
-                <h2 className="text-2xl font-bold mb-4">Gestión de Competencias</h2>
-                <CompetitionManager
+                <h2 className="text-2xl font-bold mb-4">Mis Competencias</h2>
+                <CompetitionResults
                   competitions={competitions}
                   swimmers={swimmers}
                   swimmerCompetitions={swimmerCompetitions}
-                  onAddCompetition={handleAddCompetition}
-                  onEditCompetition={handleEditCompetition}
-                  onDeleteCompetition={handleDeleteCompetition}
-                  onToggleParticipation={handleToggleCompetitionParticipation}
+                  onUpdateResults={handleUpdateCompetitionResults}
+                  currentSwimmerId={currentSwimmer?.id}
                 />
               </div>
             )}
+          </TabsContent>
 
-            {/* Resultados de Competencias (Para todos) */}
-            <div>
-              <h2 className="text-2xl font-bold mb-4">
-                {user?.role === "swimmer" ? "Mis Competencias" : "Resultados de Competencias"}
-              </h2>
-              <CompetitionResults
+          {/* SECCIÓN 5b: CRONOMETRAR (Admin/Coach) */}
+          {(user?.role === "admin" || user?.role === "coach") && (
+            <TabsContent value="cronometrar" className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold">Cronómetro</h2>
+                <p className="text-gray-500 text-sm mt-1">
+                  Registra tiempos en competencias o controles. Las marcas se guardan automáticamente en el perfil del nadador.
+                </p>
+              </div>
+              <CronometrarManager
                 competitions={competitions}
                 swimmers={swimmers}
                 swimmerCompetitions={swimmerCompetitions}
-                onUpdateResults={handleUpdateCompetitionResults}
-                currentSwimmerId={currentSwimmer?.id}
+                onSaveResult={handleSaveTimingResult}
               />
-            </div>
-          </TabsContent>
+            </TabsContent>
+          )}
 
           {/* SECCIÓN 6: TEST CONTROL */}
           <TabsContent value="test-control" className="space-y-8">
