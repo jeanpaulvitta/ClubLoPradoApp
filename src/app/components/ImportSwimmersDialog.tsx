@@ -126,14 +126,36 @@ function parseDateOfBirth(raw: unknown): string | null {
   return null;
 }
 
+// Remove diacritics: "Año" → "ano", "Género" → "genero"
+function stripAccents(str: string): string {
+  return str.normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+function normalizeKey(key: string): string {
+  return stripAccents(key.trim().toLowerCase()).replace(/\s+/g, " ");
+}
+
 function findColumn(row: Record<string, unknown>, candidates: string[]): unknown {
-  for (const key of Object.keys(row)) {
-    const normalized = key.trim().toLowerCase();
-    if (candidates.some((c) => normalized === c.toLowerCase())) {
+  const normCandidates = candidates.map(normalizeKey);
+  const keys = Object.keys(row);
+
+  // 1. Exact match (accent-insensitive)
+  for (const key of keys) {
+    if (normCandidates.includes(normalizeKey(key))) return row[key];
+  }
+  // 2. Partial match: column header contains the candidate word(s)
+  for (const key of keys) {
+    const nk = normalizeKey(key);
+    if (normCandidates.some((c) => nk.includes(c) || c.includes(nk))) {
       return row[key];
     }
   }
   return undefined;
+}
+
+/** Returns the list of detected column headers from the first data row */
+export function detectColumns(row: Record<string, unknown>): string[] {
+  return Object.keys(row);
 }
 
 function parseRow(
@@ -171,13 +193,22 @@ function parseRow(
   const parts = [nombre, apellidoP, apellidoM].filter(Boolean);
   const fullName = parts.join(" ").trim();
   if (!fullName) {
-    errors.push("Nombre completo vacío (se requiere al menos Nombre o Apellido P)");
+    errors.push(
+      'Nombre vacío — el archivo debe tener columnas "Nombre" y/o "Apellido P". ' +
+      "Revisa el panel 'Columnas detectadas' para ver los nombres exactos en tu archivo."
+    );
   }
 
   // Date of birth
   const dateOfBirth = parseDateOfBirth(fechaNacRaw);
   if (!dateOfBirth) {
-    errors.push(`Fecha de nacimiento inválida: "${fechaNacRaw}"`);
+    const rawDisplay = fechaNacRaw == null
+      ? "columna no encontrada"
+      : `"${fechaNacRaw}" (tipo: ${typeof fechaNacRaw})`;
+    errors.push(
+      `Fecha de nacimiento inválida: ${rawDisplay}. ` +
+      "Formatos aceptados: DD/MM/YYYY, YYYY-MM-DD, o fecha Excel."
+    );
   } else {
     const year = parseInt(dateOfBirth.split("-")[0]);
     if (year < 1950 || year > new Date().getFullYear()) {
@@ -239,33 +270,42 @@ function parseRow(
   return { rowIndex, rawData: rawRow, swimmer, errors, warnings, isDuplicate };
 }
 
-function parseExcelFile(file: File, existingRuts: Set<string>): Promise<ParsedRow[]> {
+function parseExcelFile(
+  file: File,
+  existingRuts: Set<string>
+): Promise<{ rows: ParsedRow[]; columns: string[] }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
+        // cellDates:true → date cells come as JS Date objects
         const workbook = XLSX.read(data, { type: "binary", cellDates: true });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+        // raw:true keeps native types (Date, number, string) — do NOT use raw:false
+        // because it re-formats dates to locale strings making them unpredictable
+        const allRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
           defval: null,
-          raw: false,
+          raw: true,
         });
 
-        if (rows.length === 0) {
+        if (allRows.length === 0) {
           reject(new Error("El archivo está vacío o no contiene datos"));
           return;
         }
 
+        // Capture column names from the first row
+        const columns = Object.keys(allRows[0]);
+
         // Filter out completely empty rows
-        const nonEmptyRows = rows.filter((row) =>
+        const nonEmptyRows = allRows.filter((row) =>
           Object.values(row).some((v) => v != null && String(v).trim() !== "")
         );
 
         const parsed = nonEmptyRows.map((row, i) =>
           parseRow(row, i + 2, existingRuts) // +2: header is row 1, data starts row 2
         );
-        resolve(parsed);
+        resolve({ rows: parsed, columns });
       } catch (err) {
         reject(err);
       }
@@ -287,6 +327,7 @@ export function ImportSwimmersDialog({
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState("");
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
+  const [detectedColumns, setDetectedColumns] = useState<string[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [importResults, setImportResults] = useState<{
@@ -316,8 +357,9 @@ export function ImportSwimmersDialog({
       setParseError(null);
       setFileName(file.name);
       try {
-        const rows = await parseExcelFile(file, existingRuts);
+        const { rows, columns } = await parseExcelFile(file, existingRuts);
         setParsedRows(rows);
+        setDetectedColumns(columns);
         setStep("preview");
       } catch (err) {
         setParseError(err instanceof Error ? err.message : "Error al procesar el archivo");
@@ -375,6 +417,7 @@ export function ImportSwimmersDialog({
     setStep("upload");
     setFileName("");
     setParsedRows([]);
+    setDetectedColumns([]);
     setParseError(null);
     setProgress(0);
     setImportResults(null);
@@ -479,6 +522,23 @@ export function ImportSwimmersDialog({
               <span className="text-gray-400">·</span>
               <span>{parsedRows.length} filas procesadas</span>
             </div>
+
+            {/* Detected columns panel */}
+            <details className="text-xs border border-gray-200 rounded-lg">
+              <summary className="px-3 py-2 cursor-pointer text-gray-600 font-medium select-none hover:bg-gray-50">
+                Columnas detectadas en el archivo ({detectedColumns.length})
+              </summary>
+              <div className="px-3 pb-3 pt-1 flex flex-wrap gap-1">
+                {detectedColumns.map((col) => (
+                  <span
+                    key={col}
+                    className="bg-gray-100 text-gray-700 rounded px-1.5 py-0.5 font-mono"
+                  >
+                    {col}
+                  </span>
+                ))}
+              </div>
+            </details>
 
             {/* Summary badges */}
             <div className="flex flex-wrap gap-2">
