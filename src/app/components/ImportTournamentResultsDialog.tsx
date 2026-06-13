@@ -27,6 +27,7 @@ import {
 import type { Swimmer, Competition } from "../data/swimmers";
 import {
   parseTeamManagerFile,
+  parseHy3File,
   matchSwimmer,
   normalizeTime,
   generateTemplateCSV,
@@ -193,8 +194,8 @@ export function ImportTournamentResultsDialog({
 
   const processFile = useCallback(
     async (file: File) => {
-      if (!file.name.match(/\.(csv|xls|xlsx)$/i)) {
-        setParseError("Formato no soportado. Usa archivos .csv, .xls o .xlsx.");
+      if (!file.name.match(/\.(csv|xls|xlsx|hy3)$/i)) {
+        setParseError("Formato no soportado. Usa archivos .csv, .xls, .xlsx o .hy3.");
         return;
       }
 
@@ -202,7 +203,10 @@ export function ImportTournamentResultsDialog({
       setParseError(null);
 
       try {
-        const result = await parseTeamManagerFile(file);
+        const isHy3 = file.name.match(/\.hy3$/i);
+        const result = isHy3
+          ? await parseHy3File(file)
+          : await parseTeamManagerFile(file);
 
         if (result.globalErrors.length > 0) {
           setParseError(result.globalErrors.join(" | "));
@@ -385,8 +389,8 @@ export function ImportTournamentResultsDialog({
             Importar Resultados de Torneo
           </DialogTitle>
           <DialogDescription>
-            Importa tiempos y posiciones desde archivos CSV o XLS exportados de
-            Team Manager.
+            Importa tiempos y posiciones desde archivos HY3, CSV o XLS exportados de
+            Team Manager o Meet Manager.
           </DialogDescription>
         </DialogHeader>
 
@@ -409,7 +413,7 @@ export function ImportTournamentResultsDialog({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv,.xls,.xlsx"
+                  accept=".csv,.xls,.xlsx,.hy3"
                   className="hidden"
                   onChange={handleFileChange}
                 />
@@ -424,7 +428,7 @@ export function ImportTournamentResultsDialog({
                     <p className="text-sm font-medium text-gray-700">
                       Arrastra un archivo aquí o haz clic para seleccionar
                     </p>
-                    <p className="text-xs">Soporta .csv, .xls y .xlsx</p>
+                    <p className="text-xs">Soporta .hy3, .csv, .xls y .xlsx</p>
                   </div>
                 )}
               </div>

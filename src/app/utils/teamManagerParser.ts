@@ -578,6 +578,196 @@ export function summarize(rows: TeamManagerRow[]): ParseSummary {
   };
 }
 
+// ─── HY3 (SD3 Hy-Tek) parser ─────────────────────────────────────────────────
+
+const HY3_STROKE_MAP: Record<string, SwimStyle> = {
+  A: "Libre",
+  B: "Espalda",
+  C: "Pecho",
+  D: "Mariposa",
+  E: "Combinado",
+};
+
+function parseHy3AthleteName(raw: string): string {
+  const trimmed = raw.trim();
+  const commaIdx = trimmed.indexOf(",");
+  if (commaIdx > 0) {
+    const last = trimmed.substring(0, commaIdx).trim();
+    const first = trimmed.substring(commaIdx + 1).trim();
+    return `${first} ${last}`;
+  }
+  return trimmed;
+}
+
+function parseHy3Time(raw: string): string | null {
+  // Format: HHMMSSCC — 2 chars each for hours, minutes, seconds, centiseconds
+  const clean = raw.trim();
+  if (!clean || clean.length < 8) return null;
+  if (clean === "00000000" || clean === "99999999") return null;
+
+  const hh = parseInt(clean.substring(0, 2), 10);
+  const mm = parseInt(clean.substring(2, 4), 10);
+  const ss = parseInt(clean.substring(4, 6), 10);
+  const cc = clean.substring(6, 8);
+
+  if (isNaN(hh) || isNaN(mm) || isNaN(ss)) return null;
+
+  const totalMin = hh * 60 + mm;
+  return `${totalMin}:${String(ss).padStart(2, "0")}.${cc}`;
+}
+
+function parseHy3Date(raw: string): string | undefined {
+  // Format: MMDDYYYY
+  const clean = raw.trim();
+  if (clean.length < 8) return undefined;
+  const mm = clean.substring(0, 2);
+  const dd = clean.substring(2, 4);
+  const yyyy = clean.substring(4, 8);
+  if (yyyy === "0000" || mm === "00" || dd === "00") return undefined;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseHy3Content(text: string): ParseFileResult {
+  const lines = text.split(/\r?\n/);
+  const globalErrors: string[] = [];
+  const globalWarnings: string[] = [];
+  const rows: TeamManagerRow[] = [];
+
+  let meetName: string | undefined;
+  let meetDate: string | undefined;
+  let currentName: string | undefined;
+  let rowIndex = 0;
+  let hasA0 = false;
+
+  for (const line of lines) {
+    if (line.length < 2) continue;
+    const rt = line.substring(0, 2);
+
+    if (rt === "A0") {
+      hasA0 = true;
+      continue;
+    }
+
+    if (rt === "B1") {
+      const name = line.substring(2, 32).trim();
+      if (name) meetName = name;
+      if (line.length >= 104) {
+        meetDate = parseHy3Date(line.substring(96, 104));
+      }
+      continue;
+    }
+
+    if (rt === "D0") {
+      currentName = parseHy3AthleteName(line.substring(2, 32));
+      continue;
+    }
+
+    if (rt === "D1" && currentName) {
+      if (line.length < 30) continue;
+
+      const distance = parseInt(line.substring(2, 6), 10);
+      const strokeCode = line.substring(6, 7).toUpperCase();
+      const finalTimeRaw = line.substring(22, 30);
+      const finalTimeCode = line.length > 30 ? line.substring(30, 31) : "";
+      const placeRaw = line.length >= 37 ? line.substring(35, 37).trim() : "";
+      const pointsRaw = line.length >= 43 ? line.substring(37, 43).trim() : "";
+
+      const style = HY3_STROKE_MAP[strokeCode];
+      if (!style || isNaN(distance) || !(VALID_DISTANCES as readonly number[]).includes(distance)) {
+        continue;
+      }
+
+      const finalTime = parseHy3Time(finalTimeRaw);
+      // DQ codes: Q, X, D; no-show: N, S
+      const isDq = ["Q", "X", "D"].includes(finalTimeCode.toUpperCase());
+      const isInvalidTime = isDq || (!finalTime && finalTimeRaw.trim() !== "" && finalTimeRaw.trim() !== "00000000");
+
+      const place = placeRaw ? parseInt(placeRaw, 10) || undefined : undefined;
+      const rawPts = pointsRaw ? parseFloat(pointsRaw) : NaN;
+      const points = isNaN(rawPts) ? undefined : rawPts;
+
+      rowIndex++;
+      rows.push({
+        rowIndex,
+        name: currentName,
+        rut: undefined,
+        normalizedRut: undefined,
+        event: `${distance} ${style}`,
+        parsedEvent: { distance: distance as Distance, style, label: `${distance} ${style}` },
+        time: finalTime ?? "",
+        timeInSeconds: finalTime ? timeToSeconds(finalTime) : undefined,
+        isInvalidTime,
+        position: place,
+        points,
+        meetName,
+        date: meetDate,
+        errors: [],
+        warnings: [],
+      });
+    }
+  }
+
+  if (!hasA0) {
+    globalWarnings.push(
+      "El archivo no contiene el encabezado A0 estándar de Hy-Tek. Los datos se leyeron de todas formas."
+    );
+  }
+
+  if (rows.length === 0) {
+    globalErrors.push(
+      "No se encontraron resultados individuales en el archivo HY3. " +
+        "Asegúrate de exportar desde Team Manager con resultados finales incluidos."
+    );
+  }
+
+  return {
+    rows,
+    globalErrors,
+    globalWarnings,
+    detectedMeetName: meetName,
+    detectedDate: meetDate,
+    totalRawRows: rows.length,
+  };
+}
+
+/**
+ * Parses a .hy3 file (Hy-Tek SD3 format) into TeamManagerRows.
+ * HY3 files are fixed-width text records; no extra dependencies required.
+ */
+export async function parseHy3File(file: File): Promise<ParseFileResult> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        resolve(parseHy3Content(text));
+      } catch (err) {
+        resolve({
+          rows: [],
+          globalErrors: [
+            `Error al procesar el archivo HY3: ${err instanceof Error ? err.message : String(err)}`,
+          ],
+          globalWarnings: [],
+          totalRawRows: 0,
+        });
+      }
+    };
+
+    reader.onerror = () => {
+      resolve({
+        rows: [],
+        globalErrors: ["No se pudo leer el archivo HY3."],
+        globalWarnings: [],
+        totalRawRows: 0,
+      });
+    };
+
+    // HY3 files are typically ASCII/Latin-1 encoded
+    reader.readAsText(file, "latin1");
+  });
+}
+
 // ─── Example CSV template ─────────────────────────────────────────────────────
 
 /** Returns a CSV string that can be downloaded as a template. */
